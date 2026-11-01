@@ -17,6 +17,9 @@ list(REMOVE_ITEM RUNTIME
 add_library(ios_runtime_check OBJECT ${RUNTIME}
   "${RT}/gx/glad_es/src/gles2.c"
   "${CMAKE_CURRENT_LIST_DIR}/../gcn-recomp/visionos/audio_coreaudio.mm"
+  "${CMAKE_CURRENT_LIST_DIR}/../src/race.cpp"
+  "${CMAKE_CURRENT_LIST_DIR}/../src/vr_fzerogx.cpp"
+  "${CMAKE_CURRENT_LIST_DIR}/../src/motion.cpp"
   controller.mm)
 set_target_properties(ios_runtime_check PROPERTIES
   C_STANDARD 11 CXX_STANDARD 20 CXX_STANDARD_REQUIRED YES)

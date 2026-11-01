@@ -3,8 +3,9 @@
 ## Actual status
 
 This is initial port infrastructure, not an executable game or an IPA.
-No Apple SDK compilation, Actions run, device launch, gameplay test, or
-120-fps measurement has occurred. The controller adapter is not yet connected
+The public fork has been created and the first macOS Actions runtime check
+has been submitted (run 41323381822). Its result is not yet available. No
+device launch, gameplay test, or 120-fps measurement has occurred. The controller adapter is not yet connected
 to a UIKit frontend. Fullscreen presentation and interpolation are not implemented.
 
 ## Source revisions inspected
@@ -77,11 +78,8 @@ private delivery. Keep memory-card saves and user data in Documents.
 
 ## Current external blockers
 
-- Connected GitHub tools can read/write existing repositories, but expose no
-  repository-create/fork or workflow-dispatch operation. The requested
-  ajellia81-cmd/fzerogx-recomp repository returned 404. The cloud shell's
-  authenticated-user API probe returned 401; no usable shell GitHub identity
-  was established. Browser fallback needs the user's explicit permission.
+- GitHub repository creation was completed through the user-authorized browser.
+  Source writes use the connected GitHub tools.
 - No user-supplied GFZE01 disc image or private game-code build input exists
   in this task. Runtime compilation can proceed without it; a complete game
   link cannot.

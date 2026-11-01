@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include "hw/pad.h"
 
 // Host button layout is translated to GameCube pad bits by the frontend.
 struct IOSControllerState {
@@ -8,3 +9,4 @@ struct IOSControllerState {
     bool connected{};
 };
 IOSControllerState ios_controller_snapshot();
+PadState ios_controller_pad(const IOSControllerState& s);
