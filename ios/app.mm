@@ -210,20 +210,36 @@ static bool metal_context(CAMetalLayer* layer, EGLDisplay* display, EGLSurface* 
 }
 @end
 
-@interface AppDelegate : UIResponder <UIApplicationDelegate>
+static void end_background_game() {
+    // The upstream guest has no suspend/resume path. End this first port
+    // rather than keep a game and audio running behind another app.
+    if (running.exchange(false)) { threads_request_quit(); fflush(nullptr); _exit(0); }
+}
+@interface SceneDelegate : UIResponder <UIWindowSceneDelegate>
 @property(nonatomic,strong) UIWindow* window;
+@end
+@implementation SceneDelegate
+- (void)scene:(UIScene*)scene willConnectToSession:(UISceneSession*)session options:(UISceneConnectionOptions*)options {
+    if (![scene isKindOfClass:UIWindowScene.class]) return;
+    self.window=[[UIWindow alloc] initWithWindowScene:(UIWindowScene*)scene];
+    self.window.rootViewController=[[GameController alloc] init];
+    [self.window makeKeyAndVisible];
+}
+- (void)sceneDidEnterBackground:(UIScene*)scene { end_background_game(); }
+@end
+@interface AppDelegate : UIResponder <UIApplicationDelegate>
 @end
 @implementation AppDelegate
 - (BOOL)application:(UIApplication*)application didFinishLaunchingWithOptions:(NSDictionary*)options {
-    self.window=[[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];
-    self.window.rootViewController=[[GameController alloc] init];
-    [self.window makeKeyAndVisible];
     return YES;
 }
+- (UISceneConfiguration*)application:(UIApplication*)application configurationForConnectingSceneSession:(UISceneSession*)session options:(UISceneConnectionOptions*)options {
+    UISceneConfiguration* config=[[UISceneConfiguration alloc] initWithName:@"Default" sessionRole:session.role];
+    config.delegateClass=SceneDelegate.class;
+    return config;
+}
 - (void)applicationDidEnterBackground:(UIApplication*)application {
-    // The upstream guest has no suspend/resume path. End this first port cleanly
-    // rather than keep a game and audio running behind another app.
-    if (running.exchange(false)) { threads_request_quit(); fflush(nullptr); _exit(0); }
+    end_background_game();
 }
 @end
 int main(int argc,char** argv) {

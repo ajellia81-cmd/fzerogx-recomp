@@ -26,8 +26,15 @@ list(APPEND IOS_SOURCES
   "${CMAKE_SOURCE_DIR}/gcn-recomp/visionos/angle.mm"
   "${CMAKE_SOURCE_DIR}/gcn-recomp/visionos/audio_coreaudio.mm"
   "${CMAKE_SOURCE_DIR}/src/race.cpp" "${CMAKE_SOURCE_DIR}/src/vr_fzerogx.cpp"
-  "${CMAKE_SOURCE_DIR}/src/motion.cpp" "${CMAKE_BINARY_DIR}/shader_keys.cpp"
+  "${CMAKE_SOURCE_DIR}/src/motion.cpp" "${CMAKE_BINARY_DIR}/ios_shader_keys.cpp"
   "${IOS_DIR}/controller.mm" "${IOS_DIR}/app.mm")
+add_custom_command(OUTPUT "${CMAKE_BINARY_DIR}/ios_shader_keys.cpp"
+  COMMAND ${CMAKE_COMMAND} "-DIN=${CMAKE_SOURCE_DIR}/src/shader_keys.bin"
+    "-DOUT=${CMAKE_BINARY_DIR}/ios_shader_keys.cpp"
+    -P "${CMAKE_SOURCE_DIR}/gcn-recomp/tools/embed_shader_keys.cmake"
+  DEPENDS "${CMAKE_SOURCE_DIR}/src/shader_keys.bin"
+    "${CMAKE_SOURCE_DIR}/gcn-recomp/tools/embed_shader_keys.cmake"
+  COMMENT "Embedding iOS shader keys independently of the host benchmark")
 add_executable(fzerogx_ios MACOSX_BUNDLE ${IOS_SOURCES})
 set_target_properties(fzerogx_ios PROPERTIES
   C_STANDARD 11 CXX_STANDARD 20 CXX_STANDARD_REQUIRED YES

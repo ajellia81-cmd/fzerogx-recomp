@@ -1,7 +1,7 @@
 name: iOS ARM64 runtime compile check (no game data)
 on:
   push:
-    paths: ['ios/**', '.github/workflows/ios-runtime-check.yml', 'gcn-recomp']
+    paths: ['ios/CMakeLists.txt', 'ios/controller.*', 'src/**', '.github/workflows/ios-runtime-check.yml', 'gcn-recomp']
   workflow_dispatch:
 permissions:
   contents: read
