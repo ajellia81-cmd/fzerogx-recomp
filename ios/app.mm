@@ -79,7 +79,7 @@ static bool metal_context(CAMetalLayer* layer, EGLDisplay* display, EGLSurface* 
     self.status.textColor = UIColor.whiteColor;
     self.status.textAlignment = NSTextAlignmentCenter;
     self.status.numberOfLines = 0;
-    self.status.text = @"F-Zero GX\n60fps · Metal · GameController\n미국판 GFZE01 디스크 이미지를 선택해 주세요.";
+    self.status.text = @"F-Zero GX\n미국판 GFZE01 디스크 이미지를 선택해 주세요.\n플레이하려면 게임 컨트롤러를 연결해 주세요.";
     self.importButton = [UIButton buttonWithType:UIButtonTypeSystem];
     [self.importButton setTitle:@"디스크 이미지 가져오기" forState:UIControlStateNormal];
     [self.importButton addTarget:self action:@selector(importImage) forControlEvents:UIControlEventTouchUpInside];

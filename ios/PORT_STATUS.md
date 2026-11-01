@@ -2,11 +2,18 @@
 
 ## Actual status
 
-This is initial port infrastructure, not an executable game or an IPA.
-The public fork has been created and the first macOS Actions runtime check
-has been submitted (run 41323381822). Its result is not yet available. No
-device launch, gameplay test, or 120-fps measurement has occurred. The controller adapter is not yet connected
-to a UIKit frontend. Fullscreen presentation and interpolation are not implemented.
+The isolated iPhoneOS ARM64 runtime, GLES renderer, Core Audio adapter,
+GameController adapter and game hooks passed Actions run 41323546923.
+A native UIKit frontend, ANGLE Metal window surface, Documents import,
+fullscreen output and real guest boot/render loop have now been added.
+The native host bootstrap passed in run 41327398416. The iPhoneOS ANGLE
+build failed on thread-safety diagnostics using the default older Xcode; the
+next attempt explicitly selects Xcode 26.3. The full app has not linked yet. A successful
+runtime object check does not prove the new app compiles or links.
+No device launch, gameplay test, or 120-fps measurement has occurred.
+Interpolation is not implemented; this first device build retains 60-Hz guest
+logic and step scale 1.0. The final image is stretched to fill the drawable;
+this is not a game-specific widescreen projection patch.
 
 ## Source revisions inspected
 
@@ -35,7 +42,7 @@ ANGLE and an EGL window surface on a CAMetalLayer.
 
 ## Next implementation stages
 
-1. Run ios-runtime-check.yml on a macOS runner and fix actual SDK errors.
+1. Completed: isolated runtime ARM64 compile check passed. Validate the complete app next.
 2. Add UIKit launcher, Files import, CAMetalLayer/EGL surface, audio lifecycle,
    controller-to-PadState translation and boot/render loops. Pause guest/audio
    on backgrounding. Start with the existing 60-Hz timing, step scale 1.0.
@@ -64,8 +71,10 @@ Use public Actions only for code-free runtime compile checks. Do not place a
 disc URL, extracted executable, generated C, runtime REL, or game-linked binary
 in public Actions artifacts, logs, releases, caches or git history.
 
-The complete game build must run in an access-controlled cloud workspace or
-private Actions repository. Transfer the disc there via authenticated private
+The complete game build uses an ephemeral macOS Actions workspace. The source
+share identifier is a repository secret, and game-derived output and diagnostics
+are encrypted with the committed public delivery certificate before upload. The
+private decryption key is kept outside the repository and never sent to Actions. Transfer the disc there via authenticated private
 storage; do not pass signed URLs as public workflow inputs. Bootstrap the
 headless host game on the macOS runner to capture fze.main, which is assembled
 by the game at boot. Then cross-compile all generated game C and runtime RELs
@@ -80,15 +89,15 @@ private delivery. Keep memory-card saves and user data in Documents.
 
 - GitHub repository creation was completed through the user-authorized browser.
   Source writes use the connected GitHub tools.
-- No user-supplied GFZE01 disc image or private game-code build input exists
-  in this task. Runtime compilation can proceed without it; a complete game
-  link cannot.
+- User-supplied disc is present: 1,459,978,240 bytes, GFZE01; main.dol SHA-1
+  matched the expected revision. Its image is not in this repository.
+- Complete app compile/link and device testing remain pending.
 
 ## Verification gates
 
 | Gate | Evidence required | Status |
 |---|---|---|
-| Runtime compile | Successful iPhoneOS ARM64 Actions job | Pending |
+| Runtime compile | Successful iPhoneOS ARM64 Actions job | Passed: 41323546923 |
 | Full game compile/link | Private build with actual generated guest code | Pending |
 | IPA packaging | Audited Payload/app with device ARM64 executable | Pending |
 | App launch | Actual device launch/log | Pending |

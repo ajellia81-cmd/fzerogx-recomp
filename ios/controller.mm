@@ -37,18 +37,22 @@ PadState ios_controller_pad(const IOSControllerState& s) {
                                PAD_START, PAD_UP, PAD_DOWN, PAD_LEFT, PAD_RIGHT};
     for (unsigned i = 0; i < sizeof(mapping) / sizeof(mapping[0]); ++i)
         if (s.buttons & (1u << i)) p.buttons |= mapping[i];
-    auto axis = [](float v, float deadzone) -> uint8_t {
-        if (!std::isfinite(v) || std::abs(v) < deadzone) return 128;
-        return static_cast<uint8_t>(std::clamp(std::lround(128 + v * 127), 0L, 255L));
+    auto axis = [](float v) -> uint8_t {
+        if (!std::isfinite(v)) return 128;
+        return static_cast<uint8_t>(std::clamp(128 + static_cast<int>(v * 100.0f), 0, 255));
     };
     auto trigger = [](float v) -> uint8_t {
-        if (!std::isfinite(v)) return 0;
-        return static_cast<uint8_t>(std::clamp(std::lround(v * 255), 0L, 255L));
+        if (!std::isfinite(v) || v <= 1000.0f / 32767.0f) return 0;
+        return static_cast<uint8_t>(std::clamp(static_cast<int>(v * 255), 0, 255));
     };
-    p.stick_x = axis(s.leftX, 0.12f);
-    p.stick_y = axis(s.leftY, 0.12f);
-    p.cstick_x = axis(s.rightX, 0.03f);
-    p.cstick_y = axis(s.rightY, 0.03f);
+    if (std::abs(s.leftX) > 4000.0f / 32767.0f || std::abs(s.leftY) > 4000.0f / 32767.0f) {
+        p.stick_x = axis(s.leftX);
+        p.stick_y = axis(s.leftY);
+    }
+    if (std::abs(s.rightX) > 1000.0f / 32767.0f || std::abs(s.rightY) > 1000.0f / 32767.0f) {
+        p.cstick_x = axis(s.rightX);
+        p.cstick_y = axis(s.rightY);
+    }
     p.trig_l = trigger(s.leftTrigger);
     p.trig_r = trigger(s.rightTrigger);
     if (s.leftTrigger > 30000.0f / 32767.0f) p.buttons |= PAD_L;
