@@ -1,0 +1,28 @@
+name: iOS ARM64 runtime compile check (no game data)
+on:
+  push:
+    paths: ['ios/**', '.github/workflows/ios-runtime-check.yml', 'gcn-recomp']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  runtime:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - name: Configure device ARM64 runtime
+        run: |
+          cmake -S ios -B build-ios-check -G Xcode \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_SYSROOT=iphoneos \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 \
+            -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO
+      - name: Compile runtime, renderer, audio and controller adapter
+        run: cmake --build build-ios-check --config Release --target ios_runtime_check --parallel 3
+      # No build-directory upload: a later private game build must never leak
+      # generated guest code by adding a broad artifact pattern here.
