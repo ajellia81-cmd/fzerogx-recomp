@@ -1,109 +1,87 @@
-# F-Zero GX iOS port checkpoint — 2026-11-02
+# F-Zero GX iOS port — first unsigned device build
 
-## Actual status
+## Result (2026-11-02)
 
-The isolated iPhoneOS ARM64 runtime, GLES renderer, Core Audio adapter,
-GameController adapter and game hooks passed Actions run 41323546923.
-A native UIKit frontend, ANGLE Metal window surface, Documents import,
-fullscreen output and real guest boot/render loop have now been added.
-The native host bootstrap passed in run 41327398416. The iPhoneOS ANGLE
-build failed on thread-safety diagnostics using the default older Xcode; the
-next attempt explicitly selects Xcode 26.3. The full app has not linked yet. A successful
-runtime object check does not prove the new app compiles or links.
-No device launch, gameplay test, or 120-fps measurement has occurred.
-Interpolation is not implemented; this first device build retains 60-Hz guest
-logic and step scale 1.0. The final image is stretched to fill the drawable;
-this is not a game-specific widescreen projection patch.
+The complete iPhoneOS ARM64 game compiled, linked and packaged successfully in
+Actions run 41330232233, from source commit
+`12dee2e58e178f5a784e95cd0dd9169dd0f1434a`.
 
-## Source revisions inspected
+- IPA: `FZeroGX-iOS-60fps-unsigned.ipa`, 11,040,569 bytes.
+- SHA-256: `8e4a31130f93bd080fd76d967c85b63d3da9aaddc53e738463e633f7770ba73a`.
+- Executable and bundled ANGLE dylib: Mach-O ARM64, platform iPhoneOS, unsigned.
+- ZIP integrity verified. The package contains only the executable, ANGLE dylib,
+  Info.plist and PkgInfo; no disc, DOL, REL, generated C source or private key.
+- Effective minimum OS is iOS 26.2 because of the bundled ANGLE build. The
+  requested target device runs iOS 27. Device operation has not been tested.
 
-- fzerogx-recomp: `5b201ed6066783f3faee2afd52ec764d4a4d182b`
-- pinned gcn-recomp submodule: `9e93f1bb7cc4a370af53c895e971fdcab55ed3fc`
-- zorrobyte/macos-on-ios-public: `c2562a333d4de4c08da4ceb4a4f1485bddb84e04`
+## Implemented
 
-## Selected implementation
-
-Use a real iOS UIKit frontend, GameController, the portable GameCube runtime,
-and the existing OpenGL ES 3.0 renderer through ANGLE's Metal backend. This is
-Metal-backed rendering, not a newly written direct Metal GX renderer.
-
-The desktop target uses SDL and desktop OpenGL 3.3. macos-on-ios retags Mach-O
-and supplies macOS framework shims; its Metal support does not automatically
-replace that desktop OpenGL renderer. In contrast, gcn-recomp already has a
-visionOS ARM64 frontend, Core Audio output, GL ES 3.0 compatibility, and an
-ANGLE build script using WebKit's pinned Xcode project. Reuse those portable
-pieces, without visionOS CompositorServices, ARKit or the OpenXR immersive loop.
-
-The isolated ios/CMakeLists.txt compiles portable runtime and renderer objects,
-Core Audio, and a GameController input adapter without linking guest symbols.
-It does not require ANGLE to compile renderer objects, because the vendored glad
-headers provide the GL declarations. Actual launch needs an iPhoneOS build of
-ANGLE and an EGL window surface on a CAMetalLayer.
-
-## Next implementation stages
-
-1. Completed: isolated runtime ARM64 compile check passed. Validate the complete app next.
-2. Add UIKit launcher, Files import, CAMetalLayer/EGL surface, audio lifecycle,
-   controller-to-PadState translation and boot/render loops. Pause guest/audio
-   on backgrounding. Start with the existing 60-Hz timing, step scale 1.0.
-3. Render to the actual landscape drawable size; target the requested
-   2868x1320. Keep internal render resolution separate from display size.
-   Decide between aspect stretch and a game-specific widescreen projection;
-   do not claim merely resizing the output is a correct widescreen patch.
-4. Build and test 60-fps game operation before interpolation.
-5. Retain consecutive immutable GX frame snapshots; establish stable identity
-   for camera/object transforms. Interpolate translation and orientation at
-   render time without modifying guest memory or executing extra guest ticks.
-   Batch vertex/draw order alone is not a stable object identity. Handle spawn,
-   disappearance, camera cuts, replays, menus, EFB feedback and particles with
-   discontinuity fallback. Never replay resource creation/deletion twice.
-6. Request up to 120-Hz presentation only after that path exists. Measure actual
-   unique frame presentation and simulation tick rate separately on a device.
-   A 120-Hz display callback or repeated 60-Hz frames is not 120-fps interpolation.
-
-## Disc and private build procedure
-
-Only the USA GFZE01 disc is supported; extracted main.dol must match SHA-1
-421c88106697d3275a3fc26fb7a01bf6d816b271. The original disc must be dumped by
-the user from their own copy. Do not obtain or download a replacement game.
-
-Use public Actions only for code-free runtime compile checks. Do not place a
-disc URL, extracted executable, generated C, runtime REL, or game-linked binary
-in public Actions artifacts, logs, releases, caches or git history.
-
-The complete game build uses an ephemeral macOS Actions workspace. The source
-share identifier is a repository secret, and game-derived output and diagnostics
-are encrypted with the committed public delivery certificate before upload. The
-private decryption key is kept outside the repository and never sent to Actions. Transfer the disc there via authenticated private
-storage; do not pass signed URLs as public workflow inputs. Bootstrap the
-headless host game on the macOS runner to capture fze.main, which is assembled
-by the game at boot. Then cross-compile all generated game C and runtime RELs
-to iOS ARM64. Cross-compilation alone cannot run that bootstrap executable.
-
-The final unsigned IPA may omit the ISO/assets but still contains compiled
-game-derived code. Treat it as a private personal deliverable, never a public
-release asset. Remove all disc data from the .app and audit the package before
-private delivery. Keep memory-card saves and user data in Documents.
-
-## Current external blockers
-
-- GitHub repository creation was completed through the user-authorized browser.
-  Source writes use the connected GitHub tools.
-- User-supplied disc is present: 1,459,978,240 bytes, GFZE01; main.dol SHA-1
-  matched the expected revision. Its image is not in this repository.
-- Complete app compile/link and device testing remain pending.
+- Native UIKit / UIWindowScene launcher and Files import into Documents.
+- Original guest boot and GX rendering, with a native EGL window surface on a
+  CAMetalLayer through ANGLE's Metal backend; no macOS binary retagging or JIT.
+- Native landscape drawable size, including the requested 2868x1320 target.
+  The final 4:3 image is stretched to fill the screen; no game-specific widescreen
+  camera projection patch is claimed.
+- Core Audio output; GameController extended gamepad input for Backbone and
+  compatible controllers. Face buttons, analog ranges and deadzones follow
+  the desktop port. Controller operation is not device-verified.
+- Original 60-Hz guest logic and step scale 1.0. The app does not run game logic
+  at 120 Hz. No motion interpolation is implemented in this first build.
+- Saves and shader cache use Documents. This initial frontend ends the game
+  process on backgrounding; it does not support guest suspend/resume.
 
 ## Verification gates
 
-| Gate | Evidence required | Status |
-|---|---|---|
-| Runtime compile | Successful iPhoneOS ARM64 Actions job | Passed: 41323546923 |
-| Full game compile/link | Private build with actual generated guest code | Pending |
-| IPA packaging | Audited Payload/app with device ARM64 executable | Pending |
-| App launch | Actual device launch/log | Pending |
-| Game operation at 60 fps | Device gameplay, audio, input and timing | Pending |
-| 120-fps interpolation | Unique presented frames + 60-Hz guest ticks | Pending |
+| Gate | Result |
+|---|---|
+| Isolated iOS ARM64 runtime compile | Passed: run 41323546923 |
+| Host bootstrap / runtime fze.main generation | Passed on macOS runner |
+| ANGLE iPhoneOS ARM64 build | Passed |
+| Complete game/app compile and link | Passed: run 41330232233 |
+| Unsigned device IPA packaging and static audit | Passed |
+| App launch on iPhone | Not tested |
+| Actual game operation, sound and controller input | Not tested |
+| Measured 60-fps presentation | Not tested |
+| 120-fps interpolation | Not implemented; requires a stable 60-fps baseline first |
 
-Sources: https://github.com/ethannicholas/fzerogx-recomp,
-https://github.com/ethannicholas/gcn-recomp,
-https://github.com/zorrobyte/macos-on-ios-public.
+## Build fixes
+
+The standard ARM macOS runner was capacity-constrained, so the build uses a
+standard Intel macOS host and cross-compiles the app to ARM64. Xcode 26.3 is
+selected explicitly. ANGLE's pinned WebKit source triggers two mutex capability
+static-analysis diagnostics with the public libc++ headers; only those two
+warnings are not treated as errors. Actual mutex locking code is unchanged.
+
+The iOS shader-key source has an independent custom command, avoiding an Xcode
+new-build-system conflict with the host benchmark target. The upstream runtime
+submodule remains pinned at `9e93f1bb7cc4a370af53c895e971fdcab55ed3fc`.
+
+## Private inputs and delivery
+
+The user supplied a 1,459,978,240-byte GFZE01 disc image. main.dol SHA-1 matched
+`421c88106697d3275a3fc26fb7a01bf6d816b271`. Only original source and metadata are
+committed. Disc images and generated game C are never uploaded or cached.
+
+Actions receives the source share identifier through a repository secret.
+Generated code stays in the ephemeral runner workspace. The IPA and diagnostics
+are encrypted to `delivery-public.pem` before artifact upload. The private key
+stays outside this repository and is never sent to Actions. Public dependency
+caching is restricted to the ANGLE directory. A fork must supply its own delivery
+certificate and retain its corresponding private key.
+
+A private personal IPA still contains compiled game-derived code, despite not
+containing the disc assets. It is not published as an unencrypted release asset.
+The user must import their disc image into the installed app to play.
+
+Keep the original image for device import and subsequent rebuilds. The attempted
+persistent source-image backup did not succeed; a temporary working copy is not
+claimed to be durable.
+
+## Next stage
+
+Install the first candidate on the actual device and establish correct boot,
+rendering, audio, input, saves and stable 60-Hz game behavior. Then implement
+render-only interpolation from stable camera/object identities, with cuts,
+spawn/despawn and effect discontinuities handled explicitly. Do not modify guest
+physics or mistake repeated display frames for interpolation. Measure unique
+presentations and guest ticks independently before claiming actual 120 fps.

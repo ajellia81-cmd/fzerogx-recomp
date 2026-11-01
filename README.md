@@ -331,3 +331,18 @@ Escape quits.
 - `tools/`: `analyze.sh`, which regenerates `analysis/`; `dis` and `disraw`, which print
   disassembly from it and from your extracted executable.
 - `docs/dev/`: working notes.
+
+
+## Experimental iOS port
+
+This fork includes a native UIKit frontend using ANGLE on Metal and
+GameController input. The first unsigned ARM64 app build compiled and linked
+successfully, but device launch and gameplay have not been verified. It keeps
+the original 60-Hz game logic; 120-fps interpolation is not implemented yet.
+The current ANGLE build requires iOS 26.2 or later. Disc assets are not bundled.
+
+See [iOS port status](ios/PORT_STATUS.md) for the precise verification gates,
+fullscreen behavior and private build procedure. The game build workflow uploads
+only encrypted personal delivery artifacts; forks must provide their own delivery
+certificate, matching private key and legally obtained disc input. Do not publish
+the disc, generated game C or unencrypted game binaries.
