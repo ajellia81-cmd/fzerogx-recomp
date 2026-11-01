@@ -28,16 +28,17 @@ jobs:
           cmake -S . -B build-host -G Ninja -DGCN_BENCH_ONLY=ON -DCMAKE_BUILD_TYPE=Release -DGAME_ISO="$PWD/rom/game.iso" > build-private-logs/host-configure.txt 2>&1
           test -s build-host/rels-runtime/fze.main.rel
       - name: Cache public ANGLE dependency only
-        uses: actions/cache@v4
+        id: angle-cache
+        uses: actions/cache/restore@v4
         with:
           path: build-ios/angle
-          key: angle-iphoneos-webkit-3a41ad1d-xcode26.3-${{ runner.arch }}-v2
+          key: angle-iphoneos-webkit-3a41ad1d-xcode26.3-${{ runner.arch }}-v3
       - name: Build ANGLE Metal for iPhoneOS
         shell: bash
         run: |
           mkdir -p build-ios
           if [ ! -f build-ios/angle/libANGLE-shared.dylib ]; then
-            sh gcn-recomp/tools/build-angle-visionos.sh "$PWD/build-ios/angle" iphoneos > build-private-logs/angle.txt 2>&1
+            python3 ios/build_angle.py "$PWD/build-ios/angle" > build-private-logs/angle.txt 2>&1
           fi
       - name: Configure iOS ARM64 game
         run: |
@@ -73,3 +74,9 @@ jobs:
             FZeroGX-build-logs.enc
           if-no-files-found: error
           retention-days: 1
+      - name: Save public dependency progress, including partial builds
+        if: always() && steps.angle-cache.outputs.cache-hit != 'true' && hashFiles('build-ios/angle/webkit/Source/ThirdParty/ANGLE/ANGLE.xcodeproj/project.pbxproj') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: build-ios/angle
+          key: angle-iphoneos-webkit-3a41ad1d-xcode26.3-${{ runner.arch }}-v3
