@@ -1,5 +1,11 @@
 cmake_minimum_required(VERSION 3.20)
 project(fzerogx C CXX)
+if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+  enable_language(OBJCXX)
+  # Reuse the portable core; the desktop SDL frontend is not part of this app.
+  set(GCN_BENCH_ONLY ON CACHE BOOL "" FORCE)
+  set(GCN_GL_ES ON CACHE BOOL "" FORCE)
+endif()
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE RelWithDebInfo)
 endif()
@@ -36,3 +42,7 @@ gcn_add_game(
   ANDROID_PACKAGE com.ethannicholas.fzerogx
   # The Vision Pro app, on a visionOS build: see build-visionos.sh.
   VISIONOS_BUNDLE_ID com.ethannicholas.fzerogx)
+
+if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+  include(ios/game.cmake)
+endif()

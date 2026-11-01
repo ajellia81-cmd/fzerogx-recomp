@@ -1,0 +1,73 @@
+name: Build iOS game (encrypted private delivery)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  device:
+    runs-on: macos-15
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - name: Prepare private log directory
+        run: mkdir -p build-private-logs
+      - name: Receive user-supplied disc (never cached or uploaded)
+        env:
+          ICLOUD_SOURCE_ID: ${{ secrets.ICLOUD_SOURCE_ID }}
+        run: python3 ios/fetch_private_disc.py
+      - name: Validate supported disc and executable hash
+        run: python3 gcn-recomp/recomp/extract_dol.py rom/game.iso build-private-logs/main.dol GFZE01 421c88106697d3275a3fc26fb7a01bf6d816b271 > build-private-logs/disc.txt 2>&1
+      - name: Build native host bootstrap and runtime module
+        shell: bash
+        run: |
+          cmake -S . -B build-host -G Ninja -DGCN_BENCH_ONLY=ON -DCMAKE_BUILD_TYPE=Release -DGAME_ISO="$PWD/rom/game.iso" > build-private-logs/host-configure.txt 2>&1
+          test -s build-host/rels-runtime/fze.main.rel
+      - name: Cache public ANGLE dependency only
+        uses: actions/cache@v4
+        with:
+          path: build-ios/angle
+          key: angle-iphoneos-webkit-3a41ad1d-xcode-${{ runner.arch }}-v1
+      - name: Build ANGLE Metal for iPhoneOS
+        shell: bash
+        run: |
+          mkdir -p build-ios
+          if [ ! -f build-ios/angle/libANGLE-shared.dylib ]; then
+            sh gcn-recomp/tools/build-angle-visionos.sh "$PWD/build-ios/angle" iphoneos > build-private-logs/angle.txt 2>&1
+          fi
+      - name: Configure iOS ARM64 game
+        run: |
+          cmake -S . -B build-ios -G Xcode \
+            -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=iphoneos \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 \
+            -DGCN_HOST_BUILD_DIR="$PWD/build-host" -DGAME_ISO="$PWD/rom/game.iso" \
+            -DGCN_ANGLE_DIR="$PWD/build-ios/angle" \
+            -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO > build-private-logs/ios-configure.txt 2>&1
+      - name: Compile and link real game (no guest stubs)
+        run: cmake --build build-ios --config Release --target fzerogx_ios --parallel 3 > build-private-logs/ios-build.txt 2>&1
+      - name: Audit and package unsigned IPA
+        shell: bash
+        run: |
+          APP=$(find build-ios -path '*/Release-iphoneos/FZeroGX.app' -type d -print -quit)
+          test -n "$APP"
+          python3 ios/package_unsigned.py "$APP" FZeroGX-iOS-60fps-unsigned.ipa
+          openssl cms -encrypt -binary -aes256 -in FZeroGX-iOS-60fps-unsigned.ipa -out FZeroGX-private.ipa.enc -outform DER ios/delivery-public.pem
+      - name: Encrypt diagnostics for private review
+        if: always()
+        shell: bash
+        run: |
+          # Disc inputs, RELs and generated game C are deliberately excluded.
+          tar -czf private-logs.tar.gz build-private-logs/*.txt
+          openssl cms -encrypt -binary -aes256 -in private-logs.tar.gz -out FZeroGX-build-logs.enc -outform DER ios/delivery-public.pem
+      - name: Upload encrypted delivery only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FZeroGX-encrypted-private-delivery
+          path: |
+            FZeroGX-private.ipa.enc
+            FZeroGX-build-logs.enc
+          if-no-files-found: error
+          retention-days: 1
