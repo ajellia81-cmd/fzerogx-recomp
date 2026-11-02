@@ -100,3 +100,13 @@ selection composites, and low apparent frame rate in build 2.
   changes. A software GLES3 test additionally checked unchanged menu projections,
   expected race projection scaling, unscaled fullscreen composites, pooled FBO
   identity and isolated color/depth target copies. Neither is a device test.
+
+Build 3 full compile/link and packaging passed:
+https://github.com/ajellia81-cmd/fzerogx-recomp/actions/runs/41386561625
+Built commit: 49cc1adb871b9d4517b68e7bdee019ab608babb7.
+FZeroGX-iOS-build3-unsigned.ipa: 14,896,392 bytes.
+SHA256: cdac8225a96e11121f0e62645be21dcabe3ca2ed434d9641a242113b5c73fd91.
+Archive audit confirmed unsigned iOS ARM64 binaries, CoreHaptics linkage,
+approved icon registration and no disc/save/generated source payload.
+Device execution, audible/perceptible haptic output, corrected vehicle-menu
+appearance and sustained physical 120 fps are not verified for build 3.
