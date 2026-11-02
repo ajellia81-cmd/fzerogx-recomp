@@ -8,6 +8,7 @@ bool ios_prepare_scene(const Batch& b,bool liveRace) {
     auto mode=ios_scene::classify(b,liveRace,ios_guest::modules.load(std::memory_order_relaxed),ios_guest::phase.load(std::memory_order_relaxed));
     g_ios_scene.store(mode,std::memory_order_relaxed);
     g_ios_wide_view=mode==ios_scene::Mode::World;
+    g_ios_menu_targeting=mode==ios_scene::Mode::Menu;
     // Movie compositing and projection stay exactly as on the original 4:3
     // GameCube display. An encoded letterbox is retained, never cropped.
     g_ios_fixed_aspect=(mode==ios_scene::Mode::Movie || mode==ios_scene::Mode::Flat)?4.f/3:16.f/9;
@@ -116,6 +117,29 @@ struct IOSFrameTarget {
         fbo=color=depth=0;
     }
 };
+
+// A menu preview pass produces a texture, not visible EFB pixels. Keep its
+// rendering and clear in a private target, so corrected UI geometry cannot
+// expose cleared working rectangles on the menu behind it.
+static GLuint g_ios_menu_saved_fbo=0,g_ios_menu_saved_color=0,g_ios_menu_saved_depth=0;
+static void ios_begin_menu_target(const EfbCopyCmd& c){
+    static IOSFrameTarget work;
+    if(!work.create(ios_px_x(EFB_W),ios_px_y(EFB_H),true))fatal("iOS menu working target incomplete");
+    g_ios_menu_saved_fbo=g_efb_fbo;g_ios_menu_saved_color=g_efb_color;g_ios_menu_saved_depth=g_efb_depth;
+    int x0=ios_px_x(c.src_x),x1=ios_px_x(c.src_x+c.src_w);
+    int y0=ios_px_y(EFB_H-c.src_y-c.src_h),y1=ios_px_y(EFB_H-c.src_y);
+    glDisable(GL_SCISSOR_TEST);glColorMask(1,1,1,1);glDepthMask(GL_TRUE);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER,g_efb_fbo);glBindFramebuffer(GL_DRAW_FRAMEBUFFER,work.fbo);
+    // Only the copied rect can be used by this pass (verified by its scissors),
+    // so avoid a whole-frame GPU copy for every machine in the selection grid.
+    glBlitFramebuffer(x0,y0,x1,y1,x0,y0,x1,y1,GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT,GL_NEAREST);
+    g_efb_fbo=work.fbo;g_efb_color=work.color;g_efb_depth=work.depth;
+    glBindFramebuffer(GL_FRAMEBUFFER,g_efb_fbo);glViewport(0,0,work.w,work.h);
+}
+static void ios_end_menu_target(){
+    g_efb_fbo=g_ios_menu_saved_fbo;g_efb_color=g_ios_menu_saved_color;g_efb_depth=g_ios_menu_saved_depth;
+    glBindFramebuffer(GL_FRAMEBUFFER,g_efb_fbo);
+}
 
 // Match the visible source rect to the device drawable at 1:1 pixel density.
 // The extra EFB rows remain allocated for the console's render-to-texture work.

@@ -22,6 +22,8 @@ Those screenshots establish submission rates, not measured panel scanout.
   the selected canvas. Menus keep a 16:9 canvas. Pure 2D/video keeps the original
   presentation. Full-canvas backgrounds, fades, frame-copy composites and offscreen
   passes retain their coverage/coordinate system.
+- Offscreen menu-preview passes use a private color/depth target. Only their
+  source rectangle is copied, and capture/clear does not modify the visible EFB.
 - UI scissor bounds follow the UI correction. Opaque solid-black vertical side
   masks on selection menus are excluded conservatively; full-screen fades,
   textured draws, small panels and offscreen passes are retained.
