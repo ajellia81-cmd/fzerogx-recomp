@@ -8,7 +8,11 @@
 IOSControllerState ios_controller_snapshot() {
     IOSControllerState s;
     GCController* controller = GCController.current;
-    if (!controller) controller = GCController.controllers.firstObject;
+    if (!controller.extendedGamepad) {
+        for (GCController* candidate in GCController.controllers) {
+            if (candidate.extendedGamepad) { controller = candidate; break; }
+        }
+    }
     GCExtendedGamepad* p = controller.extendedGamepad;
     if (!p) return s;
     s.connected = true;

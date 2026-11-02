@@ -21,3 +21,7 @@ tools/dtk
 __pycache__/
 .DS_Store
 panic.txt
+
+# Personal memory cards and exported saves are never public source.
+*.gci
+*.raw

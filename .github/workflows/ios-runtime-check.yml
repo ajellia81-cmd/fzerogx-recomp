@@ -1,7 +1,7 @@
 name: iOS ARM64 runtime compile check (no game data)
 on:
   push:
-    paths: ['ios/CMakeLists.txt', 'ios/controller.*', 'src/**', '.github/workflows/ios-runtime-check.yml', 'gcn-recomp']
+    paths: ['ios/**', 'src/**', '.github/workflows/ios-runtime-check.yml', 'gcn-recomp']
   workflow_dispatch:
 permissions:
   contents: read
@@ -9,11 +9,18 @@ jobs:
   runtime:
     runs-on: macos-15-intel
     timeout-minutes: 30
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
           persist-credentials: false
+      - name: Restore public ANGLE headers (no game data)
+        uses: actions/cache/restore@v4
+        with:
+          path: build-ios/angle
+          key: angle-iphoneos-webkit-3a41ad1d-xcode26.3-${{ runner.arch }}-v3
       - name: Configure device ARM64 runtime
         run: |
           cmake -S ios -B build-ios-check -G Xcode \
@@ -21,6 +28,7 @@ jobs:
             -DCMAKE_OSX_SYSROOT=iphoneos \
             -DCMAKE_OSX_ARCHITECTURES=arm64 \
             -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 \
+            -DGCN_ANGLE_DIR="$PWD/build-ios/angle" \
             -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO
       - name: Compile runtime, renderer, audio and controller adapter
         run: cmake --build build-ios-check --config Release --target ios_runtime_check --parallel 3

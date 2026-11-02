@@ -8,6 +8,9 @@
 #include "runtime.h"
 #include "input_script.h"
 #include "controller.h"
+#include "save_card.h"
+#include "render_ios.h"
+#import "touch_controls.h"
 #include <atomic>
 #include <thread>
 #include <unistd.h>
@@ -15,6 +18,13 @@
 uint32_t boot_load(const char*);
 bool audio_open();
 static std::atomic<bool> running{false};
+static std::atomic<bool> smoothMotion{true};
+struct IOSPresentContext { EGLDisplay display; EGLSurface surface; PFNEGLSWAPBUFFERSPROC swap; bool failed=false; };
+static void show_frame(void* opaque) {
+    auto& p=*static_cast<IOSPresentContext*>(opaque);
+    glBindFramebuffer(GL_FRAMEBUFFER,0);
+    if (!p.swap(p.display,p.surface)) { p.failed=true; running=false; }
+}
 
 static NSString* documents() {
     return NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
@@ -57,8 +67,11 @@ static bool metal_context(CAMetalLayer* layer, EGLDisplay* display, EGLSurface* 
 @property(nonatomic,strong) UILabel* status;
 @property(nonatomic,strong) UIButton* start;
 @property(nonatomic,strong) UIButton* importButton;
+@property(nonatomic,strong) UIButton* saveButton;
 @property(nonatomic,strong) CADisplayLink* inputLink;
 @property(nonatomic) BOOL started;
+@property(nonatomic,strong) FZTouchControls* touchControls;
+@property(nonatomic,strong) UISwitch* smoothSwitch;
 @end
 
 @implementation GameController
@@ -83,10 +96,22 @@ static bool metal_context(CAMetalLayer* layer, EGLDisplay* display, EGLSurface* 
     self.importButton = [UIButton buttonWithType:UIButtonTypeSystem];
     [self.importButton setTitle:@"디스크 이미지 가져오기" forState:UIControlStateNormal];
     [self.importButton addTarget:self action:@selector(importImage) forControlEvents:UIControlEventTouchUpInside];
+    self.saveButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    [self.saveButton setTitle:@"세이브 카드 가져오기 (.raw)" forState:UIControlStateNormal];
+    [self.saveButton addTarget:self action:@selector(importImage) forControlEvents:UIControlEventTouchUpInside];
     self.start = [UIButton buttonWithType:UIButtonTypeSystem];
     [self.start setTitle:@"게임 시작" forState:UIControlStateNormal];
     [self.start addTarget:self action:@selector(startGame) forControlEvents:UIControlEventTouchUpInside];
-    UIStackView* stack = [[UIStackView alloc] initWithArrangedSubviews:@[self.status,self.importButton,self.start]];
+    UILabel* smoothLabel = [[UILabel alloc] init];
+    smoothLabel.text = @"120fps 움직임 보간 (실험적)";
+    smoothLabel.textColor = UIColor.whiteColor;
+    self.smoothSwitch = [[UISwitch alloc] init];
+    self.smoothSwitch.on = UIScreen.mainScreen.maximumFramesPerSecond >= 120;
+    self.smoothSwitch.enabled = UIScreen.mainScreen.maximumFramesPerSecond >= 120;
+    UIStackView* smoothRow = [[UIStackView alloc] initWithArrangedSubviews:@[smoothLabel,self.smoothSwitch]];
+    smoothRow.axis = UILayoutConstraintAxisHorizontal;
+    smoothRow.spacing = 16;
+    UIStackView* stack = [[UIStackView alloc] initWithArrangedSubviews:@[self.status,self.importButton,self.saveButton,smoothRow,self.start]];
     stack.axis = UILayoutConstraintAxisVertical;
     stack.spacing = 18;
     stack.translatesAutoresizingMaskIntoConstraints = NO;
@@ -95,8 +120,12 @@ static bool metal_context(CAMetalLayer* layer, EGLDisplay* display, EGLSurface* 
     [NSLayoutConstraint activateConstraints:@[[stack.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
         [stack.centerYAnchor constraintEqualToAnchor:self.view.centerYAnchor],
         [stack.widthAnchor constraintLessThanOrEqualToAnchor:self.view.safeAreaLayoutGuide.widthAnchor constant:-32]]];
+    self.touchControls = [[FZTouchControls alloc] initWithFrame:self.view.bounds];
+    self.touchControls.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    self.touchControls.hidden = YES;
+    [self.view addSubview:self.touchControls];
     self.inputLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(pollInput)];
-    self.inputLink.preferredFramesPerSecond = 60;
+    self.inputLink.preferredFrameRateRange = CAFrameRateRangeMake(60,120,120);
     [self.inputLink addToRunLoop:NSRunLoop.mainRunLoop forMode:NSRunLoopCommonModes];
 }
 - (void)viewDidLayoutSubviews {
@@ -107,7 +136,13 @@ static bool metal_context(CAMetalLayer* layer, EGLDisplay* display, EGLSurface* 
     layer.drawableSize = CGSizeMake(self.view.bounds.size.width*scale,self.view.bounds.size.height*scale);
 }
 - (void)pollInput {
-    pad_set_state(0, ios_controller_pad(ios_controller_snapshot()));
+    IOSControllerState hardware = ios_controller_snapshot();
+    BOOL hidden = !self.started || hardware.connected;
+    if (self.touchControls.hidden != hidden) {
+        [self.touchControls resetInput];
+        self.touchControls.hidden = hidden;
+    }
+    pad_set_state(0, hardware.connected ? ios_controller_pad(hardware) : [self.touchControls padState]);
 }
 - (void)importImage {
     UIDocumentPickerViewController* picker = [[UIDocumentPickerViewController alloc] initForOpeningContentTypes:@[UTTypeData] asCopy:NO];
@@ -115,13 +150,37 @@ static bool metal_context(CAMetalLayer* layer, EGLDisplay* display, EGLSurface* 
     [self presentViewController:picker animated:YES completion:nil];
 }
 - (void)documentPicker:(UIDocumentPickerViewController*)picker didPickDocumentsAtURLs:(NSArray<NSURL*>*)urls {
+    if (self.started || !urls.count) return;
     NSURL* source = urls.firstObject;
     NSString* ext = source.pathExtension.lowercaseString;
+    if ([ext isEqualToString:@"raw"]) {
+        BOOL access = [source startAccessingSecurityScopedResource];
+        NSError* error = nil;
+        NSData* card = [NSData dataWithContentsOfURL:source options:0 error:&error];
+        if (access) [source stopAccessingSecurityScopedResource];
+        if (!card || !ios_valid_save_card((const uint8_t*)card.bytes, card.length)) {
+            self.status.text = @"유효한 512KiB 미국판 메모리카드 .raw 파일이 필요합니다.\n.gci는 메모리카드로 변환한 후 가져와 주세요.";
+            return;
+        }
+        NSString* target = [documents() stringByAppendingPathComponent:@"memcard_a.raw"];
+        NSFileManager* fm = NSFileManager.defaultManager;
+        if ([fm fileExistsAtPath:target]) {
+            NSString* backup = [target stringByAppendingFormat:@".backup-%@", NSUUID.UUID.UUIDString];
+            if (![fm copyItemAtPath:target toPath:backup error:&error]) {
+                self.status.text = @"기존 세이브를 백업하지 못해 가져오기를 중단했습니다.";
+                return;
+            }
+        }
+        BOOL ok = [card writeToFile:target options:NSDataWritingAtomic error:&error];
+        self.status.text = ok ? @"세이브 카드 가져오기 완료. 게임을 시작해 주세요.\n기존 카드가 있으면 백업을 남겼습니다." : [@"세이브 저장 실패: " stringByAppendingString:error.localizedDescription ?: @"알 수 없는 오류"];
+        return;
+    }
     if (![ext isEqualToString:@"iso"] && ![ext isEqualToString:@"ciso"]) {
-        self.status.text = @".iso 또는 .ciso 파일을 선택해 주세요.";
+        self.status.text = @"디스크는 .iso/.ciso, 세이브 카드는 .raw 파일을 선택해 주세요.";
         return;
     }
     self.importButton.enabled = NO;
+    self.saveButton.enabled = NO;
     self.start.enabled = NO;
     self.status.text = @"이미지 복사 중… 완료될 때까지 앱을 유지해 주세요.";
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED,0), ^{
@@ -140,6 +199,7 @@ static bool metal_context(CAMetalLayer* layer, EGLDisplay* display, EGLSurface* 
         }
         dispatch_async(dispatch_get_main_queue(), ^{
             self.importButton.enabled = YES;
+            self.saveButton.enabled = YES;
             self.start.enabled = YES;
             self.status.text = ok ? @"이미지 가져오기 완료. 컨트롤러를 연결하고 게임을 시작해 주세요." : [@"복사 실패: " stringByAppendingString:error.localizedDescription ?: @"알 수 없는 오류"];
         });
@@ -155,10 +215,13 @@ static bool metal_context(CAMetalLayer* layer, EGLDisplay* display, EGLSurface* 
     if (valid) valid = fseek(disc,memcmp(magic,"CISO",4)==0?0x8000:0,SEEK_SET)==0 && fread(id,1,6,disc)==6 && memcmp(id,"GFZE01",6)==0;
     if (disc) fclose(disc);
     if (!valid) { self.status.text = @"미국판 GFZE01 .iso/.ciso 이미지가 필요합니다.\n파일 앱에서 이 앱의 Documents에 game.iso로 넣어도 됩니다."; return; }
+    smoothMotion = self.smoothSwitch.on && self.view.window.screen.maximumFramesPerSecond >= 120;
+    self.inputLink.preferredFrameRateRange = smoothMotion ? CAFrameRateRangeMake(60,120,120) : CAFrameRateRangeMake(60,60,60);
     self.started = YES;
     running = true;
     UIApplication.sharedApplication.idleTimerDisabled = YES;
     self.importButton.hidden = YES;
+    self.saveButton.hidden = YES;
     self.start.hidden = YES;
     self.status.text = @"Metal 및 셰이더 초기화 중…";
     CAMetalLayer* layer = (CAMetalLayer*)self.view.layer;
@@ -192,6 +255,7 @@ static bool metal_context(CAMetalLayer* layer, EGLDisplay* display, EGLSurface* 
             uint32_t entry=boot_load(path.c_str());
             threads_start_boot(entry);
             dispatch_async(dispatch_get_main_queue(), ^{ [weakSelf.view viewWithTag:100].hidden=YES; });
+            IOSPresentContext presentation{display,surface,swap};
             while (running) {
                 auto batch=gx::take_batch(4);
                 if (!batch) continue;
@@ -199,10 +263,9 @@ static bool metal_context(CAMetalLayer* layer, EGLDisplay* display, EGLSurface* 
                 query(display,surface,EGL_WIDTH,&width); query(display,surface,EGL_HEIGHT,&height);
                 if (width<=0 || height<=0) continue;
                 gx::render_set_window_size(width,height);
-                if (gx::render_execute(*batch)) {
-                    glBindFramebuffer(GL_FRAMEBUFFER,0);
-                    if (!swap(display,surface)) { fprintf(stderr,"iOS: surface presentation failed\n"); break; }
-                }
+                gx::ios_widen(*batch,width,height);
+                gx::ios_render_motion(*batch,smoothMotion.load(),show_frame,&presentation);
+                if (presentation.failed) { fprintf(stderr,"iOS: surface presentation failed\n"); break; }
             }
             threads_request_quit();
         }

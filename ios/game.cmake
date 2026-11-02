@@ -6,16 +6,13 @@ set(GCN_ANGLE_DIR "${CMAKE_BINARY_DIR}/angle" CACHE PATH "iPhoneOS ANGLE build")
 if(NOT EXISTS "${GCN_ANGLE_DIR}/libANGLE-shared.dylib")
   message(FATAL_ERROR "Build ANGLE for iphoneos before configuring the app")
 endif()
-# A local renderer variant stretches the final image to the native landscape
-# drawable. The upstream desktop renderer keeps its original 4:3 behavior.
-file(READ "${GCN_RT}/gx/render_gl.cpp" IOS_RENDER)
-set(IOS_LETTERBOX "int vw = w, vh = w * 3 / 4;\n    if (vh > h) { vh = h; vw = h * 4 / 3; }")
-string(FIND "${IOS_RENDER}" "${IOS_LETTERBOX}" IOS_BOX_AT)
-if(IOS_BOX_AT EQUAL -1)
-  message(FATAL_ERROR "Renderer presentation layout changed; review the fullscreen patch")
-endif()
-string(REPLACE "${IOS_LETTERBOX}" "int vw = w, vh = h;" IOS_RENDER "${IOS_RENDER}")
-file(WRITE "${CMAKE_BINARY_DIR}/render_ios.cpp" "${IOS_RENDER}")
+# Generate only the iOS variant; upstream desktop/VR behavior is preserved.
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+execute_process(COMMAND "${Python3_EXECUTABLE}" "${IOS_DIR}/prepare_renderer.py"
+  "${GCN_RT}/gx/render_gl.cpp" "${CMAKE_BINARY_DIR}/render_ios.cpp"
+  COMMAND_ERROR_IS_FATAL ANY)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+  "${IOS_DIR}/prepare_renderer.py" "${IOS_DIR}/render_extensions.inc")
 set(IOS_CORE ${GCN_CORE_SOURCES})
 list(REMOVE_ITEM IOS_CORE "${GCN_RT}/audio_stub.cpp")
 set(IOS_RENDER_SOURCES ${GCN_RENDER_SOURCES})
@@ -27,7 +24,7 @@ list(APPEND IOS_SOURCES
   "${CMAKE_SOURCE_DIR}/gcn-recomp/visionos/audio_coreaudio.mm"
   "${CMAKE_SOURCE_DIR}/src/race.cpp" "${CMAKE_SOURCE_DIR}/src/vr_fzerogx.cpp"
   "${CMAKE_SOURCE_DIR}/src/motion.cpp" "${CMAKE_BINARY_DIR}/ios_shader_keys.cpp"
-  "${IOS_DIR}/controller.mm" "${IOS_DIR}/app.mm")
+  "${IOS_DIR}/touch_controls.mm" "${IOS_DIR}/controller.mm" "${IOS_DIR}/app.mm")
 add_custom_command(OUTPUT "${CMAKE_BINARY_DIR}/ios_shader_keys.cpp"
   COMMAND ${CMAKE_COMMAND} "-DIN=${CMAKE_SOURCE_DIR}/src/shader_keys.bin"
     "-DOUT=${CMAKE_BINARY_DIR}/ios_shader_keys.cpp"
@@ -50,7 +47,7 @@ set_target_properties(fzerogx_ios PROPERTIES
   XCODE_ATTRIBUTE_LD_RUNPATH_SEARCH_PATHS "@executable_path/Frameworks"
   XCODE_EMBED_FRAMEWORKS "${GCN_ANGLE_DIR}/libANGLE-shared.dylib"
   XCODE_EMBED_FRAMEWORKS_CODE_SIGN_ON_COPY NO)
-target_include_directories(fzerogx_ios PRIVATE "${GCN_RT}" "${GCN_GEN_DIR}"
+target_include_directories(fzerogx_ios PRIVATE "${IOS_DIR}" "${GCN_RT}" "${GCN_GEN_DIR}"
   "${GCN_RT}/gx" "${GCN_GLAD_INCLUDE_DIR}" "${GCN_ANGLE_DIR}/include"
   "${CMAKE_SOURCE_DIR}/gcn-recomp/visionos")
 target_compile_definitions(fzerogx_ios PRIVATE GCN_GL_ES GCN_GL_ES30
