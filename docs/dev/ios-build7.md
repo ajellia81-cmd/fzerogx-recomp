@@ -41,3 +41,43 @@ presentation and 60-Hz simulation/120-Hz render-only interpolation are regressio
 boundaries. Proposed correction is per overlay/group, with text and panel borders
 kept together and their alignment preserved, rather than assigning a new ratio
 to every 2D draw. Implementation awaits the user's approval of this scope.
+
+## Inspection results before renderer changes
+
+The uploaded AV-logo image is 2868x1320. A central white-logo bounding region is
+774x580 pixels (aspect 1.334), consistent with the 4:3-to-16:9 expansion factor
+1.333. The user's three screenshots confirm startup-logo, after-race menu and
+GP-quit-dialog distortion; the panel's exact original dimensions have not been
+inferred from its screenshot alone.
+
+Four additional existing captures were replayed with the unchanged build-6
+renderer executable, without compiling or dispatching a new workflow:
+
+| Capture | Real metadata | Build-6 classification | Inspection |
+|---|---|---|---|
+| title batch 1000, name entry | Title module, phase 0 | World | Menu background leaks into side margins |
+| story batch 2700, chapter selection | Story module, stale phase 41 | World | Same side-background/composition error |
+| selection batch 3100, cup/course UI | Selection module | Menu | Correct menu composition retained |
+| batch 3500, machine settings | phase 38 | Menu | Correct menu composition retained |
+
+A classification-only experiment replayed private *copies* of the first two
+captures as Menu by overriding only their diagnostic header's mode metadata.
+The game, renderer source, vertices and textures were unchanged. Both background
+errors disappeared and GL error was zero. This is an ablation experiment, not an
+implemented guest-state change and not iPhone validation. It supports adding
+name entry and story chapter selection to the proposed correction list.
+
+The renderer audit also checked the final output aspect, orthographic and
+perspective projection branches, scissor remapping, offscreen-copy exclusions,
+fullscreen-copy composites, solid fades and encoded-movie exclusions. The
+problem is not evidence that every orthographic draw should switch to 4:3:
+main/selection menus and the user's racing HUD are regression boundaries.
+Reused save/load/overwrite, result/ranking/winning, replay and controller-notice
+paths are risk categories, but their individual runtime distortion is not
+confirmed by the available captures. Do not change them preemptively or claim
+that every game screen has been device-tested.
+
+Proposed confirmed correction categories for approval: startup logo handling,
+after-race popup menu, GP-quit/common confirmation composition, name-entry scene
+classification and story chapter-selection classification. No renderer source
+has been edited for these changes; no new Actions run has been dispatched.
