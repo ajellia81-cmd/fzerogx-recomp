@@ -16,7 +16,9 @@ inline void observe(const gx::Batch& b,unsigned frame,unsigned modules,int phase
     static std::map<uint32_t,std::shared_ptr<gx::TexData>> live;
     for(auto id:b.dead_textures)live.erase(id);
     for(auto& t:b.new_textures)live[t->id]=t;
-    if(frame!=1000 && frame!=1900 && frame!=2300 && frame!=2700 && frame!=3100 && frame!=3500 && frame!=4000 && frame!=4500 && frame!=5500 && frame!=6000)return;
+    const unsigned selected[]={30,60,120,180,240,360,480,600,1000,1900,2300,2700,3100,3500,4000,4500,5400,5600,5900,6100,6300,6500,6800,7200,7800,8400};
+    bool capture=false;for(auto f:selected)capture|=frame==f;
+    if(!capture)return;
     char path[128];snprintf(path,sizeof path,"frame-%u.capture",frame);
     FILE* f=fopen(path,"wb");if(!f)std::abort();
     uint32_t header[]={0x36585A46,1,sizeof(gx::Cmd),sizeof(gx::GpuVertex),sizeof(gx::PixelState),frame,modules,uint32_t(phase)};

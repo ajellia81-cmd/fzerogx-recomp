@@ -68,7 +68,7 @@ jobs:
         run: |
           mkdir -p build-probe-race
           cd build-probe-race
-          FZGX_PRIVATE_CAPTURE=1 GCN_INPUT="500:A:5,1300:A:5,1340:A:5,1380:A:5,1440:START:5,1500:A:5,1580:LEFT:5,1620:A:5,1800:A:5,2000:START:5,2200:A:5,2400:A:5,2600:A:5,2800:A:5,3000:A:5,3200:A:5,3400:A:5,3700:A:5,3800:A:6000" ../build-host/fzerogx_bench --seconds=60 --warmup=0 "$GITHUB_WORKSPACE/rom/game.iso" > ../build-private-logs/race-probe.txt 2>&1
+          FZGX_PRIVATE_CAPTURE=1 GCN_INPUT="500:A:5,1300:A:5,1340:A:5,1380:A:5,1440:START:5,1500:A:5,1580:LEFT:5,1620:A:5,1800:A:5,2000:START:5,2200:A:5,2400:A:5,2600:A:5,2800:A:5,3000:A:5,3200:A:5,3400:A:5,3700:A:5,3800:A:1500,5500:START:5,5800:DOWN:5,6000:DOWN:5,6200:A:5,6400:LEFT:5,6600:A:5,7200:A:5" ../build-host/fzerogx_bench --seconds=90 --warmup=0 "$GITHUB_WORKSPACE/rom/game.iso" > ../build-private-logs/race-probe.txt 2>&1
       - name: Inspect story movie presentation inputs (headless)
         if: ${{ !inputs.skip_probes }}
         shell: bash
