@@ -1,6 +1,11 @@
 name: Build iOS game (encrypted private delivery)
 on:
   workflow_dispatch:
+    inputs:
+      approved_icon_sha256:
+        description: SHA256 of the icon preview explicitly approved by the user
+        required: true
+        type: string
 permissions:
   contents: read
 jobs:
@@ -14,6 +19,12 @@ jobs:
         with:
           submodules: recursive
           persist-credentials: false
+      - name: Reproduce approved original-logo app icon
+        env:
+          APPROVED_ICON_SHA256: ${{ inputs.approved_icon_sha256 }}
+        run: |
+          python3 -m pip install --target build-icon-python Pillow==12.3.0
+          PYTHONPATH="$PWD/build-icon-python" python3 ios/prepare_icon.py build-ios/Assets.xcassets --approved-sha256 "$APPROVED_ICON_SHA256"
       - name: Prepare private log directory
         run: mkdir -p build-private-logs
       - name: Receive user-supplied disc (never cached or uploaded)
@@ -55,8 +66,8 @@ jobs:
         run: |
           APP=$(find build-ios -path '*/Release-iphoneos/FZeroGX.app' -type d -print -quit)
           test -n "$APP"
-          python3 ios/package_unsigned.py "$APP" FZeroGX-iOS-60fps-unsigned.ipa
-          openssl cms -encrypt -binary -aes256 -in FZeroGX-iOS-60fps-unsigned.ipa -out FZeroGX-private.ipa.enc -outform DER ios/delivery-public.pem
+          python3 ios/package_unsigned.py "$APP" FZeroGX-iOS-build2-unsigned.ipa
+          openssl cms -encrypt -binary -aes256 -in FZeroGX-iOS-build2-unsigned.ipa -out FZeroGX-private.ipa.enc -outform DER ios/delivery-public.pem
       - name: Encrypt diagnostics for private review
         if: always()
         shell: bash

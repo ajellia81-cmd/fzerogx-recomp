@@ -27,7 +27,8 @@ add_library(ios_runtime_check OBJECT ${RUNTIME} "${CMAKE_CURRENT_BINARY_DIR}/ren
   "${CMAKE_CURRENT_LIST_DIR}/../src/motion.cpp"
   controller.mm touch_controls.mm)
 set_target_properties(ios_runtime_check PROPERTIES
-  C_STANDARD 11 CXX_STANDARD 20 CXX_STANDARD_REQUIRED YES)
+  C_STANDARD 11 CXX_STANDARD 20 CXX_STANDARD_REQUIRED YES
+  XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC YES)
 target_include_directories(ios_runtime_check PRIVATE
   "${CMAKE_CURRENT_LIST_DIR}" "${RT}" "${RT}/gx" "${RT}/gx/glad_es/include")
 target_compile_definitions(ios_runtime_check PRIVATE

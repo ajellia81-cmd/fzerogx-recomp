@@ -32,12 +32,18 @@ add_custom_command(OUTPUT "${CMAKE_BINARY_DIR}/ios_shader_keys.cpp"
   DEPENDS "${CMAKE_SOURCE_DIR}/src/shader_keys.bin"
     "${CMAKE_SOURCE_DIR}/gcn-recomp/tools/embed_shader_keys.cmake"
   COMMENT "Embedding iOS shader keys independently of the host benchmark")
-add_executable(fzerogx_ios MACOSX_BUNDLE ${IOS_SOURCES})
+if(NOT EXISTS "${CMAKE_BINARY_DIR}/Assets.xcassets/AppIcon.appiconset/Contents.json")
+  message(FATAL_ERROR "Prepare the user-approved app icon before building the IPA")
+endif()
+set(IOS_ASSETS "${CMAKE_BINARY_DIR}/Assets.xcassets")
+set_source_files_properties("${IOS_ASSETS}" PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
+add_executable(fzerogx_ios MACOSX_BUNDLE ${IOS_SOURCES} "${IOS_ASSETS}")
 set_target_properties(fzerogx_ios PROPERTIES
   C_STANDARD 11 CXX_STANDARD 20 CXX_STANDARD_REQUIRED YES
   OUTPUT_NAME FZeroGX
   MACOSX_BUNDLE_INFO_PLIST "${IOS_DIR}/Info.plist.in"
   MACOSX_BUNDLE_GUI_IDENTIFIER com.ajellia81.fzerogx
+  XCODE_ATTRIBUTE_ASSETCATALOG_COMPILER_APPICON_NAME AppIcon
   XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER com.ajellia81.fzerogx
   XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "1,2"
   XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET 17.0
