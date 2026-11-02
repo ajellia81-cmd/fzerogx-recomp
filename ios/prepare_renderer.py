@@ -16,6 +16,14 @@ def replace(old, new):
 replace('#include "gl.h"', '#include "gl.h"\n#include "motion_history.h"\n#include "scene_classify.h"\n#include "scene_context.h"\n#include "ui_policy.h"\n#include <cmath>')
 # Compile shipped shader keys before gameplay even when ANGLE has no program binaries.
 replace('if (g_shipped_keys && g_binaries_supported) {', 'if (g_shipped_keys) {')
+# The shipped desktop list contains dual-source destination-alpha variants.
+# ANGLE without that extension draws the fallback key (dst_alpha=0). Normalize
+# both disk records and shipped keys BEFORE deduplication and compilation.
+replace('static void shader_cache_open() {', 'static void ios_shader_key(ShaderKey& k){if(!g_dual_source && k.dst_alpha==2)k.dst_alpha=0;canonicalize_shader_key(k); }\n\nstatic void shader_cache_open() {')
+if text.count('canonicalize_shader_key(r.k);')!=2:
+    raise SystemExit('Pinned shader cache record normalization changed')
+text=text.replace('canonicalize_shader_key(r.k);','ios_shader_key(r.k);')
+replace('canonicalize_shader_key(k);\n                if (have.insert(k).second)', 'ios_shader_key(k);\n                if (have.insert(k).second)')
 replace('static int g_scale = 2;', 'static int g_scale = 2;\nstatic bool g_ios_transient=false, g_ios_prepared=false, g_ios_wide_view=false;\nstatic float g_ios_fixed_aspect=16.f/9;\nstatic float g_ios_scale_x=1, g_ios_scale_y=1;\nstatic int ios_px_x(float v){return int(std::lround(v*g_ios_scale_x));}\nstatic int ios_px_y(float v){return int(std::lround(v*g_ios_scale_y));}')
 replace('int vw = w, vh = w * 3 / 4;\n    if (vh > h) { vh = h; vw = h * 4 / 3; }', 'int vw=w, vh=h; if(!g_ios_wide_view){ vh=int(w/g_ios_fixed_aspect); if(vh>h){vh=h;vw=int(h*g_ios_fixed_aspect);} }')
 replace('if (c.writeback) copy_writeback(c);', 'if (c.writeback && !g_ios_transient) copy_writeback(c);')

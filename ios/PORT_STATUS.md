@@ -119,3 +119,11 @@ binary support. Loading is stepped with visible startup progress, and slow rende
 frames report shader/state timing in Documents/log.txt. First-visit stutter may
 also involve Metal pipeline creation or resource uploads; improvement requires a
 device comparison and is not established by successful compilation.
+
+Private capture metadata comparison found that missing first-visit keys in course
+frames were destination-alpha dual-source variants: with dual source unavailable,
+8-13 keys per sampled world frame became dst_alpha=0 while the shipped desktop
+list contained dst_alpha=2. The iOS cache loader now normalizes shipped and disk
+keys to the actual driver capability before deduplication and compilation. Binary
+source-hash checks still reject an incompatible stored binary. No game bytes or
+private capture data are added to the repository.

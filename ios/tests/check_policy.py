@@ -18,7 +18,7 @@ with tempfile.TemporaryDirectory(prefix="fzgx-render-policy-") as tmp:
     for include in [root / "ios", runtime, runtime / "gx", runtime / "gx/glad_es/include", tmp]:
         cmd += ["-I" + str(include)]
     cmd += [str(root / "ios/tests/render_policy.cpp"),
-            str(runtime / "gx/glad_es/src/gles2.c"), str(runtime / "hw/vi.cpp"),
+            str(runtime / "gx/glad_es/src/gles2.c"), str(runtime / "hw/vi.cpp"), str(runtime / "gx/shadergen.cpp"),
             "-Wl,-dead_strip" if sys.platform == "darwin" else "-Wl,--gc-sections",
             "-pthread", "-o", str(tmp / "check")]
     subprocess.run(cmd, check=True)
