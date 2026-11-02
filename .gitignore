@@ -25,3 +25,6 @@ panic.txt
 # Personal memory cards and exported saves are never public source.
 *.gci
 *.raw
+
+# Private, already-decoded renderer diagnostics contain game-derived data.
+*.capture

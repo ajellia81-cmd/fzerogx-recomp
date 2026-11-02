@@ -91,8 +91,8 @@ jobs:
         run: |
           APP=$(find build-ios -path '*/Release-iphoneos/FZeroGX.app' -type d -print -quit)
           test -n "$APP"
-          python3 ios/package_unsigned.py "$APP" FZeroGX-iOS-build5-unsigned.ipa
-          openssl cms -encrypt -binary -aes256 -in FZeroGX-iOS-build5-unsigned.ipa -out FZeroGX-private.ipa.enc -outform DER ios/delivery-public.pem
+          python3 ios/package_unsigned.py "$APP" FZeroGX-iOS-build6-unsigned.ipa
+          openssl cms -encrypt -binary -aes256 -in FZeroGX-iOS-build6-unsigned.ipa -out FZeroGX-private.ipa.enc -outform DER ios/delivery-public.pem
       - name: Encrypt diagnostics for private review
         if: always()
         shell: bash

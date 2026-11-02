@@ -8,15 +8,20 @@ namespace ios_scene {
 enum class Mode { Menu, World, Movie, Flat };
 inline bool full_view(const gx::PixelState& s){return std::fabs(s.viewport[0])*2>=600 && std::fabs(s.viewport[1])*2>=400;}
 inline bool movie_state(const gx::PixelState& s){
-    // THP video is composed from three I8 luminance/chroma planes. Ordinary
-    // menu/background textures must not be mistaken for a movie.
-    if(s.proj[6]==0 || !full_view(s))return false;
-    unsigned planes=0;
-    for(unsigned m=0;m<8;++m)if(s.tex_id[m]){
-        unsigned r=0x88+(m&3)+(m>=4?0x20:0);unsigned v=s.bp[r];
-        if(((v>>20)&15)==1 && (v&1023)>=127 && ((v>>10)&1023)>=63)++planes;
+    // F-Zero GX's existing movie path uses I8 Y + half-size IA8 UV,
+    // not three separate I8 planes (docs/dev/status.md). This only identifies
+    // already-decoded texture metadata; the guest still decodes the movie.
+    if(s.proj[6]==0)return false;
+    for(unsigned y=0;y<8;++y)if(s.tex_id[y] && !s.tex_is_efb[y]){
+        unsigned r=0x88+(y&3)+(y>=4?0x20:0),v=s.bp[r];
+        unsigned w=(v&1023)+1,h=((v>>10)&1023)+1;
+        if(((v>>20)&15)!=1 || w<320 || h<160)continue;
+        for(unsigned uv=0;uv<8;++uv)if(uv!=y && s.tex_id[uv] && !s.tex_is_efb[uv]){
+            unsigned q=0x88+(uv&3)+(uv>=4?0x20:0),t=s.bp[q];
+            if(((t>>20)&15)==3 && ((t&1023)+1)*2==w && (((t>>10)&1023)+1)*2==h)return true;
+        }
     }
-    return planes>=3;
+    return false;
 }
 // Bounds in the guest's normalized screen, before any iOS correction.
 inline bool draw_bounds(const gx::Batch& b,const gx::Cmd& c,const gx::PixelState& st,float box[4]){
@@ -78,7 +83,7 @@ inline Mode classify(const gx::Batch& b,bool liveRace=false,unsigned modules=0,i
         // Full-view course/sky geometry, unlike an individual menu preview.
         if(front>=4 && x1-x0>=1.5f && y1-y0>=1.1f)world=true;
     }
-    if(movie)return Mode::Movie;
+    if(movie || (modules & ios_guest::Movie))return Mode::Movie;
     if(liveRace)return Mode::World;
     if(modules & (ios_guest::Selection|ios_guest::Option))return Mode::Menu;
     if(modules & (ios_guest::Title|ios_guest::Replay))return Mode::World;

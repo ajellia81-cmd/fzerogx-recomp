@@ -38,8 +38,9 @@ void ios_frame_totals(uint64_t* native, uint64_t* intermediate) {
 void ios_widen(Batch& b,int width,int height){
     if(width<=0 || height<=0)return;
     auto mode=g_ios_scene.load(std::memory_order_relaxed);
-    if(mode==ios_scene::Mode::Movie || mode==ios_scene::Mode::Flat)return;
-    const float aspect=mode==ios_scene::Mode::World?float(width)/height:16.f/9;
+    if(mode==ios_scene::Mode::Flat)return;
+    const float aspect=mode==ios_scene::Mode::World?float(width)/height:
+                       mode==ios_scene::Mode::Movie?4.f/3:16.f/9;
     note_fullscreen_copies(b);std::vector<uint8_t> skip;
     if(mode==ios_scene::Mode::Menu)ios_mark_menu_work(b,skip);else mark_offscreen_passes(b,skip);
     const size_t original=b.states.size();
@@ -53,16 +54,16 @@ void ios_widen(Batch& b,int width,int height){
         if(st.proj[6]!=0){
             if(samples_fullscreen_copy(st))continue;
             float box[4];bool bounds=ios_scene::draw_bounds(b,c,st,box);
-            if(mode==ios_scene::Mode::Menu && bounds && ios_scene::black_side_mask(b,c,st,box)){c.count=0;c.vcount=0;continue;}
-            // Full-canvas backgrounds and fades retain coverage; their overlays
-            // are corrected separately. Never shrink a frame-copy composite.
-            if(bounds && box[0]<=-.99f && box[1]<=-.99f && box[2]>=.99f && box[3]>=.99f)continue;
+            if(ios_scene::movie_state(st))continue;
+            // Solid full-frame fades must cover the whole drawable. Textured
+            // overlays (including logos) use the same 16:9 UI canvas as text.
+            bool textured=false;for(auto id:st.tex_id)textured|=id!=0;
+            if(!textured && bounds && box[0]<=-.99f && box[1]<=-.99f && box[2]>=.99f && box[3]>=.99f)continue;
             if(corrected[c.state]>=0){c.state=uint32_t(corrected[c.state]);continue;}
-            // Use the UI's authored coordinate aspect. Some overlays remain
-            // 640x480 while widescreen menus use a wider logical canvas.
-            float authored=st.proj[0]!=0?std::fabs(st.proj[2]/st.proj[0]):4.f/3;
-            if(authored<1.1f || authored>2.5f)authored=4.f/3;
-            ratio=authored/aspect;
+            // The game's widescreen option already compensates 2D geometry.
+            // Inferring its canvas from the ortho matrix double-corrected it.
+            ratio=(16.f/9)/aspect;
+            if(std::fabs(ratio-1.f)<.000001f)continue;
             // Move the UI's clipping rectangle with its projection. Otherwise
             // the old scissor cuts corrected portraits/panels into black strips.
             float center=st.viewport[3];
@@ -72,6 +73,7 @@ void ios_widen(Batch& b,int width,int height){
             st.bp[0x20]=(st.bp[0x20]&~(2047u<<12))|(unsigned(left)<<12);
             st.bp[0x21]=(st.bp[0x21]&~(2047u<<12))|(unsigned(right)<<12);
         }else{
+            if(mode==ios_scene::Mode::Movie)continue;
             if(corrected[c.state]>=0){c.state=uint32_t(corrected[c.state]);continue;}
             if(st.proj[0]==0)continue;
             float cameraAspect=std::fabs(st.proj[2]/st.proj[0]);
