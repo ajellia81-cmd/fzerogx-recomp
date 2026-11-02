@@ -5,6 +5,7 @@
 #include "motion_history.h"
 #include "runtime.h"
 #include "guest_state.h"
+#include "frame_capture.h"
 #include <cstdio>
 namespace ios_probe {
 inline ios_motion::History history;
@@ -17,6 +18,7 @@ inline void observe(gx::Batch& b){
         fprintf(stderr,"iOS scene transition: batch=%llu phase=%d modules=%u\n",frames,phase,modules);
         lastPhase=phase;lastModules=modules;
     }
+    ios_capture::observe(b,unsigned(frames),modules,phase);
     auto mode=ios_scene::classify(b,false,modules,phase);
     if(mode==ios_scene::Mode::Menu){
         for(const auto& c:b.cmds)if(c.type==gx::CmdType::Draw && c.state<b.states.size()){

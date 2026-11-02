@@ -45,6 +45,7 @@ jobs:
       - name: Validate real game scene and interpolation inputs (headless)
         shell: bash
         env:
+          FZGX_PRIVATE_CAPTURE: "1"
           GCN_INPUT: "500:A:5,1300:A:5,1340:A:5,1380:A:5,1440:START:5,1500:A:5,1580:LEFT:5,1620:A:5,1800:A:5"
         run: |
           cmake --build build-host --target fzerogx_bench --parallel 3 > build-private-logs/probe-build.txt 2>&1
@@ -56,7 +57,7 @@ jobs:
         run: |
           mkdir -p build-probe-race
           cd build-probe-race
-          GCN_INPUT="500:A:5,1300:A:5,1340:A:5,1380:A:5,1440:START:5,1500:A:5,1580:LEFT:5,1620:A:5,1800:A:5,2000:START:5,2200:A:5,2400:A:5,2600:A:5,2800:A:5,3000:A:5,3200:A:5,3400:A:5,3700:A:5,3800:A:6000" ../build-host/fzerogx_bench --seconds=60 --warmup=0 "$GITHUB_WORKSPACE/rom/game.iso" > ../build-private-logs/race-probe.txt 2>&1
+          FZGX_PRIVATE_CAPTURE=1 GCN_INPUT="500:A:5,1300:A:5,1340:A:5,1380:A:5,1440:START:5,1500:A:5,1580:LEFT:5,1620:A:5,1800:A:5,2000:START:5,2200:A:5,2400:A:5,2600:A:5,2800:A:5,3000:A:5,3200:A:5,3400:A:5,3700:A:5,3800:A:6000" ../build-host/fzerogx_bench --seconds=60 --warmup=0 "$GITHUB_WORKSPACE/rom/game.iso" > ../build-private-logs/race-probe.txt 2>&1
       - name: Cache public ANGLE dependency only
         if: ${{ !inputs.probe_only }}
         id: angle-cache
@@ -97,7 +98,8 @@ jobs:
         shell: bash
         run: |
           # Disc inputs, RELs and generated game C are deliberately excluded.
-          tar -czf private-logs.tar.gz build-private-logs/*.txt
+          find build-probe build-probe-race -name "*.capture" -print > private-capture-list.txt
+          tar -czf private-logs.tar.gz build-private-logs/*.txt -T private-capture-list.txt
           openssl cms -encrypt -binary -aes256 -in private-logs.tar.gz -out FZeroGX-build-logs.enc -outform DER ios/delivery-public.pem
       - name: Upload encrypted delivery only
         if: always()
