@@ -63,3 +63,27 @@ These are software replay checks of actual renderer inputs, not iPhone execution
 Metal validation or physical 120-Hz measurements. The final device IPA must be
 rebuilt after the menu-isolation removal; the earlier candidate from run
 41437251064 does not include that final correction and is not the delivery.
+
+## Final device package
+
+The final correction compiled, linked and packaged successfully in Actions run
+41442511819 (17m23s), from source
+`dffb87ecd776db5c9557e373f3f6daa2b7626df0`. Repeated headless capture was skipped;
+the earlier real-frame inputs were replayed with this exact renderer source.
+The committed renderer's machine-selection and movie outputs matched their
+reference pixels, with GL error zero.
+
+- IPA: `FZeroGX-iOS-build6-unsigned.ipa`, 14,905,464 bytes; bundle version 6.
+- SHA-256: `f2eaae1f1926448709e57d58720d51e0e0fc3985ee47642c217395fe960ee0f8`.
+- ZIP CRC validation passed after download and decryption.
+- Executable and ANGLE: thin ARM64, platform iOS, no code-signature load command.
+- Approved icon registration and packaged icon resources passed audit.
+- No disc, DOL, REL, generated source, raw memory card, GCI, renderer capture,
+  provisioning profile or signature folder is packaged.
+- The effective minimum OS remains iOS 26.2 due to the bundled ANGLE library.
+- This IPA has not been launched or played on an iPhone by the build agent.
+  Physical 120-fps display output has not been measured. Game simulation remains
+  60 Hz; render-only interpolation remains enabled for eligible 3D motion.
+
+The iCloud source share remains the input to subsequent rebuilds. No durable
+source-image backup is claimed; do not delete it on the basis of this IPA build.
