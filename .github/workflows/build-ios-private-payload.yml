@@ -10,11 +10,16 @@ on:
         description: Run private scene diagnostics without building an IPA
         type: boolean
         default: false
+      runner_label:
+        description: Hosted macOS runner pool
+        type: choice
+        default: macos-15-intel
+        options: [macos-15-intel, macos-15]
 permissions:
   contents: read
 jobs:
   device:
-    runs-on: macos-15-intel
+    runs-on: ${{ inputs.runner_label }}
     timeout-minutes: 120
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
