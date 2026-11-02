@@ -195,6 +195,9 @@ bool ios_render_motion(Batch& b,bool smooth,void (*show)(void*),void* context) {
     static std::vector<GpuVertex> realVertices;
     static std::vector<uint8_t> realPacked;
     smooth=smooth && g_ios_scene.load(std::memory_order_relaxed)!=ios_scene::Mode::Movie;
+    // Toggling smooth motion back on must not pair with a frame captured
+    // before a long period of ordinary 60Hz play. Warm up from a fresh frame.
+    if(!smooth)history.clear();
     bool eligible=smooth && show;
     int reason=eligible?0:1;
     // The first implementation deliberately excludes multi-strip XFB frames.
