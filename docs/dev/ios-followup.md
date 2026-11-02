@@ -55,3 +55,21 @@ Full-game build 41369088303 compiled the game and icon assets but failed at the
 final link: CGRect helpers in touch_controls.mm require explicit CoreGraphics
 linkage. The framework was added for the next build. Upload of diagnostics in
 an always-run step is not evidence that compilation or packaging succeeded.
+
+## Build 2 delivery
+
+- Full compile, link and IPA packaging succeeded on Xcode 26.3:
+  https://github.com/ajellia81-cmd/fzerogx-recomp/actions/runs/41370418909
+  Built source commit: fbd325edeb3d409a6fa1804e4470a03617234435.
+- FZeroGX-iOS-build2-unsigned.ipa: 14,890,077 bytes.
+  SHA256: ddb287ae7eae7fb1f459103b99fcea36f14cd0e1139378e0f27eb3d1d41acef7.
+- Archive audit confirmed thin ARM64 iPhoneOS executable and ANGLE dylib, no
+  code-signature load commands or signing payload, registered AppIcon, and no
+  disc image, memory card, REL/DOL input or generated source files.
+- The app executable declares iOS 17, but the ANGLE dependency requires iOS
+  26.2; that dependency sets the effective minimum for this build.
+- The approved cover icon, expanded horizontal FOV, controller-aware touch
+  overlay, raw memory-card import and experimental interpolation are included.
+- No device execution, gameplay, personal-save loading or physical 120 fps
+  display measurement of build 2 has been verified. Earlier user boot feedback
+  applies only to the first IPA.
