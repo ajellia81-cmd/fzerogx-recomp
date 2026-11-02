@@ -35,3 +35,18 @@ The original project has no app-icon asset. A preview using the original game
 logo awaits the user's explicit approval. No follow-up IPA build may be started
 before that approval. The uploaded personal save and its converted raw card are
 kept outside git. This follow-up chooses import rather than embedding the save.
+
+## Verification before icon approval
+
+- iOS ARM64 object compilation of runtime, generated iOS renderer, UIKit launcher,
+  touch controls, audio and controller adapter passed on Xcode 26.3:
+  https://github.com/ajellia81-cmd/fzerogx-recomp/actions/runs/41368075896
+  Source commit: ae302d6f3a5a36922a81391fa7ea3cf6807ca276.
+- Cloud C++ tests covered midpoint vertex packing, material mismatch, camera-jump
+  rejection and raw-card metadata validation. A software GLES3 context verified
+  framebuffer color/depth copying and that drawing into the transient framebuffer
+  leaves the canonical color target unchanged. This was not an iOS/Metal test.
+- Icon generation reproduces the preview pixels and generates iPhone/iPad asset
+  catalog entries. No follow-up IPA packaging or device execution has occurred.
+- The first two compile checks exposed a generated-source include-path omission
+  and missing ARC on the object-check target. Both were corrected in the passing run.
