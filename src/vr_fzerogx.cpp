@@ -27,6 +27,9 @@
 #include "motion.h"
 #include "race.h"
 #include "vr_game.h"
+#ifdef FZGX_IOS_FRONTEND
+#include "../ios/guest_state.h"
+#endif
 
 namespace {
 
@@ -61,6 +64,9 @@ bool log() {
 }
 
 void guest_frame(uint32_t frame) {
+#ifdef FZGX_IOS_FRONTEND
+    ios_guest::motor.store(pad_motor(0),std::memory_order_relaxed);
+#endif
     static const bool preset = [] {
         if (const char* e = getenv("FZGX_FP")) g_want_fp.store(atoi(e) ? 1 : 0);
         return true;

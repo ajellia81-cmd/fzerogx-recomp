@@ -32,7 +32,7 @@ set_target_properties(ios_runtime_check PROPERTIES
 target_include_directories(ios_runtime_check PRIVATE
   "${CMAKE_CURRENT_LIST_DIR}" "${RT}" "${RT}/gx" "${RT}/gx/glad_es/include")
 target_compile_definitions(ios_runtime_check PRIVATE
-  GCN_GL_ES GCN_GL_ES30 GCN_DISC_ID="GFZE01"
+  GCN_GL_ES GCN_GL_ES30 FZGX_IOS_FRONTEND GCN_DISC_ID="GFZE01"
   GCN_GAME_TITLE="F-Zero GX" GCN_APP_LABEL="F-Zero GX Recomp"
   GCN_GAME_FPS=60 GCN_DEFAULT_ISO="")
 target_compile_options(ios_runtime_check PRIVATE

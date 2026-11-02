@@ -73,3 +73,30 @@ an always-run step is not evidence that compilation or packaging succeeded.
 - No device execution, gameplay, personal-save loading or physical 120 fps
   display measurement of build 2 has been verified. Earlier user boot feedback
   applies only to the first IPA.
+
+## Build 3 fixes after device feedback
+
+The user reports no vibration, horizontally squeezed UI, corrupted vehicle
+selection composites, and low apparent frame rate in build 2.
+
+- Menu/vehicle-selection batches now keep original projections and are displayed
+  at 4:3. Horizontal expansion and interpolation are limited to the existing
+  guest-frame hook's live-race classification. Race HUD correction uses the main
+  camera aspect, including the game's widescreen option. Fullscreen copy
+  composites are excluded from a second aspect correction.
+- Removed per-state full-batch bounding-box searches. Transient EFB/depth and
+  texture-copy framebuffers are pooled and reused rather than allocated each
+  frame. Copy-size transitions fall back to the native pass.
+- Default internal rendering scale is 2x, with optional 3x at startup; physical
+  drawable size is unchanged.
+- An always-visible native overlay shows output, original and interpolated
+  frame rates averaged over one second. These count completed renderer/swap
+  submissions, not physical screen scanout.
+- The guest motor state is atomically sampled on the guest-frame hook. The iOS
+  adapter prepares controller CoreHaptics on a serial queue, falling back to
+  phone/system haptics when no controller engine is provided. Startup offers a
+  vibration test. Output hardware and perceptible vibration need device testing.
+- ARM64 compile check 41386062300 passed the UIKit, CoreHaptics and renderer
+  changes. A software GLES3 test additionally checked unchanged menu projections,
+  expected race projection scaling, unscaled fullscreen composites, pooled FBO
+  identity and isolated color/depth target copies. Neither is a device test.

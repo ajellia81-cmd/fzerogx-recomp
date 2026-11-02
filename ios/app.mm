@@ -11,6 +11,7 @@
 #include "save_card.h"
 #include "render_ios.h"
 #include "rumble.h"
+#include "guest_state.h"
 #include "vr_game.h"
 #import "touch_controls.h"
 #include <atomic>
@@ -156,7 +157,7 @@ static bool metal_context(CAMetalLayer* layer, EGLDisplay* display, EGLSurface* 
 }
 - (void)testRumble { ios_rumble_test(); }
 - (void)pollInput {
-    ios_rumble_update(self.started && pad_motor(0));
+    ios_rumble_update(self.started && ios_guest::motor.load(std::memory_order_relaxed));
     if (self.started) {
         static double lastTime=0;
         static uint64_t lastNative=0,lastIntermediate=0;

@@ -56,7 +56,7 @@ set_target_properties(fzerogx_ios PROPERTIES
 target_include_directories(fzerogx_ios PRIVATE "${IOS_DIR}" "${GCN_RT}" "${GCN_GEN_DIR}"
   "${GCN_RT}/gx" "${GCN_GLAD_INCLUDE_DIR}" "${GCN_ANGLE_DIR}/include"
   "${CMAKE_SOURCE_DIR}/gcn-recomp/visionos")
-target_compile_definitions(fzerogx_ios PRIVATE GCN_GL_ES GCN_GL_ES30
+target_compile_definitions(fzerogx_ios PRIVATE GCN_GL_ES GCN_GL_ES30 FZGX_IOS_FRONTEND
   GCN_DISC_ID="GFZE01" GCN_GAME_TITLE="F-Zero GX" GCN_APP_LABEL="F-Zero GX Recomp"
   GCN_GAME_FPS=60 GCN_DEFAULT_ISO="")
 target_compile_options(fzerogx_ios PRIVATE -Wall -Wno-unused-function)
