@@ -145,3 +145,30 @@ deterministic source bug. The build wrapper now preserves that first log, record
 private resource summaries and retries only an internal compiler abort once with
 one compile job. Syntax/link errors still fail immediately. Completed objects,
 Release optimization, runtime code and gameplay timing remain unchanged.
+
+## Final package
+
+Run 41485996376 completed successfully in 16m56s from
+`43d533c5c8581d6caf6a6e47d26162c0f6d69cba`. Compile/link, unsigned packaging and
+encrypted delivery each succeeded. The initial compiler abort did not recur on
+the new runner, so the serial retry was not needed; its underlying cause remains
+unconfirmed. ARM64 runtime and original policy checks also passed in run
+41485769407.
+
+- `FZeroGX-iOS-build7-unsigned.ipa`: 14,907,677 bytes; bundle version 7.
+- SHA-256: `94a5e1ec2de14741b74798137a8f7f3be25afb98f94fabc06d1ef87156aebb27`.
+- Downloaded/decrypted ZIP CRC validation passed.
+- App and ANGLE are thin ARM64 iPhoneOS binaries, without code-signature load
+  commands. Approved icon PNGs are byte-identical to build 6.
+- The seven bundle files contain only the executable, ANGLE, app metadata and
+  icon resources. No ISO, DOL, REL, generated source, save, diagnostic capture,
+  provisioning profile or signature directory is included.
+- The effective minimum OS remains iOS 26.2 due to ANGLE.
+- The 60-Hz guest and render-only interpolation path are unchanged. Submission
+  counts do not measure physical scanout.
+- This new IPA has not been installed, launched or played on an iPhone by the
+  build agent; physical 120-fps output and Backbone hardware behavior remain
+  device-validation items.
+
+The iCloud share remains the input to later rebuilds. No durable ISO backup is
+claimed by the IPA delivery.
