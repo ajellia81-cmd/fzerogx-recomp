@@ -61,6 +61,6 @@ target_compile_definitions(fzerogx_ios PRIVATE GCN_GL_ES GCN_GL_ES30
   GCN_GAME_FPS=60 GCN_DEFAULT_ISO="")
 target_compile_options(fzerogx_ios PRIVATE -Wall -Wno-unused-function)
 target_link_libraries(fzerogx_ios PRIVATE game_recomp
-  "-framework UIKit" "-framework Foundation" "-framework QuartzCore"
+  "-framework UIKit" "-framework Foundation" "-framework QuartzCore" "-framework CoreGraphics"
   "-framework Metal" "-framework GameController" "-framework AudioToolbox"
   "-framework AVFAudio" "-framework UniformTypeIdentifiers")

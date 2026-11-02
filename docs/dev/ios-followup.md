@@ -50,3 +50,8 @@ kept outside git. This follow-up chooses import rather than embedding the save.
   catalog entries. No follow-up IPA packaging or device execution has occurred.
 - The first two compile checks exposed a generated-source include-path omission
   and missing ARC on the object-check target. Both were corrected in the passing run.
+
+Full-game build 41369088303 compiled the game and icon assets but failed at the
+final link: CGRect helpers in touch_controls.mm require explicit CoreGraphics
+linkage. The framework was added for the next build. Upload of diagnostics in
+an always-run step is not evidence that compilation or packaging succeeded.
