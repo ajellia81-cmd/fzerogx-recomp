@@ -46,3 +46,16 @@ gcn_add_game(
 if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
   include(ios/game.cmake)
 endif()
+
+option(FZGX_IOS_INPUT_PROBE "Validate iOS scene/motion inputs in the host harness" OFF)
+if(FZGX_IOS_INPUT_PROBE AND NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
+  find_package(Python3 REQUIRED COMPONENTS Interpreter)
+  execute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/ios/prepare_probe.py"
+    "${CMAKE_SOURCE_DIR}/gcn-recomp/runtime/bench_main.cpp" "${CMAKE_BINARY_DIR}/ios_probe_main.cpp"
+    COMMAND_ERROR_IS_FATAL ANY)
+  get_target_property(_sources fzerogx_bench SOURCES)
+  list(REMOVE_ITEM _sources "${CMAKE_SOURCE_DIR}/gcn-recomp/runtime/bench_main.cpp")
+  set_property(TARGET fzerogx_bench PROPERTY SOURCES "${_sources}")
+  target_sources(fzerogx_bench PRIVATE "${CMAKE_BINARY_DIR}/ios_probe_main.cpp")
+  target_include_directories(fzerogx_bench PRIVATE "${CMAKE_SOURCE_DIR}/ios")
+endif()

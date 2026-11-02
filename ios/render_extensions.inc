@@ -2,7 +2,32 @@
 // The intermediate frame uses private copies of every writable GPU target. It
 // cannot write guest RAM, increment guest frame counts, or mutate the real EFB.
 static std::atomic<uint64_t> g_ios_native_frames{0}, g_ios_intermediate_frames{0};
-void ios_set_race_view(bool race) { g_ios_wide_view=race; }
+static std::atomic<ios_scene::Mode> g_ios_scene{ios_scene::Mode::Menu};
+static std::atomic<int> g_ios_motion_reason{0};
+bool ios_prepare_scene(const Batch& b,bool liveRace) {
+    auto mode=ios_scene::classify(b,liveRace);
+    g_ios_scene.store(mode,std::memory_order_relaxed);
+    g_ios_wide_view=mode==ios_scene::Mode::World;
+    // Movie compositing and projection stay exactly as on the original 4:3
+    // GameCube display. An encoded letterbox is retained, never cropped.
+    g_ios_fixed_aspect=mode==ios_scene::Mode::Movie?4.f/3:16.f/9;
+    return g_ios_wide_view;
+}
+const char* ios_scene_name(){
+    switch(g_ios_scene.load(std::memory_order_relaxed)){
+        case ios_scene::Mode::World:return "3D 전체 화면";
+        case ios_scene::Mode::Movie:return "동영상 원본 비율";
+        default:return "메뉴 16:9";
+    }
+}
+const char* ios_motion_status(){
+    switch(g_ios_motion_reason.load(std::memory_order_relaxed)){
+        case 1:return "끄기/비대상";case 2:return "부분 프레임";
+        case 3:return "다중/미완성 프레임";case 4:return "GPU 대상 불일치";
+        case 5:return "이전 형상 대응 없음";case 6:return "GPU 복제 실패";
+        default:return "보간 활성";
+    }
+}
 void ios_frame_totals(uint64_t* native, uint64_t* intermediate) {
     *native=g_ios_native_frames.load(std::memory_order_relaxed);
     *intermediate=g_ios_intermediate_frames.load(std::memory_order_relaxed);
@@ -16,17 +41,10 @@ void ios_widen(Batch& b, int width, int height) {
     mark_offscreen_passes(b,skip);
     const size_t original=b.states.size();
     std::vector<int32_t> widened(original,-1);
-    // Use the main camera's aspect, including the game's own widescreen option.
-    // Do not infer UI shape independently from each model-preview projection.
-    float cameraAspect=4.0f/3.0f; uint32_t largest=0;
-    for(size_t i=0;i<b.cmds.size();++i) {
-        const Cmd& c=b.cmds[i];
-        if(c.type!=CmdType::Draw || skip[i])continue;
-        const auto& st=b.states[c.state];
-        if(st.proj[6]!=0 || st.proj[0]==0 || st.view_space || std::fabs(st.viewport[0])*2<600)continue;
-        const float a=std::fabs(st.proj[2]/st.proj[0]);
-        if(a>=1.2f && a<=1.9f && c.count>largest){largest=c.count;cameraAspect=a;}
-    }
+    // The game's widescreen option is anamorphic: numerical projection
+    // ratios alone do not describe the display aspect. Keep one 16:9 baseline
+    // for world and HUD so menus/models are not narrowed independently.
+    constexpr float cameraAspect=16.f/9;
     for(size_t i=0;i<b.cmds.size();++i) {
         Cmd& c=b.cmds[i];
         if(c.type!=CmdType::Draw || skip[i] || c.state>=original)continue;
@@ -41,7 +59,7 @@ void ios_widen(Batch& b, int width, int height) {
             if(st.proj[0]==0)continue;
             const float a=std::fabs(st.proj[2]/st.proj[0]);
             if(a<1.2f || a>1.9f)continue;
-            ratio=a/aspect;
+
         } else {
             // Fullscreen solid fades/backgrounds retain full coverage, but normal
             // HUD geometry uses one consistent camera-aspect correction.
@@ -96,23 +114,24 @@ bool ios_render_motion(Batch& b,bool smooth,void (*show)(void*),void* context) {
     static std::vector<GpuVertex> realVertices;
     static std::vector<uint8_t> realPacked;
     bool eligible=smooth && show;
+    int reason=eligible?0:1;
     // The first implementation deliberately excludes multi-strip XFB frames.
     // They require a separate history per completed image, not per batch.
     size_t presents=0;
     for(const auto& c:b.cmds) {
         if(c.type==CmdType::Present) ++presents;
-        if(c.type==CmdType::Present && vi_display_height() && c.copy.dst_h<vi_display_height()) eligible=false;
+        if(c.type==CmdType::Present && vi_display_height() && c.copy.dst_h<vi_display_height()) {eligible=false;reason=2;}
         if(c.type==CmdType::EfbCopy && c.copy.tex_id) {
             auto it=g_textures.find(c.copy.tex_id);
-            if(it!=g_textures.end() && (!it->second.efb || it->second.w!=c.copy.dst_w || it->second.h!=c.copy.dst_h)) eligible=false;
+            if(it!=g_textures.end() && (!it->second.efb || it->second.w!=c.copy.dst_w || it->second.h!=c.copy.dst_h)) {eligible=false;reason=4;}
         }
     }
-    eligible=eligible && presents==1;
+    if(presents!=1){eligible=false;reason=3;}
     size_t moving=0;
     if(eligible) {
         realVertices=b.verts;realPacked=b.packed;
         moving=history.midpoint(b);
-        if(!moving) { b.verts.swap(realVertices);b.packed.swap(realPacked);eligible=false; }
+        if(!moving) { b.verts.swap(realVertices);b.packed.swap(realPacked);eligible=false;reason=5; }
     }
     if(eligible) {
         // Prepare immutable textures/cache exactly once for this guest batch.
@@ -152,6 +171,7 @@ bool ios_render_motion(Batch& b,bool smooth,void (*show)(void*),void* context) {
             if(execute_batch(b,true)) { show(context);++intermediate;++g_ios_intermediate_frames;draws+=moving; }
             g_ios_transient=false;
         }
+        if(!ready)reason=6;
         g_efb_fbo=originalFbo;g_efb_color=originalColor;g_efb_depth=originalDepth;
         for(uint32_t id:targets) {
             auto it=g_textures.find(id);
@@ -167,7 +187,8 @@ bool ios_render_motion(Batch& b,bool smooth,void (*show)(void*),void* context) {
         b.verts.swap(realVertices);b.packed.swap(realPacked);
     }
     if(smooth) history.remember(b);
-    else {history.commands.clear();history.states.clear();history.vertices.clear();history.indices.clear();}
+    else history.clear();
+    g_ios_motion_reason.store(reason,std::memory_order_relaxed);
     bool presented=render_execute(b);
     g_ios_prepared=false;
     if(presented && show) { show(context); ++outputs; ++g_ios_native_frames; }

@@ -12,9 +12,9 @@ def replace(old, new):
         raise SystemExit(f"Pinned renderer changed: expected one occurrence of {old[:90]!r}")
     text = text.replace(old, new)
 
-replace('#include "gl.h"', '#include "gl.h"\n#include "motion_history.h"\n#include <cmath>')
-replace('static int g_scale = 2;', 'static int g_scale = 2;\nstatic bool g_ios_transient=false, g_ios_prepared=false, g_ios_wide_view=false;')
-replace('int vw = w, vh = w * 3 / 4;\n    if (vh > h) { vh = h; vw = h * 4 / 3; }', 'int vw=w, vh=h; if(!g_ios_wide_view){ vh=w*3/4; if(vh>h){vh=h;vw=h*4/3;} }')
+replace('#include "gl.h"', '#include "gl.h"\n#include "motion_history.h"\n#include "scene_classify.h"\n#include <cmath>')
+replace('static int g_scale = 2;', 'static int g_scale = 2;\nstatic bool g_ios_transient=false, g_ios_prepared=false, g_ios_wide_view=false;\nstatic float g_ios_fixed_aspect=16.f/9;')
+replace('int vw = w, vh = w * 3 / 4;\n    if (vh > h) { vh = h; vw = h * 4 / 3; }', 'int vw=w, vh=h; if(!g_ios_wide_view){ vh=int(w/g_ios_fixed_aspect); if(vh>h){vh=h;vw=int(h*g_ios_fixed_aspect);} }')
 replace('if (c.writeback) copy_writeback(c);', 'if (c.writeback && !g_ios_transient) copy_writeback(c);')
 replace('if (!g_pair_second) g_present_count++;', 'if (!g_pair_second && !g_ios_transient) g_present_count++;')
 replace('''        g_render_frame++;

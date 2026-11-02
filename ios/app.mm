@@ -138,14 +138,14 @@ static bool metal_context(CAMetalLayer* layer, EGLDisplay* display, EGLSurface* 
     self.fpsLabel.font = [UIFont monospacedDigitSystemFontOfSize:12 weight:UIFontWeightSemibold];
     self.fpsLabel.textColor = UIColor.whiteColor;
     self.fpsLabel.backgroundColor = [UIColor colorWithWhite:0 alpha:.65];
-    self.fpsLabel.numberOfLines = 2;
+    self.fpsLabel.numberOfLines = 3;
     self.fpsLabel.userInteractionEnabled = NO;
     self.fpsLabel.hidden = YES;
     self.fpsLabel.translatesAutoresizingMaskIntoConstraints = NO;
     [self.view addSubview:self.fpsLabel];
     [NSLayoutConstraint activateConstraints:@[[self.fpsLabel.leadingAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.leadingAnchor constant:8], [self.fpsLabel.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor constant:6]]];
     self.inputLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(pollInput)];
-    self.inputLink.preferredFrameRateRange = CAFrameRateRangeMake(60,120,120);
+    self.inputLink.preferredFrameRateRange = CAFrameRateRangeMake(120,120,120);
     [self.inputLink addToRunLoop:NSRunLoop.mainRunLoop forMode:NSRunLoopCommonModes];
 }
 - (void)viewDidLayoutSubviews {
@@ -166,7 +166,7 @@ static bool metal_context(CAMetalLayer* layer, EGLDisplay* display, EGLSurface* 
         if(now-lastTime>=1) {
             uint64_t native=0,intermediate=0;gx::ios_frame_totals(&native,&intermediate);
             double seconds=now-lastTime;
-            self.fpsLabel.text = [NSString stringWithFormat:@" 출력 %.1f | 원본 %.1f | 보간 %.1f FPS \n 진동: %@ ",(native-lastNative+intermediate-lastIntermediate)/seconds,(native-lastNative)/seconds,(intermediate-lastIntermediate)/seconds,[NSString stringWithUTF8String:ios_rumble_route()]];
+            self.fpsLabel.text = [NSString stringWithFormat:@" 출력 %.1f | 원본 %.1f | 보간 %.1f FPS \n 진동: %@ | %@ \n %@ ",(native-lastNative+intermediate-lastIntermediate)/seconds,(native-lastNative)/seconds,(intermediate-lastIntermediate)/seconds,[NSString stringWithUTF8String:ios_rumble_route()],[NSString stringWithUTF8String:gx::ios_scene_name()],[NSString stringWithUTF8String:gx::ios_motion_status()]];
             lastTime=now;lastNative=native;lastIntermediate=intermediate;
         }
     }
@@ -250,7 +250,7 @@ static bool metal_context(CAMetalLayer* layer, EGLDisplay* display, EGLSurface* 
     if (disc) fclose(disc);
     if (!valid) { self.status.text = @"미국판 GFZE01 .iso/.ciso 이미지가 필요합니다.\n파일 앱에서 이 앱의 Documents에 game.iso로 넣어도 됩니다."; return; }
     smoothMotion = self.smoothSwitch.on && self.view.window.screen.maximumFramesPerSecond >= 120;
-    self.inputLink.preferredFrameRateRange = smoothMotion ? CAFrameRateRangeMake(60,120,120) : CAFrameRateRangeMake(60,60,60);
+    self.inputLink.preferredFrameRateRange = smoothMotion ? CAFrameRateRangeMake(120,120,120) : CAFrameRateRangeMake(60,60,60);
     self.fpsLabel.hidden = NO;
     self.started = YES;
     running = true;
@@ -301,9 +301,9 @@ static bool metal_context(CAMetalLayer* layer, EGLDisplay* display, EGLSurface* 
                 gx::render_set_window_size(width,height);
                 const auto& hooks=vr::game_hooks();
                 const bool race=hooks.wants_stereo && hooks.wants_stereo(*batch);
-                gx::ios_set_race_view(race);
+                const bool world=gx::ios_prepare_scene(*batch,race);
                 gx::ios_widen(*batch,width,height);
-                gx::ios_render_motion(*batch,smoothMotion.load() && race,show_frame,&presentation);
+                gx::ios_render_motion(*batch,smoothMotion.load() && world,show_frame,&presentation);
                 if (presentation.failed) { fprintf(stderr,"iOS: surface presentation failed\n"); break; }
             }
             threads_request_quit();
