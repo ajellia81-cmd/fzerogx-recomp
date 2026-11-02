@@ -151,6 +151,10 @@ void ios_configure_native(const Batch& b,int width,int height){
 
 bool ios_render_motion(Batch& b,bool smooth,void (*show)(void*),void* context) {
     static ios_motion::History history;
+    // Reset at actual guest mode changes, not a fluctuating geometry heuristic.
+    static uint64_t previousScene=UINT64_MAX;
+    uint64_t scene=(uint64_t(ios_guest::modules.load(std::memory_order_relaxed))<<32)|uint32_t(ios_guest::phase.load(std::memory_order_relaxed));
+    if(scene!=previousScene){history.clear();previousScene=scene;}
     static uint64_t ticks=0,intermediate=0,outputs=0,draws=0;
     static auto since=std::chrono::steady_clock::now();
     static std::vector<GpuVertex> realVertices;
