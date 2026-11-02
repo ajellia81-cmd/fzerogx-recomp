@@ -40,3 +40,23 @@ The on-screen rate counts submitted native and intermediate renders. It also
 shows the selected scene policy and the latest interpolation exclusion reason.
 Physical screen FPS and appearance still require device validation. The game
 simulation and physics remain at their original 60 Hz.
+
+## Completed build
+
+- Source commit: `79b29c02bb165542cdda8543bfb25654512f9312`.
+- Runtime ARM64 compile check: Actions run `41390042949`, success.
+- Complete private game build: Actions run `41390148671`, success (12m 15s).
+- Headless title/attract route: 5,867 batches; 4,672 classified world and 1,195
+  menu. Of the world batches, 4,631 had moving matched geometry in a complete
+  single-present frame (99.1%). No partial or multi-present world batches.
+- No movie was encountered on this route. Movie detection was checked with a
+  synthetic three-plane fixture only; original-video appearance remains unverified.
+- Software GLES3 checks passed for projection/HUD aspect correction, copy-composite
+  preservation, framebuffer pooling and isolated color/depth copies. These were
+  Linux software-renderer checks, not Metal or device execution.
+- IPA: `FZeroGX-iOS-build4-unsigned.ipa`, 14,902,214 bytes, bundle version 4.
+- IPA SHA256: `682058ae078430cee5284e114401604553298b82ce4d71454d6ec2d4b675962b`.
+- Independent archive/Mach-O audit: arm64 iPhoneOS, unsigned, app icon registered,
+  no disc images, saves, raw/generated source or provisioning/signature payloads.
+- Build 4 has not been launched on an iPhone here. App execution, gameplay,
+  scene-by-scene appearance, physical haptics and actual 120fps remain unverified.
