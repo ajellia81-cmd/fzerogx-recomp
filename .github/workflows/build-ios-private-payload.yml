@@ -58,6 +58,23 @@ jobs:
           mkdir -p build-probe-race
           cd build-probe-race
           FZGX_PRIVATE_CAPTURE=1 GCN_INPUT="500:A:5,1300:A:5,1340:A:5,1380:A:5,1440:START:5,1500:A:5,1580:LEFT:5,1620:A:5,1800:A:5,2000:START:5,2200:A:5,2400:A:5,2600:A:5,2800:A:5,3000:A:5,3200:A:5,3400:A:5,3700:A:5,3800:A:6000" ../build-host/fzerogx_bench --seconds=60 --warmup=0 "$GITHUB_WORKSPACE/rom/game.iso" > ../build-private-logs/race-probe.txt 2>&1
+      - name: Inspect story movie presentation inputs (headless)
+        shell: bash
+        run: |
+          mkdir -p build-probe-story
+          cd build-probe-story
+          FZGX_PRIVATE_CAPTURE=1 GCN_INPUT="500:A:5,1300:A:5,1340:A:5,1380:A:5,1440:START:5,1500:A:5,1580:LEFT:5,1620:A:5,1800:A:5,2000:START:5,2200:DOWN:5,2400:RIGHT:5,2600:A:5,2800:A:5" ../build-host/fzerogx_bench --seconds=60 --warmup=0 "$GITHUB_WORKSPACE/rom/game.iso" > ../build-private-logs/story-probe.txt 2>&1
+      - name: Encrypt renderer review before device compilation
+        run: |
+          python3 ios/package_private_diagnostics.py
+          openssl cms -encrypt -binary -aes256 -in private-logs.tar.gz -out FZeroGX-renderer-review.enc -outform DER ios/delivery-public.pem
+      - name: Upload encrypted renderer review only
+        uses: actions/upload-artifact@v4
+        with:
+          name: FZeroGX-encrypted-renderer-review
+          path: FZeroGX-renderer-review.enc
+          if-no-files-found: error
+          retention-days: 1
       - name: Cache public ANGLE dependency only
         if: ${{ !inputs.probe_only }}
         id: angle-cache
@@ -98,8 +115,7 @@ jobs:
         shell: bash
         run: |
           # Disc inputs, RELs and generated game C are deliberately excluded.
-          find build-probe build-probe-race -name "*.capture" -print > private-capture-list.txt
-          tar -czf private-logs.tar.gz build-private-logs/*.txt -T private-capture-list.txt
+          python3 ios/package_private_diagnostics.py
           openssl cms -encrypt -binary -aes256 -in private-logs.tar.gz -out FZeroGX-build-logs.enc -outform DER ios/delivery-public.pem
       - name: Upload encrypted delivery only
         if: always()
