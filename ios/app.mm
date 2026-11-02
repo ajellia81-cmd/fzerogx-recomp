@@ -10,6 +10,8 @@
 #include "controller.h"
 #include "save_card.h"
 #include "render_ios.h"
+#include "rumble.h"
+#include "vr_game.h"
 #import "touch_controls.h"
 #include <atomic>
 #include <thread>
@@ -72,6 +74,8 @@ static bool metal_context(CAMetalLayer* layer, EGLDisplay* display, EGLSurface* 
 @property(nonatomic) BOOL started;
 @property(nonatomic,strong) FZTouchControls* touchControls;
 @property(nonatomic,strong) UISwitch* smoothSwitch;
+@property(nonatomic,strong) UILabel* fpsLabel;
+@property(nonatomic,strong) UISegmentedControl* resolution;
 @end
 
 @implementation GameController
@@ -111,9 +115,14 @@ static bool metal_context(CAMetalLayer* layer, EGLDisplay* display, EGLSurface* 
     UIStackView* smoothRow = [[UIStackView alloc] initWithArrangedSubviews:@[smoothLabel,self.smoothSwitch]];
     smoothRow.axis = UILayoutConstraintAxisHorizontal;
     smoothRow.spacing = 16;
-    UIStackView* stack = [[UIStackView alloc] initWithArrangedSubviews:@[self.status,self.importButton,self.saveButton,smoothRow,self.start]];
+    self.resolution = [[UISegmentedControl alloc] initWithItems:@[@"내부 해상도 2×",@"내부 해상도 3×"]];
+    self.resolution.selectedSegmentIndex = 0;
+    UIButton* rumbleTest = [UIButton buttonWithType:UIButtonTypeSystem];
+    [rumbleTest setTitle:@"진동 테스트" forState:UIControlStateNormal];
+    [rumbleTest addTarget:self action:@selector(testRumble) forControlEvents:UIControlEventTouchUpInside];
+    UIStackView* stack = [[UIStackView alloc] initWithArrangedSubviews:@[self.status,self.importButton,self.saveButton,smoothRow,self.resolution,rumbleTest,self.start]];
     stack.axis = UILayoutConstraintAxisVertical;
-    stack.spacing = 18;
+    stack.spacing = 8;
     stack.translatesAutoresizingMaskIntoConstraints = NO;
     stack.tag = 100;
     [self.view addSubview:stack];
@@ -124,6 +133,16 @@ static bool metal_context(CAMetalLayer* layer, EGLDisplay* display, EGLSurface* 
     self.touchControls.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     self.touchControls.hidden = YES;
     [self.view addSubview:self.touchControls];
+    self.fpsLabel = [[UILabel alloc] init];
+    self.fpsLabel.font = [UIFont monospacedDigitSystemFontOfSize:12 weight:UIFontWeightSemibold];
+    self.fpsLabel.textColor = UIColor.whiteColor;
+    self.fpsLabel.backgroundColor = [UIColor colorWithWhite:0 alpha:.65];
+    self.fpsLabel.numberOfLines = 2;
+    self.fpsLabel.userInteractionEnabled = NO;
+    self.fpsLabel.hidden = YES;
+    self.fpsLabel.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.view addSubview:self.fpsLabel];
+    [NSLayoutConstraint activateConstraints:@[[self.fpsLabel.leadingAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.leadingAnchor constant:8], [self.fpsLabel.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor constant:6]]];
     self.inputLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(pollInput)];
     self.inputLink.preferredFrameRateRange = CAFrameRateRangeMake(60,120,120);
     [self.inputLink addToRunLoop:NSRunLoop.mainRunLoop forMode:NSRunLoopCommonModes];
@@ -135,7 +154,21 @@ static bool metal_context(CAMetalLayer* layer, EGLDisplay* display, EGLSurface* 
     layer.contentsScale = scale;
     layer.drawableSize = CGSizeMake(self.view.bounds.size.width*scale,self.view.bounds.size.height*scale);
 }
+- (void)testRumble { ios_rumble_test(); }
 - (void)pollInput {
+    ios_rumble_update(self.started && pad_motor(0));
+    if (self.started) {
+        static double lastTime=0;
+        static uint64_t lastNative=0,lastIntermediate=0;
+        const double now=CACurrentMediaTime();
+        if(lastTime==0) { lastTime=now;gx::ios_frame_totals(&lastNative,&lastIntermediate); }
+        if(now-lastTime>=1) {
+            uint64_t native=0,intermediate=0;gx::ios_frame_totals(&native,&intermediate);
+            double seconds=now-lastTime;
+            self.fpsLabel.text = [NSString stringWithFormat:@" 출력 %.1f | 원본 %.1f | 보간 %.1f FPS \n 진동: %@ ",(native-lastNative+intermediate-lastIntermediate)/seconds,(native-lastNative)/seconds,(intermediate-lastIntermediate)/seconds,[NSString stringWithUTF8String:ios_rumble_route()]];
+            lastTime=now;lastNative=native;lastIntermediate=intermediate;
+        }
+    }
     IOSControllerState hardware = ios_controller_snapshot();
     BOOL hidden = !self.started || hardware.connected;
     if (self.touchControls.hidden != hidden) {
@@ -217,6 +250,7 @@ static bool metal_context(CAMetalLayer* layer, EGLDisplay* display, EGLSurface* 
     if (!valid) { self.status.text = @"미국판 GFZE01 .iso/.ciso 이미지가 필요합니다.\n파일 앱에서 이 앱의 Documents에 game.iso로 넣어도 됩니다."; return; }
     smoothMotion = self.smoothSwitch.on && self.view.window.screen.maximumFramesPerSecond >= 120;
     self.inputLink.preferredFrameRateRange = smoothMotion ? CAFrameRateRangeMake(60,120,120) : CAFrameRateRangeMake(60,60,60);
+    self.fpsLabel.hidden = NO;
     self.started = YES;
     running = true;
     UIApplication.sharedApplication.idleTimerDisabled = YES;
@@ -227,8 +261,9 @@ static bool metal_context(CAMetalLayer* layer, EGLDisplay* display, EGLSurface* 
     CAMetalLayer* layer = (CAMetalLayer*)self.view.layer;
     std::string path(image.fileSystemRepresentation);
     std::string dir(documents().fileSystemRepresentation);
+    const int internalScale = self.resolution.selectedSegmentIndex==1 ? 3 : 2;
     __weak GameController* weakSelf = self;
-    std::thread([layer,path,dir,weakSelf] {
+    std::thread([layer,path,dir,weakSelf,internalScale] {
         @autoreleasepool {
             freopen((dir+"/log.txt").c_str(),"w",stderr);
             setvbuf(stderr,nullptr,_IONBF,0);
@@ -249,7 +284,7 @@ static bool metal_context(CAMetalLayer* layer, EGLDisplay* display, EGLSurface* 
             save=dir; cache=dir+"/shaders.bin";
             g_save_dir=save.c_str();
             gx::render_set_shader_cache(cache.c_str());
-            gx::render_init(3);
+            gx::render_init(internalScale);
             fprintf(stderr,"iOS: GL %s / %s\n",glGetString(GL_VERSION),glGetString(GL_RENDERER));
             if (!audio_open()) fprintf(stderr,"iOS: audio unavailable\n");
             uint32_t entry=boot_load(path.c_str());
@@ -263,8 +298,11 @@ static bool metal_context(CAMetalLayer* layer, EGLDisplay* display, EGLSurface* 
                 query(display,surface,EGL_WIDTH,&width); query(display,surface,EGL_HEIGHT,&height);
                 if (width<=0 || height<=0) continue;
                 gx::render_set_window_size(width,height);
+                const auto& hooks=vr::game_hooks();
+                const bool race=hooks.wants_stereo && hooks.wants_stereo(*batch);
+                gx::ios_set_race_view(race);
                 gx::ios_widen(*batch,width,height);
-                gx::ios_render_motion(*batch,smoothMotion.load(),show_frame,&presentation);
+                gx::ios_render_motion(*batch,smoothMotion.load() && race,show_frame,&presentation);
                 if (presentation.failed) { fprintf(stderr,"iOS: surface presentation failed\n"); break; }
             }
             threads_request_quit();

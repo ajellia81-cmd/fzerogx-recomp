@@ -24,7 +24,7 @@ list(APPEND IOS_SOURCES
   "${CMAKE_SOURCE_DIR}/gcn-recomp/visionos/audio_coreaudio.mm"
   "${CMAKE_SOURCE_DIR}/src/race.cpp" "${CMAKE_SOURCE_DIR}/src/vr_fzerogx.cpp"
   "${CMAKE_SOURCE_DIR}/src/motion.cpp" "${CMAKE_BINARY_DIR}/ios_shader_keys.cpp"
-  "${IOS_DIR}/touch_controls.mm" "${IOS_DIR}/controller.mm" "${IOS_DIR}/app.mm")
+  "${IOS_DIR}/rumble.mm" "${IOS_DIR}/touch_controls.mm" "${IOS_DIR}/controller.mm" "${IOS_DIR}/app.mm")
 add_custom_command(OUTPUT "${CMAKE_BINARY_DIR}/ios_shader_keys.cpp"
   COMMAND ${CMAKE_COMMAND} "-DIN=${CMAKE_SOURCE_DIR}/src/shader_keys.bin"
     "-DOUT=${CMAKE_BINARY_DIR}/ios_shader_keys.cpp"
@@ -61,6 +61,6 @@ target_compile_definitions(fzerogx_ios PRIVATE GCN_GL_ES GCN_GL_ES30
   GCN_GAME_FPS=60 GCN_DEFAULT_ISO="")
 target_compile_options(fzerogx_ios PRIVATE -Wall -Wno-unused-function)
 target_link_libraries(fzerogx_ios PRIVATE game_recomp
-  "-framework UIKit" "-framework Foundation" "-framework QuartzCore" "-framework CoreGraphics"
+  "-framework UIKit" "-framework Foundation" "-framework QuartzCore" "-framework CoreGraphics" "-framework CoreHaptics"
   "-framework Metal" "-framework GameController" "-framework AudioToolbox"
   "-framework AVFAudio" "-framework UniformTypeIdentifiers")
