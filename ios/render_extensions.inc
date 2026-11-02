@@ -46,12 +46,25 @@ void ios_widen(Batch& b,int width,int height){
                        mode==ios_scene::Mode::Movie?g_ios_fixed_aspect:16.f/9;
     note_fullscreen_copies(b);std::vector<uint8_t> skip;
     mark_offscreen_passes(b,skip);
+    std::vector<uint8_t> modal(b.cmds.size());
+    if(mode==ios_scene::Mode::World){
+        // New textures have not been uploaded yet. Prefer this batch's metadata
+        // over a GPU-cache entry with a reused id; otherwise use the live cache.
+        std::unordered_map<uint32_t,uint64_t> incoming;
+        for(const auto& t:b.new_textures)incoming[t->id]=t->hash;
+        modal=ios_ui::modal_draws(b,skip,[&](uint32_t id){
+            auto it=incoming.find(id);return it==incoming.end()?render_texture_hash(id):it->second;
+        });
+    }
     const size_t original=b.states.size();
-    std::vector<int32_t> corrected(original,-1);
+    // One original state can serve both HUD and a modal group. Cache each
+    // canvas separately instead of letting the first draw choose for both.
+    std::vector<std::array<int32_t,2>> corrected(original,{-1,-1});
     for(size_t i=0;i<b.cmds.size();++i){
         auto& c=b.cmds[i];
         if(c.type!=CmdType::Draw || skip[i] || c.state>=original)continue;
         PixelState st=b.states[c.state];
+        unsigned canvas=modal[i]?1:0;
         if(std::fabs(st.viewport[0])*2<600)continue;
         float ratio=1;
         if(st.proj[6]!=0){
@@ -59,13 +72,13 @@ void ios_widen(Batch& b,int width,int height){
             float box[4];bool bounds=ios_scene::draw_bounds(b,c,st,box);
             if(ios_scene::movie_state(st))continue;
             // Solid full-frame fades must cover the whole drawable. Textured
-            // overlays (including logos) use the same 16:9 UI canvas as text.
+            // overlays use the HUD or explicitly identified modal canvas.
             bool textured=false;for(auto id:st.tex_id)textured|=id!=0;
             if(!textured && bounds && box[0]<=-.99f && box[1]<=-.99f && box[2]>=.99f && box[3]>=.99f)continue;
-            if(corrected[c.state]>=0){c.state=uint32_t(corrected[c.state]);continue;}
+            if(corrected[c.state][canvas]>=0){c.state=uint32_t(corrected[c.state][canvas]);continue;}
             // The game's widescreen option already compensates 2D geometry.
             // Inferring its canvas from the ortho matrix double-corrected it.
-            ratio=(16.f/9)/aspect;
+            ratio=(canvas?4.f/3:16.f/9)/aspect;
             if(std::fabs(ratio-1.f)<.000001f)continue;
             // Move the UI's clipping rectangle with its projection. Otherwise
             // the old scissor cuts corrected portraits/panels into black strips.
@@ -77,14 +90,14 @@ void ios_widen(Batch& b,int width,int height){
             st.bp[0x21]=(st.bp[0x21]&~(2047u<<12))|(unsigned(right)<<12);
         }else{
             if(mode==ios_scene::Mode::Movie)continue;
-            if(corrected[c.state]>=0){c.state=uint32_t(corrected[c.state]);continue;}
+            if(corrected[c.state][canvas]>=0){c.state=uint32_t(corrected[c.state][canvas]);continue;}
             if(st.proj[0]==0)continue;
             float cameraAspect=std::fabs(st.proj[2]/st.proj[0]);
             if(cameraAspect<1.1f || cameraAspect>2.5f)continue;
             ratio=cameraAspect/aspect;
         }
         st.proj[0]*=ratio;st.proj[1]*=ratio;
-        corrected[c.state]=int32_t(b.states.size());c.state=uint32_t(b.states.size());b.states.push_back(st);
+        corrected[c.state][canvas]=int32_t(b.states.size());c.state=uint32_t(b.states.size());b.states.push_back(st);
     }
 }
 

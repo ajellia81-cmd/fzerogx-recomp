@@ -99,3 +99,37 @@ Five other captured scenes (machine selection, course selection, machine
 settings, live race/HUD and movie) remain pixel-identical to build 6. Original
 ROM-free fixtures check both the paired-frame positive case and the negative
 single/offscreen-strip case. This is not device or physical-FPS validation.
+
+## Logo and modal-group correction
+
+Diagnostic-only run 41479820392 completed successfully from `3f07c87`; its
+encrypted artifact supplied 68 private renderer snapshots. It did not produce
+an IPA. Early Title snapshots contain only orthographic startup art, so those
+frames now use the original 4:3 canvas. Actual perspective intro frames remain
+World. At 1434x660 software replay, the AV mark's largest white component changed
+from 388x290 to 290x290 pixels, removing the observed horizontal expansion.
+
+Pause snapshots retain the live racing HUD. A captured menu/dialog run consists
+of shadow glyphs, a shared panel material, foreground glyphs and the menu-title
+atlas. Only that contiguous, material-confirmed run receives the 4:3 correction.
+Unknown artwork, HUD draws, EFB-copy sampling and offscreen passes break or
+exclude the run. New texture metadata takes precedence over cached metadata if
+an id is reused. Projection/scissor clones are cached independently for HUD and
+modal canvases, including when the guest reuses one PixelState across both.
+No menu FBO isolation or black-mask filtering is reintroduced.
+
+The scripted two-down route captured the Settings confirmation, rather than the
+GP Quit string. This verifies the shared modal composition with HUD still
+visible; it is not an independent pixel capture of every after-race/GP dialog.
+The same material-group policy handles their common panel/title/glyph path.
+Caption and full menu policies are unchanged. Pure Title memory-card notices
+also retain their flat canvas rather than inheriting a nonexistent 3D camera.
+
+Original fixtures pass for logo-vs-camera selection; shadow/panel/text/title
+grouping; unknown-material and offscreen rejection; shared-state cache separation;
+paired menu frames despite a stale live-race hint; and Movie priority. Six actual
+captured scenes (machine, course, machine settings, live HUD, movie and 3D intro)
+remain pixel-identical to build 6. In pause/confirmation captures, portrait,
+timer and minimap/speed regions outside the popup remain pixel-identical.
+All 16 newly replayed snapshots reported GL error zero. These are software GLES
+checks, not Metal/device startup, gameplay or physical 120-fps measurements.

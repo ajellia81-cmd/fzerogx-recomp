@@ -32,5 +32,7 @@ jobs:
             -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO
       - name: Compile runtime, renderer, audio and controller adapter
         run: cmake --build build-ios-check --config Release --target ios_runtime_check --parallel 3
+      - name: Check original renderer aspect regression fixtures (no game data)
+        run: python3 ios/tests/check_policy.py
       # No build-directory upload: a later private game build must never leak
       # generated guest code by adding a broad artifact pattern here.

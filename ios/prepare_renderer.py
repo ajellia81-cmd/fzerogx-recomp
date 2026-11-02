@@ -13,7 +13,7 @@ def replace(old, new):
         raise SystemExit(f"Pinned renderer changed: expected one occurrence of {old[:90]!r}")
     text = text.replace(old, new)
 
-replace('#include "gl.h"', '#include "gl.h"\n#include "motion_history.h"\n#include "scene_classify.h"\n#include <cmath>')
+replace('#include "gl.h"', '#include "gl.h"\n#include "motion_history.h"\n#include "scene_classify.h"\n#include "ui_policy.h"\n#include <cmath>')
 replace('static int g_scale = 2;', 'static int g_scale = 2;\nstatic bool g_ios_transient=false, g_ios_prepared=false, g_ios_wide_view=false;\nstatic float g_ios_fixed_aspect=16.f/9;\nstatic float g_ios_scale_x=1, g_ios_scale_y=1;\nstatic int ios_px_x(float v){return int(std::lround(v*g_ios_scale_x));}\nstatic int ios_px_y(float v){return int(std::lround(v*g_ios_scale_y));}')
 replace('int vw = w, vh = w * 3 / 4;\n    if (vh > h) { vh = h; vw = h * 4 / 3; }', 'int vw=w, vh=h; if(!g_ios_wide_view){ vh=int(w/g_ios_fixed_aspect); if(vh>h){vh=h;vw=int(h*g_ios_fixed_aspect);} }')
 replace('if (c.writeback) copy_writeback(c);', 'if (c.writeback && !g_ios_transient) copy_writeback(c);')

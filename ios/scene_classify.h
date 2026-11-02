@@ -62,7 +62,7 @@ inline bool black_side_mask(const gx::Batch& b,const gx::Cmd& c,const gx::PixelS
     return true;
 }
 inline Mode classify(const gx::Batch& b,bool liveRace=false,unsigned modules=0,int phase=-1){
-    bool world=false,movie=false,menu44=false,menu60=false;
+    bool world=false,movie=false,menu44=false,menu60=false,perspective=false;
     size_t passStart=0;
     std::vector<uint8_t> offscreen(b.cmds.size());
     for(size_t i=0;i<b.cmds.size();++i)if(b.cmds[i].type==gx::CmdType::EfbCopy){
@@ -88,6 +88,7 @@ inline Mode classify(const gx::Batch& b,bool liveRace=false,unsigned modules=0,i
         const auto& c=b.cmds[i];
         if(c.type!=gx::CmdType::Draw || offscreen[i] || c.state>=b.states.size())continue;
         const auto& s=b.states[c.state];
+        perspective|=s.proj[6]==0;
         movie|=movie_state(s);
         // Name entry and chapter selection share the menu frame, even while
         // Title/Story is linked and the race phase still describes the last race.
@@ -120,14 +121,15 @@ inline Mode classify(const gx::Batch& b,bool liveRace=false,unsigned modules=0,i
     }
     if(movie || (modules & ios_guest::Movie))return Mode::Movie;
     if((modules & (ios_guest::Title|ios_guest::Story)) && menu44 && menu60)return Mode::Menu;
+    // Startup logos are orthographic-only Title frames. Linking Title does not
+    // make those images a 3D world; the actual intro camera still has perspective.
+    if((modules & ios_guest::Title) && !(modules & (ios_guest::Selection|ios_guest::Option)) && !perspective)return Mode::Flat;
     if(liveRace)return Mode::World;
     if(modules & (ios_guest::Selection|ios_guest::Option))return Mode::Menu;
     if(modules & (ios_guest::Title|ios_guest::Replay))return Mode::World;
     if(phase==37 || phase==38)return Mode::Menu;
     if(phase>=39 && phase<=43)return Mode::World;
     if(world)return Mode::World;
-    bool perspective=false;
-    for(const auto& c:b.cmds)if(c.type==gx::CmdType::Draw && c.state<b.states.size() && b.states[c.state].proj[6]==0)perspective=true;
     return perspective?Mode::Menu:Mode::Flat;
 }
 }
