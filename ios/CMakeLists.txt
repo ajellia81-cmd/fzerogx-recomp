@@ -29,7 +29,7 @@ add_library(ios_runtime_check OBJECT ${RUNTIME} "${CMAKE_CURRENT_BINARY_DIR}/ren
 set_target_properties(ios_runtime_check PROPERTIES
   C_STANDARD 11 CXX_STANDARD 20 CXX_STANDARD_REQUIRED YES)
 target_include_directories(ios_runtime_check PRIVATE
-  "${CMAKE_CURRENT_LIST_DIR}" "${RT}" "${RT}/gx/glad_es/include")
+  "${CMAKE_CURRENT_LIST_DIR}" "${RT}" "${RT}/gx" "${RT}/gx/glad_es/include")
 target_compile_definitions(ios_runtime_check PRIVATE
   GCN_GL_ES GCN_GL_ES30 GCN_DISC_ID="GFZE01"
   GCN_GAME_TITLE="F-Zero GX" GCN_APP_LABEL="F-Zero GX Recomp"

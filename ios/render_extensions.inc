@@ -149,7 +149,7 @@ bool ios_render_motion(Batch& b,bool smooth,void (*show)(void*),void* context) {
         gl_state_invalidate();++g_uniform_gen;
         b.verts.swap(realVertices);b.packed.swap(realPacked);
     }
-    history.remember(b);
+    if(smooth) history.remember(b);
     bool presented=render_execute(b);
     g_ios_prepared=false;
     if(presented && show) { show(context); ++outputs; }

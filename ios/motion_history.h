@@ -17,8 +17,7 @@ struct History {
     // keep the current tick. Never guess an object's identity from its draw index.
     size_t midpoint(gx::Batch& b) const {
         size_t changed = 0;
-        if (commands.size() != b.cmds.size()) return 0;
-        for (size_t i = 0; i < b.cmds.size(); ++i) {
+        for (size_t i = 0; i < b.cmds.size() && i < commands.size(); ++i) {
             const auto& a = commands[i]; const auto& c = b.cmds[i];
             if (a.type != gx::CmdType::Draw || c.type != a.type || c.vcount != a.vcount
                 || c.count != a.count || c.prim != a.prim || !c.vcount
