@@ -45,3 +45,25 @@ verify Metal, actual game appearance, physical haptics or sustained 120fps.
 
 The complete macOS Actions game build and iPhone execution are separate gates.
 Every reported visual case still needs comparison on the new device build.
+
+## Completed artifact and limits
+
+- Complete build source: `4bc085e3c8e8c9c09493002774d6eacdb54a503c`.
+- Final full game build: Actions run `41401217861`, success (16m 17s).
+- Independent ARM64 runtime compilation: run `41401119044`, success.
+- Title route: 4,688 batches, 3,920 complete-frame moving geometry matches.
+- Selection-to-GP route: 6,959 batches, 5,875 complete-frame moving geometry
+  matches, including menu geometry now independent of fullscreen eligibility.
+- Neither route encountered partial/multi-present frames or a prerendered movie.
+- The solid-black side-mask candidate count was zero on these routes. This does
+  not support solid mask geometry as the cause of the reported strips; the main
+  fix is isolation of menu preview drawing and clears from the visible EFB.
+  Actual game pixels and device appearance have not been verified here.
+- `FZeroGX-iOS-build5-unsigned.ipa`: 14,904,552 bytes, bundle version 5.
+- SHA256: `c6e717cfb9123c4756bac7e314947d0bb58e83a774a9d71c35f69ebc311327ba`.
+- Independent ZIP/Mach-O audit passed: arm64 iPhoneOS, signatures/provisioning
+  absent, icon registered, no ISO/CISO/DOL/REL/save or generated source payloads.
+- Build 5 app launch, gameplay, visual fixes, physical haptics and sustained
+  120fps have not been tested on an iPhone. Build 4's user screenshot showed
+  120 render submissions, not a physical display measurement of this build.
+
