@@ -8,20 +8,25 @@ if(NOT EXISTS "${GCN_ANGLE_DIR}/libANGLE-shared.dylib")
 endif()
 # Generate only the iOS variant; upstream desktop/VR behavior is preserved.
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
+execute_process(COMMAND "${Python3_EXECUTABLE}" "${IOS_DIR}/prepare_runtime.py"
+  "${CMAKE_SOURCE_DIR}/gcn-recomp" "${CMAKE_BINARY_DIR}" COMMAND_ERROR_IS_FATAL ANY)
 execute_process(COMMAND "${Python3_EXECUTABLE}" "${IOS_DIR}/prepare_renderer.py"
   "${GCN_RT}/gx/render_gl.cpp" "${CMAKE_BINARY_DIR}/render_ios.cpp"
   COMMAND_ERROR_IS_FATAL ANY)
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
-  "${IOS_DIR}/prepare_renderer.py" "${IOS_DIR}/render_extensions.inc")
+  "${IOS_DIR}/prepare_renderer.py" "${IOS_DIR}/render_extensions.inc"
+  "${IOS_DIR}/prepare_runtime.py")
 set(IOS_CORE ${GCN_CORE_SOURCES})
 list(REMOVE_ITEM IOS_CORE "${GCN_RT}/audio_stub.cpp")
+list(REMOVE_ITEM IOS_CORE "${GCN_RT}/cpu.cpp" "${GCN_RT}/threads.cpp")
+list(APPEND IOS_CORE "${CMAKE_BINARY_DIR}/cpu_ios.cpp" "${CMAKE_BINARY_DIR}/threads_ios.cpp")
 set(IOS_RENDER_SOURCES ${GCN_RENDER_SOURCES})
 list(REMOVE_ITEM IOS_RENDER_SOURCES "${GCN_RT}/gx/render_gl.cpp")
 set(IOS_SOURCES ${IOS_CORE} ${GCN_AUDIO_SOURCES} ${IOS_RENDER_SOURCES}
   "${CMAKE_BINARY_DIR}/render_ios.cpp" ${GCN_GLAD_SOURCE})
 list(APPEND IOS_SOURCES
   "${CMAKE_SOURCE_DIR}/gcn-recomp/visionos/angle.mm"
-  "${CMAKE_SOURCE_DIR}/gcn-recomp/visionos/audio_coreaudio.mm"
+  "${CMAKE_BINARY_DIR}/audio_ios.mm"
   "${CMAKE_SOURCE_DIR}/src/race.cpp" "${CMAKE_SOURCE_DIR}/src/vr_fzerogx.cpp"
   "${CMAKE_SOURCE_DIR}/src/motion.cpp" "${CMAKE_BINARY_DIR}/ios_shader_keys.cpp"
   "${IOS_DIR}/rumble.mm" "${IOS_DIR}/touch_controls.mm" "${IOS_DIR}/controller.mm" "${IOS_DIR}/app.mm")

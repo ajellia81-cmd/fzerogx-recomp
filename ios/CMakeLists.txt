@@ -16,12 +16,16 @@ list(REMOVE_ITEM RUNTIME
   "${RT}/record.cpp" "${RT}/gx/render_stub.cpp")
 list(REMOVE_ITEM RUNTIME "${RT}/gx/render_gl.cpp")
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
+execute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_LIST_DIR}/prepare_runtime.py"
+  "${CMAKE_CURRENT_LIST_DIR}/../gcn-recomp" "${CMAKE_CURRENT_BINARY_DIR}" COMMAND_ERROR_IS_FATAL ANY)
+list(REMOVE_ITEM RUNTIME "${RT}/cpu.cpp" "${RT}/threads.cpp")
+list(APPEND RUNTIME "${CMAKE_CURRENT_BINARY_DIR}/cpu_ios.cpp" "${CMAKE_CURRENT_BINARY_DIR}/threads_ios.cpp")
 execute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_LIST_DIR}/prepare_renderer.py"
   "${RT}/gx/render_gl.cpp" "${CMAKE_CURRENT_BINARY_DIR}/render_ios.cpp"
   COMMAND_ERROR_IS_FATAL ANY)
 add_library(ios_runtime_check OBJECT ${RUNTIME} "${CMAKE_CURRENT_BINARY_DIR}/render_ios.cpp"
   "${RT}/gx/glad_es/src/gles2.c"
-  "${CMAKE_CURRENT_LIST_DIR}/../gcn-recomp/visionos/audio_coreaudio.mm"
+  "${CMAKE_CURRENT_BINARY_DIR}/audio_ios.mm"
   "${CMAKE_CURRENT_LIST_DIR}/../src/race.cpp"
   "${CMAKE_CURRENT_LIST_DIR}/../src/vr_fzerogx.cpp"
   "${CMAKE_CURRENT_LIST_DIR}/../src/motion.cpp"

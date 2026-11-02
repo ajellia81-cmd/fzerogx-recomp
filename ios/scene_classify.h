@@ -86,7 +86,7 @@ inline Mode classify(const gx::Batch& b,bool liveRace=false,unsigned modules=0,i
     }
     for(size_t i=0;i<b.cmds.size();++i){
         const auto& c=b.cmds[i];
-        if(c.type!=gx::CmdType::Draw || offscreen[i] || c.state>=b.states.size())continue;
+        if(c.type!=gx::CmdType::Draw || !c.count || !c.vcount || offscreen[i] || c.state>=b.states.size())continue;
         const auto& s=b.states[c.state];
         perspective|=s.proj[6]==0;
         movie|=movie_state(s);

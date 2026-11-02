@@ -12,6 +12,7 @@
 #include "render_ios.h"
 #include "rumble.h"
 #include "guest_state.h"
+#include "lifecycle.h"
 #include "vr_game.h"
 #import "touch_controls.h"
 #include <atomic>
@@ -20,10 +21,14 @@
 
 uint32_t boot_load(const char*);
 bool audio_open();
+void ios_audio_suspend();
+void ios_audio_resume();
 static std::atomic<bool> running{false};
 static std::atomic<bool> smoothMotion{true};
+static uint64_t fpsEpoch=0;
 struct IOSPresentContext { EGLDisplay display; EGLSurface surface; PFNEGLSWAPBUFFERSPROC swap; bool failed=false; };
 static void show_frame(void* opaque) {
+    if(ios_lifecycle::gate().paused())return;
     auto& p=*static_cast<IOSPresentContext*>(opaque);
     glBindFramebuffer(GL_FRAMEBUFFER,0);
     if (!p.swap(p.display,p.surface)) { p.failed=true; running=false; }
@@ -73,10 +78,25 @@ static bool metal_context(CAMetalLayer* layer, EGLDisplay* display, EGLSurface* 
 @property(nonatomic,strong) UIButton* saveButton;
 @property(nonatomic,strong) CADisplayLink* inputLink;
 @property(nonatomic) BOOL started;
+@property(nonatomic) BOOL autoStartChecked;
 @property(nonatomic,strong) FZTouchControls* touchControls;
-@property(nonatomic,strong) UISwitch* smoothSwitch;
+@property(nonatomic) BOOL smoothEnabled;
+@property(nonatomic) BOOL fpsEnabled;
+@property(nonatomic) BOOL appActive;
+@property(nonatomic) BOOL menuOpen;
+@property(nonatomic) NSInteger menuMode;
+@property(nonatomic) NSInteger menuIndex;
+@property(nonatomic) uint16_t waitingAction;
+@property(nonatomic) uint32_t previousButtons;
+@property(nonatomic,strong) UIView* recompPanel;
+@property(nonatomic,strong) UIStackView* recompStack;
+@property(nonatomic,strong) UILabel* recompTitle;
+@property(nonatomic,strong) NSArray<UIButton*>* menuButtons;
+@property(nonatomic,strong) UIButton* recompButton;
 @property(nonatomic,strong) UILabel* fpsLabel;
+- (void)foregroundChanged:(BOOL)active;
 @end
+static __weak GameController* currentController;
 
 @implementation GameController
 - (void)loadView { self.view = [[GameView alloc] initWithFrame:UIScreen.mainScreen.bounds]; }
@@ -86,6 +106,11 @@ static bool metal_context(CAMetalLayer* layer, EGLDisplay* display, EGLSurface* 
 - (UIInterfaceOrientationMask)supportedInterfaceOrientations { return UIInterfaceOrientationMaskLandscape; }
 - (void)viewDidLoad {
     [super viewDidLoad];
+    currentController=self;
+    self.appActive=YES;
+    [NSUserDefaults.standardUserDefaults registerDefaults:@{@"recomp.smooth":@(UIScreen.mainScreen.maximumFramesPerSecond>=120),@"recomp.fps":@YES}];
+    self.smoothEnabled=[NSUserDefaults.standardUserDefaults boolForKey:@"recomp.smooth"] && UIScreen.mainScreen.maximumFramesPerSecond>=120;
+    self.fpsEnabled=[NSUserDefaults.standardUserDefaults boolForKey:@"recomp.fps"];
     CAMetalLayer* layer = (CAMetalLayer*)self.view.layer;
     layer.device = MTLCreateSystemDefaultDevice();
     layer.pixelFormat = MTLPixelFormatBGRA8Unorm;
@@ -106,19 +131,10 @@ static bool metal_context(CAMetalLayer* layer, EGLDisplay* display, EGLSurface* 
     self.start = [UIButton buttonWithType:UIButtonTypeSystem];
     [self.start setTitle:@"게임 시작" forState:UIControlStateNormal];
     [self.start addTarget:self action:@selector(startGame) forControlEvents:UIControlEventTouchUpInside];
-    UILabel* smoothLabel = [[UILabel alloc] init];
-    smoothLabel.text = @"120fps 움직임 보간 (실험적)";
-    smoothLabel.textColor = UIColor.whiteColor;
-    self.smoothSwitch = [[UISwitch alloc] init];
-    self.smoothSwitch.on = UIScreen.mainScreen.maximumFramesPerSecond >= 120;
-    self.smoothSwitch.enabled = UIScreen.mainScreen.maximumFramesPerSecond >= 120;
-    UIStackView* smoothRow = [[UIStackView alloc] initWithArrangedSubviews:@[smoothLabel,self.smoothSwitch]];
-    smoothRow.axis = UILayoutConstraintAxisHorizontal;
-    smoothRow.spacing = 16;
     UIButton* rumbleTest = [UIButton buttonWithType:UIButtonTypeSystem];
     [rumbleTest setTitle:@"진동 테스트" forState:UIControlStateNormal];
     [rumbleTest addTarget:self action:@selector(testRumble) forControlEvents:UIControlEventTouchUpInside];
-    UIStackView* stack = [[UIStackView alloc] initWithArrangedSubviews:@[self.status,self.importButton,self.saveButton,smoothRow,rumbleTest,self.start]];
+    UIStackView* stack = [[UIStackView alloc] initWithArrangedSubviews:@[self.status,self.importButton,self.saveButton,rumbleTest,self.start]];
     stack.axis = UILayoutConstraintAxisVertical;
     stack.spacing = 8;
     stack.translatesAutoresizingMaskIntoConstraints = NO;
@@ -141,9 +157,34 @@ static bool metal_context(CAMetalLayer* layer, EGLDisplay* display, EGLSurface* 
     self.fpsLabel.translatesAutoresizingMaskIntoConstraints = NO;
     [self.view addSubview:self.fpsLabel];
     [NSLayoutConstraint activateConstraints:@[[self.fpsLabel.leadingAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.leadingAnchor constant:8], [self.fpsLabel.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor constant:6]]];
+    self.recompButton=[UIButton buttonWithType:UIButtonTypeSystem];
+    [self.recompButton setTitle:@"Recomp ≡" forState:UIControlStateNormal];
+    self.recompButton.backgroundColor=[UIColor colorWithWhite:0 alpha:.7];
+    self.recompButton.translatesAutoresizingMaskIntoConstraints=NO;
+    self.recompButton.hidden=YES;
+    [self.recompButton addTarget:self action:@selector(toggleRecomp) forControlEvents:UIControlEventTouchUpInside];
+    [self.view addSubview:self.recompButton];
+    [NSLayoutConstraint activateConstraints:@[[self.recompButton.trailingAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.trailingAnchor constant:-8],[self.recompButton.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor constant:6],[self.recompButton.widthAnchor constraintGreaterThanOrEqualToConstant:100],[self.recompButton.heightAnchor constraintEqualToConstant:44]]];
     self.inputLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(pollInput)];
     self.inputLink.preferredFrameRateRange = CAFrameRateRangeMake(120,120,120);
     [self.inputLink addToRunLoop:NSRunLoop.mainRunLoop forMode:NSRunLoopCommonModes];
+}
+- (void)viewDidAppear:(BOOL)animated {
+    [super viewDidAppear:animated];
+    if(self.autoStartChecked)return;
+    self.autoStartChecked=YES;
+    // Existing installations migrate when both imported files are present.
+    NSUserDefaults* defaults=NSUserDefaults.standardUserDefaults;
+    BOOL configured=[defaults boolForKey:@"recomp.setupComplete"];
+    NSString* card=[documents() stringByAppendingPathComponent:@"memcard_a.raw"];
+    NSFileManager* fm=NSFileManager.defaultManager;
+    BOOL hasDisc=[fm fileExistsAtPath:[documents() stringByAppendingPathComponent:@"game.iso"]] || [fm fileExistsAtPath:[documents() stringByAppendingPathComponent:@"game.ciso"]];
+    if(!configured && !(hasDisc && [fm fileExistsAtPath:card]))return;
+    if(![fm fileExistsAtPath:card]){
+        self.status.text=@"메모리카드를 찾을 수 없어 자동 시작을 멈췄습니다.\n세이브 카드를 다시 가져오거나 게임 시작을 눌러 새 카드를 만드세요.";
+        return;
+    }
+    [self startGame];
 }
 - (void)viewDidLayoutSubviews {
     [super viewDidLayoutSubviews];
@@ -154,10 +195,18 @@ static bool metal_context(CAMetalLayer* layer, EGLDisplay* display, EGLSurface* 
 }
 - (void)testRumble { ios_rumble_test(); }
 - (void)pollInput {
-    ios_rumble_update(self.started && ios_guest::motor.load(std::memory_order_relaxed));
+    IOSControllerState hardware = ios_controller_snapshot();
+    uint32_t pressed=hardware.buttons&~self.previousButtons;self.previousButtons=hardware.buttons;
+    if(self.started && (pressed&IOS_GUIDE_BUTTON))[self toggleRecomp];
+    self.recompButton.hidden=!self.started || self.menuOpen;
+    self.fpsLabel.hidden=!self.started || !self.fpsEnabled || self.menuOpen;
+    if(self.menuOpen){[self menuInput:pressed];[self.touchControls resetInput];self.touchControls.hidden=YES;PadState neutral{};neutral.connected=hardware.connected;pad_set_state(0,neutral);return;}
+    ios_rumble_update(self.started && self.appActive && ios_guest::motor.load(std::memory_order_relaxed));
     if (self.started) {
         static double lastTime=0;
         static uint64_t lastNative=0,lastIntermediate=0;
+        static uint64_t epoch=0;
+        if(epoch!=fpsEpoch){lastTime=0;epoch=fpsEpoch;}
         const double now=CACurrentMediaTime();
         if(lastTime==0) { lastTime=now;gx::ios_frame_totals(&lastNative,&lastIntermediate); }
         if(now-lastTime>=1) {
@@ -167,7 +216,6 @@ static bool metal_context(CAMetalLayer* layer, EGLDisplay* display, EGLSurface* 
             lastTime=now;lastNative=native;lastIntermediate=intermediate;
         }
     }
-    IOSControllerState hardware = ios_controller_snapshot();
     BOOL hidden = !self.started || hardware.connected;
     if (self.touchControls.hidden != hidden) {
         [self.touchControls resetInput];
@@ -175,6 +223,7 @@ static bool metal_context(CAMetalLayer* layer, EGLDisplay* display, EGLSurface* 
     }
     pad_set_state(0, hardware.connected ? ios_controller_pad(hardware) : [self.touchControls padState]);
 }
+#include "recomp_menu.inc"
 - (void)importImage {
     UIDocumentPickerViewController* picker = [[UIDocumentPickerViewController alloc] initForOpeningContentTypes:@[UTTypeData] asCopy:NO];
     picker.delegate = self;
@@ -246,9 +295,17 @@ static bool metal_context(CAMetalLayer* layer, EGLDisplay* display, EGLSurface* 
     if (valid) valid = fseek(disc,memcmp(magic,"CISO",4)==0?0x8000:0,SEEK_SET)==0 && fread(id,1,6,disc)==6 && memcmp(id,"GFZE01",6)==0;
     if (disc) fclose(disc);
     if (!valid) { self.status.text = @"미국판 GFZE01 .iso/.ciso 이미지가 필요합니다.\n파일 앱에서 이 앱의 Documents에 game.iso로 넣어도 됩니다."; return; }
-    smoothMotion = self.smoothSwitch.on && self.view.window.screen.maximumFramesPerSecond >= 120;
+    NSString* cardPath=[documents() stringByAppendingPathComponent:@"memcard_a.raw"];
+    if([NSFileManager.defaultManager fileExistsAtPath:cardPath]){
+        NSData* card=[NSData dataWithContentsOfFile:cardPath options:0 error:nil];
+        if(!card || !ios_valid_save_card((const uint8_t*)card.bytes,card.length)){
+            self.status.text=@"메모리카드를 읽을 수 없거나 카드 형식이 손상되었습니다.\n유효한 512KiB 미국판 .raw 카드를 다시 가져와 주세요. 기존 파일은 보존됩니다.";
+            return;
+        }
+    }
+    smoothMotion = self.smoothEnabled && self.view.window.screen.maximumFramesPerSecond >= 120;
     self.inputLink.preferredFrameRateRange = smoothMotion ? CAFrameRateRangeMake(120,120,120) : CAFrameRateRangeMake(60,60,60);
-    self.fpsLabel.hidden = NO;
+    self.fpsLabel.hidden = !self.fpsEnabled;
     self.started = YES;
     running = true;
     UIApplication.sharedApplication.idleTimerDisabled = YES;
@@ -260,8 +317,13 @@ static bool metal_context(CAMetalLayer* layer, EGLDisplay* display, EGLSurface* 
     std::string path(image.fileSystemRepresentation);
     std::string dir(documents().fileSystemRepresentation);
     __weak GameController* weakSelf = self;
+    ios_lifecycle::gate().renderer_started();
     std::thread([layer,path,dir,weakSelf] {
+        struct Registration{~Registration(){ios_lifecycle::gate().renderer_stopped();}} registration;
         @autoreleasepool {
+            bool contextReady=false;
+            auto checkpoint=[&]{ios_lifecycle::gate().render_checkpoint([&]{if(contextReady)glFinish();});};
+            checkpoint();
             freopen((dir+"/log.txt").c_str(),"w",stderr);
             setvbuf(stderr,nullptr,_IONBF,0);
             EGLDisplay display;
@@ -271,6 +333,8 @@ static bool metal_context(CAMetalLayer* layer, EGLDisplay* display, EGLSurface* 
                 dispatch_async(dispatch_get_main_queue(), ^{ weakSelf.status.text = @"Metal 초기화 실패. Documents/log.txt를 확인해 주세요."; });
                 return;
             }
+            contextReady=true;
+            checkpoint();
             auto swap = (PFNEGLSWAPBUFFERSPROC)vos::angle::proc("eglSwapBuffers");
             auto query = (PFNEGLQUERYSURFACEPROC)vos::angle::proc("eglQuerySurface");
             auto interval = (PFNEGLSWAPINTERVALPROC)vos::angle::proc("eglSwapInterval");
@@ -281,16 +345,27 @@ static bool metal_context(CAMetalLayer* layer, EGLDisplay* display, EGLSurface* 
             save=dir; cache=dir+"/shaders.bin";
             g_save_dir=save.c_str();
             gx::render_set_shader_cache(cache.c_str());
+            gx::render_set_shader_cache_deferred(true);
             gx::render_init(1);
+            int done=0,total=0;
+            while(!gx::render_shader_cache_step(4,&done,&total)){
+                checkpoint();
+                int progress=done,count=total;
+                dispatch_async(dispatch_get_main_queue(), ^{weakSelf.status.text=[NSString stringWithFormat:@"셰이더 준비 중… %d / %d",progress,count];});
+            }
+            checkpoint();
             fprintf(stderr,"iOS: GL %s / %s\n",glGetString(GL_VERSION),glGetString(GL_RENDERER));
             if (!audio_open()) fprintf(stderr,"iOS: audio unavailable\n");
             uint32_t entry=boot_load(path.c_str());
+            checkpoint();
             threads_start_boot(entry);
-            dispatch_async(dispatch_get_main_queue(), ^{ [weakSelf.view viewWithTag:100].hidden=YES; });
+            dispatch_async(dispatch_get_main_queue(), ^{ [NSUserDefaults.standardUserDefaults setBool:YES forKey:@"recomp.setupComplete"]; [weakSelf.view viewWithTag:100].hidden=YES; });
             IOSPresentContext presentation{display,surface,swap};
             while (running) {
+                checkpoint();
                 auto batch=gx::take_batch(4);
                 if (!batch) continue;
+                checkpoint();
                 EGLint width=0,height=0;
                 query(display,surface,EGL_WIDTH,&width); query(display,surface,EGL_HEIGHT,&height);
                 if (width<=0 || height<=0) continue;
@@ -300,20 +375,18 @@ static bool metal_context(CAMetalLayer* layer, EGLDisplay* display, EGLSurface* 
                 gx::ios_configure_native(*batch,width,height);
                 gx::ios_prepare_scene(*batch,race);
                 gx::ios_widen(*batch,width,height);
+                const auto renderStart=std::chrono::steady_clock::now();
                 gx::ios_render_motion(*batch,smoothMotion.load(),show_frame,&presentation);
+                gx::render_report_frame(gx::ios_scene_name(),std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-renderStart).count());
                 if (presentation.failed) { fprintf(stderr,"iOS: surface presentation failed\n"); break; }
             }
-            threads_request_quit();
+            ios_lifecycle::gate().resume();threads_request_quit();
         }
     }).detach();
 }
 @end
 
-static void end_background_game() {
-    // The upstream guest has no suspend/resume path. End this first port
-    // rather than keep a game and audio running behind another app.
-    if (running.exchange(false)) { threads_request_quit(); fflush(nullptr); _exit(0); }
-}
+static void set_foreground(bool active){[currentController foregroundChanged:active];}
 @interface SceneDelegate : UIResponder <UIWindowSceneDelegate>
 @property(nonatomic,strong) UIWindow* window;
 @end
@@ -324,7 +397,9 @@ static void end_background_game() {
     self.window.rootViewController=[[GameController alloc] init];
     [self.window makeKeyAndVisible];
 }
-- (void)sceneDidEnterBackground:(UIScene*)scene { end_background_game(); }
+- (void)sceneWillResignActive:(UIScene*)scene {set_foreground(false);}
+- (void)sceneDidEnterBackground:(UIScene*)scene {set_foreground(false);}
+- (void)sceneDidBecomeActive:(UIScene*)scene {set_foreground(true);}
 @end
 @interface AppDelegate : UIResponder <UIApplicationDelegate>
 @end
@@ -338,8 +413,10 @@ static void end_background_game() {
     return config;
 }
 - (void)applicationDidEnterBackground:(UIApplication*)application {
-    end_background_game();
+    set_foreground(false);
 }
+- (void)applicationWillResignActive:(UIApplication*)application {set_foreground(false);}
+- (void)applicationDidBecomeActive:(UIApplication*)application {set_foreground(true);}
 @end
 int main(int argc,char** argv) {
     @autoreleasepool { return UIApplicationMain(argc,argv,nil,NSStringFromClass(AppDelegate.class)); }

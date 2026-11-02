@@ -4,8 +4,15 @@
 static std::atomic<uint64_t> g_ios_native_frames{0}, g_ios_intermediate_frames{0};
 static std::atomic<ios_scene::Mode> g_ios_scene{ios_scene::Mode::Menu};
 static std::atomic<int> g_ios_motion_reason{0};
+static uint64_t g_ios_frame_scene=0;
 bool ios_prepare_scene(const Batch& b,bool liveRace) {
-    auto mode=ios_scene::classify(b,liveRace,ios_guest::modules.load(std::memory_order_relaxed),ios_guest::phase.load(std::memory_order_relaxed));
+    auto context=ios_context::read(b);
+    if(!context.stamped){context.modules=ios_guest::modules.load(std::memory_order_relaxed);context.phase=ios_guest::phase.load(std::memory_order_relaxed);context.live=liveRace;}
+    g_ios_frame_scene=(uint64_t(context.modules)<<32)|uint32_t(context.phase);
+    std::unordered_map<uint32_t,uint64_t> incoming;
+    for(const auto& t:b.new_textures)incoming[t->id]=t->hash;
+    bool startup=ios_ui::startup_art(b,[&](uint32_t id){auto it=incoming.find(id);return it==incoming.end()?render_texture_hash(id):it->second;});
+    auto mode=startup?ios_scene::Mode::Flat:ios_scene::classify(b,context.live,context.modules,context.phase);
     g_ios_scene.store(mode,std::memory_order_relaxed);
     g_ios_wide_view=mode==ios_scene::Mode::World;
     static float movieAspect=4.f/3;
@@ -181,7 +188,7 @@ bool ios_render_motion(Batch& b,bool smooth,void (*show)(void*),void* context) {
     static ios_motion::History history;
     // Reset at actual guest mode changes, not a fluctuating geometry heuristic.
     static uint64_t previousScene=UINT64_MAX;
-    uint64_t scene=(uint64_t(ios_guest::modules.load(std::memory_order_relaxed))<<32)|uint32_t(ios_guest::phase.load(std::memory_order_relaxed));
+    uint64_t scene=g_ios_frame_scene;
     if(scene!=previousScene){history.clear();previousScene=scene;}
     static uint64_t ticks=0,intermediate=0,outputs=0,draws=0;
     static auto since=std::chrono::steady_clock::now();

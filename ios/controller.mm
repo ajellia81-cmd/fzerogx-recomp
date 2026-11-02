@@ -3,6 +3,22 @@
 #include <algorithm>
 #include <cmath>
 
+static ios_bindings::Map& bindings(){
+    static auto map=[] {
+        auto value=ios_bindings::defaults;
+        id saved=[NSUserDefaults.standardUserDefaults objectForKey:@"recomp.controller.v1"];
+        if([saved isKindOfClass:NSArray.class] && [saved count]==value.size()){
+            for(unsigned i=0;i<value.size();++i){id n=saved[i];if(![n isKindOfClass:NSNumber.class] || !ios_bindings::valid([n unsignedShortValue]))return ios_bindings::defaults;value[i]=[n unsignedShortValue];}
+        }
+        return value;
+    }();
+    return map;
+}
+static void save_bindings(){NSMutableArray* values=[NSMutableArray array];for(auto value:bindings())[values addObject:@(value)];[NSUserDefaults.standardUserDefaults setObject:values forKey:@"recomp.controller.v1"];}
+ios_bindings::Map ios_controller_bindings(){return bindings();}
+void ios_controller_assign(unsigned physical,uint16_t action){ios_bindings::assign(bindings(),physical,action);save_bindings();}
+void ios_controller_reset_bindings(){bindings()=ios_bindings::defaults;save_bindings();}
+
 // Read on the main thread, then pass the value to the guest thread. Never share
 // mutable GCController objects with the simulation. Backbone uses this API.
 IOSControllerState ios_controller_snapshot() {
@@ -15,6 +31,7 @@ IOSControllerState ios_controller_snapshot() {
     }
     GCExtendedGamepad* p = controller.extendedGamepad;
     if (!p) return s;
+    if(p.buttonHome.preferredSystemGestureState!=GCSystemGestureStateDisabled) p.buttonHome.preferredSystemGestureState=GCSystemGestureStateDisabled;
     s.connected = true;
     s.leftX = p.leftThumbstick.xAxis.value;
     s.leftY = p.leftThumbstick.yAxis.value;
@@ -29,6 +46,7 @@ IOSControllerState ios_controller_snapshot() {
     };
     for (unsigned i = 0; i < sizeof(buttons) / sizeof(buttons[0]); ++i)
         if (buttons[i].pressed) s.buttons |= 1u << i;
+    if(p.buttonHome.pressed)s.buttons|=IOS_GUIDE_BUTTON;
     return s;
 }
 
@@ -36,11 +54,10 @@ PadState ios_controller_pad(const IOSControllerState& s) {
     PadState p;
     p.connected = s.connected;
     if (!s.connected) return p;
-    // Backbone/iOS physical A/B/X/Y: accelerate/brake/boost/side attack.
-    // The guest default controls are GameCube A/B/Y/X respectively.
-    const uint16_t mapping[] = {PAD_A, PAD_B, PAD_Y, PAD_X, 0, PAD_Z,
-                               PAD_START, PAD_UP, PAD_DOWN, PAD_LEFT, PAD_RIGHT};
-    for (unsigned i = 0; i < sizeof(mapping) / sizeof(mapping[0]); ++i)
+    // Backbone A/B/X: accelerate/brake/boost. LB supplies the guest X side
+    // attack; physical Y is unassigned so the action has actually moved to LB.
+    const auto mapping=bindings();
+    for (unsigned i = 0; i < mapping.size(); ++i)
         if (s.buttons & (1u << i)) p.buttons |= mapping[i];
     auto axis = [](float v) -> uint8_t {
         if (!std::isfinite(v)) return 128;

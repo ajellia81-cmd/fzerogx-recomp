@@ -29,6 +29,7 @@
 #include "vr_game.h"
 #if defined(FZGX_IOS_FRONTEND) || defined(FZGX_IOS_INPUT_PROBE)
 #include "../ios/guest_state.h"
+#include "../ios/scene_context.h"
 #include "recomp.h"
 #include <cstring>
 #endif
@@ -113,6 +114,9 @@ void guest_frame(uint32_t frame) {
         fprintf(stderr, "[vr] frame %u: %s (state %d, player race %d, paused %d)\n", frame, live ? "stereo" : "theater",
                 race.state, race.player_race, race.paused);
     g_stereo.store(live, std::memory_order_relaxed);
+#if defined(FZGX_IOS_FRONTEND) || defined(FZGX_IOS_INPUT_PROBE)
+    gx::set_draw_tag(ios_context::encode(modes,race.linked?race.state:-1,live));
+#endif
 
     // Bring the game's camera to what was asked, in a live race only.
     static uint32_t next_tap = 0;

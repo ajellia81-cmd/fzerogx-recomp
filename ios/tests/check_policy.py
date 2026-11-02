@@ -23,3 +23,7 @@ with tempfile.TemporaryDirectory(prefix="fzgx-render-policy-") as tmp:
             "-pthread", "-o", str(tmp / "check")]
     subprocess.run(cmd, check=True)
     subprocess.run([str(tmp / "check")], check=True)
+
+    session = [os.environ.get("CXX", "c++"), "-std=c++20", "-O1", "-pthread", "-I"+str(root/"ios"), "-I"+str(runtime), str(root/"ios/tests/session_policy.cpp"), "-o", str(tmp/"session")]
+    subprocess.run(session, check=True)
+    subprocess.run([str(tmp/"session")], check=True, timeout=15)

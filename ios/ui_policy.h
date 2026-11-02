@@ -3,6 +3,24 @@
 #include <array>
 
 namespace ios_ui {
+template<class HashLookup> bool startup_art(const gx::Batch& b,HashLookup hash){
+    bool logo=false;
+    for(const auto& c:b.cmds){
+        if(c.type!=gx::CmdType::Draw || !c.count || !c.vcount)continue;
+        if(c.state>=b.states.size())return false;
+        const auto& s=b.states[c.state];
+        if(s.proj[6]==0 || !ios_scene::full_view(s))return false;
+        bool textured=false;
+        for(unsigned m=0;m<8;++m)if(s.tex_id[m]){
+            textured=true;if(s.tex_is_efb[m])continue;
+            const auto h=hash(s.tex_id[m]);
+            if(h!=0xffef214b102f891cull && h!=0x9bf11ed63fad3dc8ull && h!=0x4c8a45da63b18ea5ull && h!=0xc98c5bd376ab7632ull)return false;
+            logo=true;
+        }
+        if(!textured){float box[4];if(!ios_scene::draw_bounds(b,c,s,box) || box[0]>-.99f || box[1]>-.99f || box[2]<.99f || box[3]<.99f)return false;}
+    }
+    return logo;
+}
 // Stable material metadata from private decoded-frame inspection, not asset
 // bytes. A complete modal run includes its shadow text before the panel, the
 // panel pieces, foreground glyphs and the menu-title atlas. HUD draws terminate

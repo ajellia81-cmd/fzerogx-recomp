@@ -10,6 +10,21 @@ int main(){
  ios_guest::modules=ios_guest::Selection;gx::ios_prepare_scene(*b,false);gx::ios_widen(*b,2868,1320);
  auto&t=b->states[b->cmds[0].state];assert(t.proj[0]==s.proj[0]&&t.bp[0x20]==s.bp[0x20]&&t.bp[0x21]==s.bp[0x21]);float box[4];ios_scene::draw_bounds(*b,b->cmds[0],t,box);assert(fabs((box[2]-box[0])*16.f/9-(box[3]-box[1]))<1e-5);
  b->states={s};b->cmds={d};ios_guest::modules=ios_guest::Replay;gx::ios_prepare_scene(*b,false);gx::ios_widen(*b,2868,1320);ios_scene::draw_bounds(*b,b->cmds[0],b->states[b->cmds[0].state],box);assert(fabs((box[2]-box[0])*2868/1320-(box[3]-box[1]))<1e-5);
+ // Presentation context must belong to the queued batch, not newer guest state.
+ for(unsigned module:{unsigned(ios_guest::Title),unsigned(ios_guest::Selection),unsigned(ios_guest::Movie)}){
+  b->states={s};b->cmds={d};b->states[0].tag=ios_context::encode(module,41,false);
+  auto context=ios_context::read(*b);assert(context.stamped && context.modules==module);
+ }
+ b->states={s};b->cmds={d};b->states[0].tag=ios_context::encode(ios_guest::Title,0,false);
+ ios_guest::modules=ios_guest::Movie;gx::ios_prepare_scene(*b,false);
+ assert(gx::g_ios_scene==ios_scene::Mode::Flat);
+ // Known startup art wins even when legacy metadata points at a newer menu.
+ b->states={s};b->cmds={d};
+ assert(ios_ui::startup_art(*b,[](uint32_t){return uint64_t(0x4c8a45da63b18ea5ull);}));
+ assert(!ios_ui::startup_art(*b,[](uint32_t){return uint64_t(123);}));
+ b->states.push_back(s);b->states[1].proj[6]=0;b->cmds.push_back(d);b->cmds[1].state=1;b->cmds[1].count=0;
+ assert(ios_ui::startup_art(*b,[](uint32_t){return uint64_t(0x4c8a45da63b18ea5ull);}));
+ b->cmds[1].count=4;assert(!ios_ui::startup_art(*b,[](uint32_t){return uint64_t(0x4c8a45da63b18ea5ull);}));
  // Menu composition must retain perspective layers, copies and scissors too.
  b->states={s,s};b->states[0].proj[6]=0;b->states[0].proj[0]=1;b->states[0].proj[2]=4.f/3;b->cmds={d,d};b->cmds[1].state=1;
  gx::Cmd copy{};copy.type=gx::CmdType::EfbCopy;copy.copy.src_w=copy.copy.dst_w=640;copy.copy.src_h=copy.copy.dst_h=480;copy.copy.tex_id=42;copy.copy.clear=true;b->cmds.push_back(copy);

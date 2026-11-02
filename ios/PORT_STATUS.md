@@ -85,3 +85,37 @@ render-only interpolation from stable camera/object identities, with cuts,
 spawn/despawn and effect discontinuities handled explicitly. Do not modify guest
 physics or mistake repeated display frames for interpolation. Measure unique
 presentations and guest ticks independently before claiming actual 120 fps.
+
+
+## Build 8 changes under validation
+
+The launcher appears for initial setup and file recovery. Successful boot stores
+`recomp.setupComplete`; subsequent launches validate the GFZE01 disc and the
+512KiB US memory card before automatically starting. Existing installations with
+both files migrate. Missing cards stop automatic boot; an explicit Start can
+create a new card. Invalid existing cards are preserved and require reimport.
+
+The Recomp overlay is separate from the guest Start menu. Guide/Home requests it;
+the top-right Recomp button remains available as a fallback if iOS intercepts the
+controller Home gesture. Smooth motion, FPS visibility and button mappings
+persist in user defaults. The startup smooth-motion choice is removed. Defaults:
+A accelerate, B brake, X boost, LB side attack, RB spin, Y unassigned.
+
+Backgrounding previously deliberately exited. The iOS-only runtime now parks
+renderer and guest cooperatively, drains pending GPU commands before suspension,
+stops audio/rumble and excludes paused time from the guest host clock. Resuming
+keeps guest memory and pending writebacks. This replaces the earlier exit policy;
+physical-device background/foreground behavior still needs validation.
+
+Presentation context now travels through the ordered draw-tag FIFO instead of
+sampling newer guest globals while displaying older batches. Known startup art
+and crossfades retain their original canvas, and empty draws cannot classify a
+logo as 3D. Existing menu, HUD, modal and movie aspect policies remain covered by
+ROM-free fixtures. The finish-rank artwork has not been compared against an
+original-device reference; no claim about its intended proportions is made.
+
+Shipped shader keys are precompiled even when the driver exposes no program
+binary support. Loading is stepped with visible startup progress, and slow render
+frames report shader/state timing in Documents/log.txt. First-visit stutter may
+also involve Metal pipeline creation or resource uploads; improvement requires a
+device comparison and is not established by successful compilation.
