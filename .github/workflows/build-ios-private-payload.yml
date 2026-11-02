@@ -10,6 +10,10 @@ on:
         description: Run private scene diagnostics without building an IPA
         type: boolean
         default: false
+      skip_probes:
+        description: Skip repeated host frame capture after private renderer review
+        type: boolean
+        default: false
       runner_label:
         description: Hosted macOS runner pool
         type: choice
@@ -48,6 +52,7 @@ jobs:
           cmake -S . -B build-host -G Ninja -DGCN_BENCH_ONLY=ON -DFZGX_IOS_INPUT_PROBE=ON -DCMAKE_BUILD_TYPE=Release -DGAME_ISO="$PWD/rom/game.iso" > build-private-logs/host-configure.txt 2>&1
           test -s build-host/rels-runtime/fze.main.rel
       - name: Validate real game scene and interpolation inputs (headless)
+        if: ${{ !inputs.skip_probes }}
         shell: bash
         env:
           FZGX_PRIVATE_CAPTURE: "1"
@@ -58,22 +63,26 @@ jobs:
           cd build-probe
           ../build-host/fzerogx_bench --seconds=45 --warmup=0 "$GITHUB_WORKSPACE/rom/game.iso" > ../build-private-logs/interpolation-probe.txt 2>&1
       - name: Inspect menu to race scene transitions (headless)
+        if: ${{ !inputs.skip_probes }}
         shell: bash
         run: |
           mkdir -p build-probe-race
           cd build-probe-race
           FZGX_PRIVATE_CAPTURE=1 GCN_INPUT="500:A:5,1300:A:5,1340:A:5,1380:A:5,1440:START:5,1500:A:5,1580:LEFT:5,1620:A:5,1800:A:5,2000:START:5,2200:A:5,2400:A:5,2600:A:5,2800:A:5,3000:A:5,3200:A:5,3400:A:5,3700:A:5,3800:A:6000" ../build-host/fzerogx_bench --seconds=60 --warmup=0 "$GITHUB_WORKSPACE/rom/game.iso" > ../build-private-logs/race-probe.txt 2>&1
       - name: Inspect story movie presentation inputs (headless)
+        if: ${{ !inputs.skip_probes }}
         shell: bash
         run: |
           mkdir -p build-probe-story
           cd build-probe-story
           FZGX_PRIVATE_CAPTURE=1 GCN_INPUT="500:A:5,1300:A:5,1340:A:5,1380:A:5,1440:START:5,1500:A:5,1580:LEFT:5,1620:A:5,1800:A:5,2000:START:5,2200:DOWN:5,2400:RIGHT:5,2600:A:5,2800:A:5" ../build-host/fzerogx_bench --seconds=60 --warmup=0 "$GITHUB_WORKSPACE/rom/game.iso" > ../build-private-logs/story-probe.txt 2>&1
       - name: Encrypt renderer review before device compilation
+        if: ${{ !inputs.skip_probes }}
         run: |
           python3 ios/package_private_diagnostics.py
           openssl cms -encrypt -binary -aes256 -in private-logs.tar.gz -out FZeroGX-renderer-review.enc -outform DER ios/delivery-public.pem
       - name: Upload encrypted renderer review only
+        if: ${{ !inputs.skip_probes }}
         uses: actions/upload-artifact@v4
         with:
           name: FZeroGX-encrypted-renderer-review

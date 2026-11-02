@@ -8,10 +8,13 @@ bool ios_prepare_scene(const Batch& b,bool liveRace) {
     auto mode=ios_scene::classify(b,liveRace,ios_guest::modules.load(std::memory_order_relaxed),ios_guest::phase.load(std::memory_order_relaxed));
     g_ios_scene.store(mode,std::memory_order_relaxed);
     g_ios_wide_view=mode==ios_scene::Mode::World;
-    g_ios_menu_targeting=mode==ios_scene::Mode::Menu;
-    // Movie compositing and projection stay exactly as on the original 4:3
-    // GameCube display. An encoded letterbox is retained, never cropped.
-    g_ios_fixed_aspect=(mode==ios_scene::Mode::Movie || mode==ios_scene::Mode::Flat)?4.f/3:16.f/9;
+    static float movieAspect=4.f/3;
+    if(mode==ios_scene::Mode::Movie)movieAspect=ios_scene::movie_canvas_aspect(b,movieAspect);
+    else movieAspect=4.f/3;
+    // Preserve the encoded image's aspect and any bars inside it. Its canvas
+    // can differ between the game's normal and widescreen display options.
+    g_ios_fixed_aspect=mode==ios_scene::Mode::Movie?movieAspect:
+                       mode==ios_scene::Mode::Flat?4.f/3:16.f/9;
     return g_ios_wide_view;
 }
 const char* ios_scene_name(){
@@ -38,11 +41,11 @@ void ios_frame_totals(uint64_t* native, uint64_t* intermediate) {
 void ios_widen(Batch& b,int width,int height){
     if(width<=0 || height<=0)return;
     auto mode=g_ios_scene.load(std::memory_order_relaxed);
-    if(mode==ios_scene::Mode::Flat)return;
+    if(mode==ios_scene::Mode::Flat || mode==ios_scene::Mode::Menu)return;
     const float aspect=mode==ios_scene::Mode::World?float(width)/height:
-                       mode==ios_scene::Mode::Movie?4.f/3:16.f/9;
+                       mode==ios_scene::Mode::Movie?g_ios_fixed_aspect:16.f/9;
     note_fullscreen_copies(b);std::vector<uint8_t> skip;
-    if(mode==ios_scene::Mode::Menu)ios_mark_menu_work(b,skip);else mark_offscreen_passes(b,skip);
+    mark_offscreen_passes(b,skip);
     const size_t original=b.states.size();
     std::vector<int32_t> corrected(original,-1);
     for(size_t i=0;i<b.cmds.size();++i){
@@ -125,47 +128,9 @@ struct IOSFrameTarget {
     }
 };
 
-// A menu preview pass produces a texture, not visible EFB pixels. Keep its
-// rendering and clear in a private target, so corrected UI geometry cannot
-// expose cleared working rectangles on the menu behind it.
-static void ios_mark_menu_work(const Batch& b,std::vector<uint8_t>& work){
-    work.assign(b.cmds.size(),0);uint32_t dw,dh;display_size(b,dw,dh);
-    size_t previousCopy=0;
-    for(size_t i=0;i<b.cmds.size();++i){
-        if(b.cmds[i].type!=CmdType::EfbCopy)continue;
-        const auto& c=b.cmds[i].copy;
-        if(!c.to_xfb && c.clear && !is_fullscreen_copy(c,dw,dh)){
-            // The first preview may follow the menu background without an
-            // intervening copy. Only its contained suffix is offscreen work.
-            size_t start=i;
-            while(start>previousCopy){const auto& d=b.cmds[start-1];
-                if(d.type!=CmdType::Draw || d.state>=b.states.size() || !draw_inside_rect(b.states[d.state],c))break;
-                --start;
-            }
-            if(start<i)for(size_t j=start;j<=i;++j)work[j]=1;
-        }
-        previousCopy=i+1;
-    }
-}
-static GLuint g_ios_menu_saved_fbo=0,g_ios_menu_saved_color=0,g_ios_menu_saved_depth=0;
-static void ios_begin_menu_target(const EfbCopyCmd& c){
-    static IOSFrameTarget work;
-    if(!work.create(ios_px_x(EFB_W),ios_px_y(EFB_H),true))fatal("iOS menu working target incomplete");
-    g_ios_menu_saved_fbo=g_efb_fbo;g_ios_menu_saved_color=g_efb_color;g_ios_menu_saved_depth=g_efb_depth;
-    int x0=ios_px_x(c.src_x),x1=ios_px_x(c.src_x+c.src_w);
-    int y0=ios_px_y(EFB_H-c.src_y-c.src_h),y1=ios_px_y(EFB_H-c.src_y);
-    glDisable(GL_SCISSOR_TEST);glColorMask(1,1,1,1);glDepthMask(GL_TRUE);
-    glBindFramebuffer(GL_READ_FRAMEBUFFER,g_efb_fbo);glBindFramebuffer(GL_DRAW_FRAMEBUFFER,work.fbo);
-    // Only the copied rect can be used by this pass (verified by its scissors),
-    // so avoid a whole-frame GPU copy for every machine in the selection grid.
-    glBlitFramebuffer(x0,y0,x1,y1,x0,y0,x1,y1,GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT,GL_NEAREST);
-    g_efb_fbo=work.fbo;g_efb_color=work.color;g_efb_depth=work.depth;
-    glBindFramebuffer(GL_FRAMEBUFFER,g_efb_fbo);glViewport(0,0,work.w,work.h);
-}
-static void ios_end_menu_target(){
-    g_efb_fbo=g_ios_menu_saved_fbo;g_efb_color=g_ios_menu_saved_color;g_efb_depth=g_ios_menu_saved_depth;
-    glBindFramebuffer(GL_FRAMEBUFFER,g_efb_fbo);
-}
+// Menu frames keep their complete guest command stream unchanged. Their
+// perspective layers are composed through a full-size EFB texture; widening
+// those layers or moving their clears to another FBO exposes black rectangles.
 
 // Match the visible source rect to the device drawable at 1:1 pixel density.
 // The extra EFB rows remain allocated for the console's render-to-texture work.

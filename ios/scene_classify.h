@@ -33,6 +33,26 @@ inline bool draw_bounds(const gx::Batch& b,const gx::Cmd& c,const gx::PixelState
         box[0]=std::min(box[0],x);box[1]=std::min(box[1],y);box[2]=std::max(box[2],x);box[3]=std::max(box[3],y);
     }return true;
 }
+// Recover the display canvas from the guest's actual movie quad, so the
+// encoded image keeps its texel aspect in either game display option.
+inline float movie_canvas_aspect(const gx::Batch& b,float fallback=4.f/3){
+    float sourceW=640,sourceH=480;
+    for(const auto& c:b.cmds)if(c.type==gx::CmdType::Present && c.copy.src_w && c.copy.src_h){sourceW=c.copy.src_w;sourceH=c.copy.src_h;break;}
+    for(const auto& c:b.cmds)if(c.type==gx::CmdType::Draw && c.state<b.states.size()){
+        const auto& s=b.states[c.state];float box[4];
+        if(!movie_state(s) || !draw_bounds(b,c,s,box))continue;
+        float w=(box[2]-box[0])*std::fabs(s.viewport[0])*2/sourceW;
+        float h=(box[3]-box[1])*std::fabs(s.viewport[1])*2/sourceH;
+        if(w<.25f || h<.25f)continue;
+        for(unsigned m=0;m<8;++m)if(s.tex_id[m]){
+            unsigned r=0x88+(m&3)+(m>=4?0x20:0),t=s.bp[r];
+            if(((t>>20)&15)!=1 || (t&1023)<319)continue;
+            float aspect=float((t&1023)+1)/(((t>>10)&1023)+1)*h/w;
+            if(std::isfinite(aspect) && aspect>=1.f && aspect<=2.5f)return aspect;
+        }
+    }
+    return fallback;
+}
 inline bool black_side_mask(const gx::Batch& b,const gx::Cmd& c,const gx::PixelState& st,const float* box){
     if(box[3]-box[1]<1.5f || box[2]-box[0]>.5f || !(box[2]<-.5f || box[0]>.5f))return false;
     // Only opaque, solid black masks on the selection screen. Textured artwork,

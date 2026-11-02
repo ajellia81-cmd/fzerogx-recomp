@@ -9,7 +9,7 @@ out = Path(sys.argv[2])
 if not app.is_dir() or not (app / "FZeroGX").is_file():
     raise SystemExit("Missing complete app bundle")
 for path in app.rglob("*"):
-    if path.suffix.lower() in {".iso", ".ciso", ".dol", ".rel", ".rvz", ".c", ".cpp", ".mm"}:
+    if path.suffix.lower() in {".iso", ".ciso", ".dol", ".rel", ".rvz", ".c", ".cpp", ".mm", ".capture", ".raw", ".gci"}:
         raise SystemExit("Unexpected game input or source in app bundle")
 binary = app / "FZeroGX"
 arch = subprocess.check_output(["lipo", "-archs", str(binary)], text=True).strip()
