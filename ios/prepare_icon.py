@@ -1,25 +1,21 @@
 #!/usr/bin/env python3
-"""Reproduce the reviewed icon without storing game artwork in public git."""
+"""Reproduce the user-approved cover crop as iOS app-icon assets."""
 import argparse
 import hashlib
 import io
 import json
 from pathlib import Path
-import urllib.request
 from PIL import Image
 
-LOGO_URL = "https://upload.wikimedia.org/wikipedia/fr/1/18/F-Zero_GX_Logo.jpg"
-LOGO_SHA256 = "4b3e409b64a4b14e2b38d7c705f4cccc93fe1a8c26448fc69bdaaa9b6bcbefd7"
-PREVIEW_SHA256 = "46c2d3478e614d0021d645e31cee5c09c4cb7349d81872d1e55e15c53f1f1ab2"
-
-PREVIEW_PIXELS_SHA256 = "2d9332c6b22db6b75e4aa1a46588b04b6b9528c4e13af79872f0af585143d217"
+# User-supplied cover artwork, approved as app-icon art; no disc assets are used.
+LOGO_SHA256 = "ae0e1ef0eea6d3b255821f39df6bc3b339dcc4e9d6bf26229da8ca061722feb9"
+PREVIEW_SHA256 = "bd2fe02cdf39f41f5f027bb2de447f5be6eeb47567305d11bb336bccb503e7aa"
+PREVIEW_PIXELS_SHA256 = "71f58447bfce67282d252a202662b72381a7c05cee4ee948e5aa4b46f2ae909a"
 
 def make_icon(logo):
-    logo = logo.convert("RGB")
-    logo = logo.resize((920, round(logo.height * 920 / logo.width)), Image.Resampling.LANCZOS)
-    icon = Image.new("RGB", (1024, 1024), "white")
-    icon.paste(logo, ((1024 - logo.width) // 2, (1024 - logo.height) // 2))
-    return icon
+    if logo.size != (580, 817):
+        raise SystemExit("Unexpected source-cover dimensions")
+    return logo.convert("RGB").crop((0, 104, 580, 684)).resize((1024, 1024), Image.Resampling.LANCZOS)
 
 def main():
     parser = argparse.ArgumentParser()
@@ -29,12 +25,8 @@ def main():
     args = parser.parse_args()
     if args.approved_sha256 != PREVIEW_SHA256:
         raise SystemExit("The reviewed icon must be explicitly approved before packaging")
-    if args.logo_file:
-        data = args.logo_file.read_bytes()
-    else:
-        request = urllib.request.Request(LOGO_URL, headers={"User-Agent": "FZeroGX-iOS-icon-build/1.0"})
-        with urllib.request.urlopen(request, timeout=60) as response:
-            data = response.read(1024 * 1024)
+    source = args.logo_file or Path(__file__).with_name("icon-cover.webp")
+    data = source.read_bytes()
     if hashlib.sha256(data).hexdigest() != LOGO_SHA256:
         raise SystemExit("Logo source changed; show a new preview before building")
     icon = make_icon(Image.open(io.BytesIO(data)))

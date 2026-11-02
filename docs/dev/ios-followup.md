@@ -31,9 +31,9 @@ The follow-up source adds:
   card, then imported or placed in Documents as memcard_a.raw while the app is
   fully closed. Never put personal saves in the public repository or IPA.
 
-The original project has no app-icon asset. A preview using the original game
-logo awaits the user's explicit approval. No follow-up IPA build may be started
-before that approval. The uploaded personal save and its converted raw card are
+The original project has no app-icon asset. The user supplied cover artwork,
+approved its square crop on 2026-11-02, and authorized the follow-up IPA build.
+Only that approved icon artwork is bundled; no disc assets or saves are bundled. The uploaded personal save and its converted raw card are
 kept outside git. This follow-up chooses import rather than embedding the save.
 
 ## Verification before icon approval

@@ -19,7 +19,7 @@ jobs:
         with:
           submodules: recursive
           persist-credentials: false
-      - name: Reproduce approved original-logo app icon
+      - name: Reproduce approved cover-crop app icon
         env:
           APPROVED_ICON_SHA256: ${{ inputs.approved_icon_sha256 }}
         run: |
