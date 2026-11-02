@@ -25,5 +25,17 @@ int main(){
  assert(fabs(ios_scene::movie_canvas_aspect(*b)-4.f/3)<1e-5);
  for(int i=0;i<4;++i)b->verts[i].pos[1]=(i&2)?464:16;
  assert(fabs(ios_scene::movie_canvas_aspect(*b)-16.f/9)<1e-5);
+ // A paired menu frame takes precedence over stale Title/Story race metadata.
+ // One HUD-like strip, or an offscreen texture, cannot trigger that override.
+ b->states={s,s};b->cmds={d,d};b->cmds[1].state=1;
+ b->states[0].bp[0x88]=(5<<20)|639|(43<<10);
+ b->states[1].bp[0x88]=(5<<20)|639|(59<<10);
+ for(int i=0;i<4;++i){b->verts[i].pos[0]=(i&1)?640:0;b->verts[i].pos[1]=(i&2)?60:0;}
+ for(unsigned module:{unsigned(ios_guest::Title),unsigned(ios_guest::Story)}){
+  assert(ios_scene::classify(*b,false,module,41)==ios_scene::Mode::Menu);
+  b->states[1].tex_is_efb[0]=true;
+  assert(ios_scene::classify(*b,false,module,41)==ios_scene::Mode::World);
+  b->states[1].tex_is_efb[0]=false;
+ }
  puts("16:9 game-compensated UI, unchanged menu scissor, fullscreen HUD and I8/IA8 movie policy passed");
 }

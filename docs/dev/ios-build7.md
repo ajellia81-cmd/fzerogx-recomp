@@ -81,3 +81,21 @@ Proposed confirmed correction categories for approval: startup logo handling,
 after-race popup menu, GP-quit/common confirmation composition, name-entry scene
 classification and story chapter-selection classification. No renderer source
 has been edited for these changes; no new Actions run has been dispatched.
+
+## Approved implementation in progress
+
+The user approved the five confirmed categories and the controller remap. Private
+diagnostic run 41479820392 adds early-startup samples and a pause/quit route; it
+does not build an IPA. The initial universal 16:9 overlay assumption is rejected
+for logos and common modal panels, while the working HUD policy remains a
+regression boundary.
+
+Name entry and chapter selection now require both actually drawn, full-width
+menu frame strips before overriding Title/Story and stale race-phase metadata.
+The Story module alone does not force Menu, and movies retain first priority.
+Private software replay of both original captures matches the previous
+classification-only Menu experiment pixel for pixel, with GL error zero.
+Five other captured scenes (machine selection, course selection, machine
+settings, live race/HUD and movie) remain pixel-identical to build 6. Original
+ROM-free fixtures check both the paired-frame positive case and the negative
+single/offscreen-strip case. This is not device or physical-FPS validation.

@@ -62,7 +62,7 @@ inline bool black_side_mask(const gx::Batch& b,const gx::Cmd& c,const gx::PixelS
     return true;
 }
 inline Mode classify(const gx::Batch& b,bool liveRace=false,unsigned modules=0,int phase=-1){
-    bool world=false,movie=false;
+    bool world=false,movie=false,menu44=false,menu60=false;
     size_t passStart=0;
     std::vector<uint8_t> offscreen(b.cmds.size());
     for(size_t i=0;i<b.cmds.size();++i)if(b.cmds[i].type==gx::CmdType::EfbCopy){
@@ -89,6 +89,21 @@ inline Mode classify(const gx::Batch& b,bool liveRace=false,unsigned modules=0,i
         if(c.type!=gx::CmdType::Draw || offscreen[i] || c.state>=b.states.size())continue;
         const auto& s=b.states[c.state];
         movie|=movie_state(s);
+        // Name entry and chapter selection share the menu frame, even while
+        // Title/Story is linked and the race phase still describes the last race.
+        // Require both drawn full-width frame strips; an individual HUD sprite
+        // or the presence of Story alone does not identify a menu.
+        if(s.proj[6]!=0 && full_view(s)){
+            for(unsigned m=0;m<8;++m)if(s.tex_id[m] && !s.tex_is_efb[m]){
+                unsigned r=0x88+(m&3)+(m>=4?0x20:0),t=s.bp[r],h=(t>>10)&1023;
+                if(((t>>20)&15)==5 && (t&1023)==639 && (h==43 || h==59)){
+                    float box[4];
+                    if(draw_bounds(b,c,s,box) && box[0]<=-.99f && box[2]>=.99f && box[3]<-.7f){
+                        menu44|=h==43;menu60|=h==59;
+                    }
+                }
+            }
+        }
         if(s.proj[6]!=0 || s.view_space || !full_view(s) || c.vcount<16 || size_t(c.vfirst)+c.vcount>b.verts.size())continue;
         float x0=1,x1=-1,y0=1,y1=-1;unsigned samples=std::min(c.vcount,64u),front=0;
         for(unsigned j=0;j<samples;++j){
@@ -104,6 +119,7 @@ inline Mode classify(const gx::Batch& b,bool liveRace=false,unsigned modules=0,i
         if(front>=4 && x1-x0>=1.5f && y1-y0>=1.1f)world=true;
     }
     if(movie || (modules & ios_guest::Movie))return Mode::Movie;
+    if((modules & (ios_guest::Title|ios_guest::Story)) && menu44 && menu60)return Mode::Menu;
     if(liveRace)return Mode::World;
     if(modules & (ios_guest::Selection|ios_guest::Option))return Mode::Menu;
     if(modules & (ios_guest::Title|ios_guest::Replay))return Mode::World;
