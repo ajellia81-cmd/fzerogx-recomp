@@ -40,7 +40,8 @@ void ios_widen(Batch& b,int width,int height){
     auto mode=g_ios_scene.load(std::memory_order_relaxed);
     if(mode==ios_scene::Mode::Movie || mode==ios_scene::Mode::Flat)return;
     const float aspect=mode==ios_scene::Mode::World?float(width)/height:16.f/9;
-    note_fullscreen_copies(b);std::vector<uint8_t> skip;mark_offscreen_passes(b,skip);
+    note_fullscreen_copies(b);std::vector<uint8_t> skip;
+    if(mode==ios_scene::Mode::Menu)ios_mark_menu_work(b,skip);else mark_offscreen_passes(b,skip);
     const size_t original=b.states.size();
     std::vector<int32_t> corrected(original,-1);
     for(size_t i=0;i<b.cmds.size();++i){
@@ -57,7 +58,11 @@ void ios_widen(Batch& b,int width,int height){
             // are corrected separately. Never shrink a frame-copy composite.
             if(bounds && box[0]<=-.99f && box[1]<=-.99f && box[2]>=.99f && box[3]>=.99f)continue;
             if(corrected[c.state]>=0){c.state=uint32_t(corrected[c.state]);continue;}
-            ratio=(4.f/3)/aspect;
+            // Use the UI's authored coordinate aspect. Some overlays remain
+            // 640x480 while widescreen menus use a wider logical canvas.
+            float authored=st.proj[0]!=0?std::fabs(st.proj[2]/st.proj[0]):4.f/3;
+            if(authored<1.1f || authored>2.5f)authored=4.f/3;
+            ratio=authored/aspect;
             // Move the UI's clipping rectangle with its projection. Otherwise
             // the old scissor cuts corrected portraits/panels into black strips.
             float center=st.viewport[3];
@@ -121,6 +126,25 @@ struct IOSFrameTarget {
 // A menu preview pass produces a texture, not visible EFB pixels. Keep its
 // rendering and clear in a private target, so corrected UI geometry cannot
 // expose cleared working rectangles on the menu behind it.
+static void ios_mark_menu_work(const Batch& b,std::vector<uint8_t>& work){
+    work.assign(b.cmds.size(),0);uint32_t dw,dh;display_size(b,dw,dh);
+    size_t previousCopy=0;
+    for(size_t i=0;i<b.cmds.size();++i){
+        if(b.cmds[i].type!=CmdType::EfbCopy)continue;
+        const auto& c=b.cmds[i].copy;
+        if(!c.to_xfb && c.clear && !is_fullscreen_copy(c,dw,dh)){
+            // The first preview may follow the menu background without an
+            // intervening copy. Only its contained suffix is offscreen work.
+            size_t start=i;
+            while(start>previousCopy){const auto& d=b.cmds[start-1];
+                if(d.type!=CmdType::Draw || d.state>=b.states.size() || !draw_inside_rect(b.states[d.state],c))break;
+                --start;
+            }
+            if(start<i)for(size_t j=start;j<=i;++j)work[j]=1;
+        }
+        previousCopy=i+1;
+    }
+}
 static GLuint g_ios_menu_saved_fbo=0,g_ios_menu_saved_color=0,g_ios_menu_saved_depth=0;
 static void ios_begin_menu_target(const EfbCopyCmd& c){
     static IOSFrameTarget work;

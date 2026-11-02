@@ -18,11 +18,12 @@ Those screenshots establish submission rates, not measured panel scanout.
   stale during selection. The GP route observed 37/38 before flyover 39, grid 40
   and racing 41. Selection metadata therefore takes priority over stale race phase.
 - World projection uses its camera aspect and the physical output aspect. Text,
-  logos and dialog overlays retain their original 4:3 geometry proportions within
+  logos and dialog overlays retain their authored projection proportions within
   the selected canvas. Menus keep a 16:9 canvas. Pure 2D/video keeps the original
   presentation. Full-canvas backgrounds, fades, frame-copy composites and offscreen
   passes retain their coverage/coordinate system.
-- Offscreen menu-preview passes use a private color/depth target. Only their
+- Offscreen menu-preview draw suffixes use a private color/depth target, even
+  when a menu background precedes the first preview without a copy. Only their
   source rectangle is copied, and capture/clear does not modify the visible EFB.
 - UI scissor bounds follow the UI correction. Opaque solid-black vertical side
   masks on selection menus are excluded conservatively; full-screen fades,
