@@ -6,6 +6,10 @@ on:
         description: SHA256 of the icon preview explicitly approved by the user
         required: true
         type: string
+      probe_only:
+        description: Run private scene diagnostics without building an IPA
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -47,13 +51,21 @@ jobs:
           mkdir -p build-probe
           cd build-probe
           ../build-host/fzerogx_bench --seconds=45 --warmup=0 "$GITHUB_WORKSPACE/rom/game.iso" > ../build-private-logs/interpolation-probe.txt 2>&1
+      - name: Inspect menu to race scene transitions (headless)
+        shell: bash
+        run: |
+          mkdir -p build-probe-race
+          cd build-probe-race
+          GCN_INPUT="500:A:5,1300:A:5,1340:A:5,1380:A:5,1440:START:5,1500:A:5,1580:LEFT:5,1620:A:5,1800:A:5,2000:START:5,2200:A:5,2400:A:5,2600:A:5,2800:A:5,3000:A:5,3200:A:5,3400:A:5,3700:A:5,3800:A:6000" ../build-host/fzerogx_bench --seconds=60 --warmup=0 "$GITHUB_WORKSPACE/rom/game.iso" > ../build-private-logs/race-probe.txt 2>&1
       - name: Cache public ANGLE dependency only
+        if: ${{ !inputs.probe_only }}
         id: angle-cache
         uses: actions/cache/restore@v4
         with:
           path: build-ios/angle
           key: angle-iphoneos-webkit-3a41ad1d-xcode26.3-${{ runner.arch }}-v3
       - name: Build ANGLE Metal for iPhoneOS
+        if: ${{ !inputs.probe_only }}
         shell: bash
         run: |
           mkdir -p build-ios
@@ -61,6 +73,7 @@ jobs:
             python3 ios/build_angle.py "$PWD/build-ios/angle" > build-private-logs/angle.txt 2>&1
           fi
       - name: Configure iOS ARM64 game
+        if: ${{ !inputs.probe_only }}
         run: |
           cmake -S . -B build-ios -G Xcode \
             -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=iphoneos \
@@ -69,8 +82,10 @@ jobs:
             -DGCN_ANGLE_DIR="$PWD/build-ios/angle" \
             -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO > build-private-logs/ios-configure.txt 2>&1
       - name: Compile and link real game (no guest stubs)
+        if: ${{ !inputs.probe_only }}
         run: cmake --build build-ios --config Release --target fzerogx_ios --parallel 3 > build-private-logs/ios-build.txt 2>&1
       - name: Audit and package unsigned IPA
+        if: ${{ !inputs.probe_only }}
         shell: bash
         run: |
           APP=$(find build-ios -path '*/Release-iphoneos/FZeroGX.app' -type d -print -quit)

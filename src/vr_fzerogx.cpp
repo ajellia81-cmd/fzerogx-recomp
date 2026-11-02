@@ -27,8 +27,10 @@
 #include "motion.h"
 #include "race.h"
 #include "vr_game.h"
-#ifdef FZGX_IOS_FRONTEND
+#if defined(FZGX_IOS_FRONTEND) || defined(FZGX_IOS_INPUT_PROBE)
 #include "../ios/guest_state.h"
+#include "recomp.h"
+#include <cstring>
 #endif
 
 namespace {
@@ -73,6 +75,23 @@ void guest_frame(uint32_t frame) {
     }();
     (void)preset;
     const fzgx::Race race = fzgx::race_read();
+#if defined(FZGX_IOS_FRONTEND) || defined(FZGX_IOS_INPUT_PROBE)
+    unsigned modes=0;
+    for(unsigned k=0;k<g_recomp_rel_count;++k){
+        const auto& m=g_recomp_rels[k];bool linked=false;
+        for(unsigned s=0;s<m.count;++s)linked|=g_rel_base[k*REL_MAX_SECTIONS+m.sections[s].index]!=0;
+        if(!linked)continue;
+        if(!std::strcmp(m.name,"fze.title.rel"))modes|=ios_guest::Title;
+        if(!std::strcmp(m.name,"fze.sel.rel"))modes|=ios_guest::Selection;
+        if(!std::strcmp(m.name,"fze.replay.rel"))modes|=ios_guest::Replay;
+        if(!std::strcmp(m.name,"fze.story.rel"))modes|=ios_guest::Story;
+        if(!std::strcmp(m.name,"fze.winning.rel"))modes|=ios_guest::Winning;
+        if(!std::strcmp(m.name,"fze.movie.rel") || !std::strcmp(m.name,"fze.movie_module.rel"))modes|=ios_guest::Movie;
+        if(!std::strcmp(m.name,"fze.option.rel"))modes|=ios_guest::Option;
+    }
+    ios_guest::modules.store(modes,std::memory_order_relaxed);
+    ios_guest::phase.store(race.linked?race.state:-1,std::memory_order_relaxed);
+#endif
     const bool race_live = fzgx::race_live(race);
     static fzgx::Race last;
     if (log() && (race.state != last.state || race.player_race != last.player_race || race.paused != last.paused ||

@@ -4,12 +4,19 @@
 #include "scene_classify.h"
 #include "motion_history.h"
 #include "runtime.h"
+#include "guest_state.h"
 #include <cstdio>
 namespace ios_probe {
 inline ios_motion::History history;
 inline unsigned long long frames=0,world=0,movie=0,menu=0,movingFrames=0,eligibleMoving=0,movingDraws=0,partial=0,multi=0;
 inline void observe(gx::Batch& b){
     ++frames;
+    static int lastPhase=-999;static unsigned lastModules=~0u;
+    int phase=ios_guest::phase.load();unsigned modules=ios_guest::modules.load();
+    if(phase!=lastPhase || modules!=lastModules){
+        fprintf(stderr,"iOS scene transition: batch=%llu phase=%d modules=%u\n",frames,phase,modules);
+        lastPhase=phase;lastModules=modules;
+    }
     auto mode=ios_scene::classify(b);
     if(mode==ios_scene::Mode::Movie)++movie;
     if(mode==ios_scene::Mode::Menu)++menu;
