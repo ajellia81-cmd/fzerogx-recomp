@@ -76,7 +76,6 @@ static bool metal_context(CAMetalLayer* layer, EGLDisplay* display, EGLSurface* 
 @property(nonatomic,strong) FZTouchControls* touchControls;
 @property(nonatomic,strong) UISwitch* smoothSwitch;
 @property(nonatomic,strong) UILabel* fpsLabel;
-@property(nonatomic,strong) UISegmentedControl* resolution;
 @end
 
 @implementation GameController
@@ -116,12 +115,10 @@ static bool metal_context(CAMetalLayer* layer, EGLDisplay* display, EGLSurface* 
     UIStackView* smoothRow = [[UIStackView alloc] initWithArrangedSubviews:@[smoothLabel,self.smoothSwitch]];
     smoothRow.axis = UILayoutConstraintAxisHorizontal;
     smoothRow.spacing = 16;
-    self.resolution = [[UISegmentedControl alloc] initWithItems:@[@"내부 해상도 2×",@"내부 해상도 3×"]];
-    self.resolution.selectedSegmentIndex = 0;
     UIButton* rumbleTest = [UIButton buttonWithType:UIButtonTypeSystem];
     [rumbleTest setTitle:@"진동 테스트" forState:UIControlStateNormal];
     [rumbleTest addTarget:self action:@selector(testRumble) forControlEvents:UIControlEventTouchUpInside];
-    UIStackView* stack = [[UIStackView alloc] initWithArrangedSubviews:@[self.status,self.importButton,self.saveButton,smoothRow,self.resolution,rumbleTest,self.start]];
+    UIStackView* stack = [[UIStackView alloc] initWithArrangedSubviews:@[self.status,self.importButton,self.saveButton,smoothRow,rumbleTest,self.start]];
     stack.axis = UILayoutConstraintAxisVertical;
     stack.spacing = 8;
     stack.translatesAutoresizingMaskIntoConstraints = NO;
@@ -262,9 +259,8 @@ static bool metal_context(CAMetalLayer* layer, EGLDisplay* display, EGLSurface* 
     CAMetalLayer* layer = (CAMetalLayer*)self.view.layer;
     std::string path(image.fileSystemRepresentation);
     std::string dir(documents().fileSystemRepresentation);
-    const int internalScale = self.resolution.selectedSegmentIndex==1 ? 3 : 2;
     __weak GameController* weakSelf = self;
-    std::thread([layer,path,dir,weakSelf,internalScale] {
+    std::thread([layer,path,dir,weakSelf] {
         @autoreleasepool {
             freopen((dir+"/log.txt").c_str(),"w",stderr);
             setvbuf(stderr,nullptr,_IONBF,0);
@@ -285,7 +281,7 @@ static bool metal_context(CAMetalLayer* layer, EGLDisplay* display, EGLSurface* 
             save=dir; cache=dir+"/shaders.bin";
             g_save_dir=save.c_str();
             gx::render_set_shader_cache(cache.c_str());
-            gx::render_init(internalScale);
+            gx::render_init(1);
             fprintf(stderr,"iOS: GL %s / %s\n",glGetString(GL_VERSION),glGetString(GL_RENDERER));
             if (!audio_open()) fprintf(stderr,"iOS: audio unavailable\n");
             uint32_t entry=boot_load(path.c_str());
@@ -301,9 +297,10 @@ static bool metal_context(CAMetalLayer* layer, EGLDisplay* display, EGLSurface* 
                 gx::render_set_window_size(width,height);
                 const auto& hooks=vr::game_hooks();
                 const bool race=hooks.wants_stereo && hooks.wants_stereo(*batch);
-                const bool world=gx::ios_prepare_scene(*batch,race);
+                gx::ios_configure_native(*batch,width,height);
+                gx::ios_prepare_scene(*batch,race);
                 gx::ios_widen(*batch,width,height);
-                gx::ios_render_motion(*batch,smoothMotion.load() && world,show_frame,&presentation);
+                gx::ios_render_motion(*batch,smoothMotion.load(),show_frame,&presentation);
                 if (presentation.failed) { fprintf(stderr,"iOS: surface presentation failed\n"); break; }
             }
             threads_request_quit();

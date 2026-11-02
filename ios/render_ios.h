@@ -2,6 +2,7 @@
 #include "gx/render.h"
 namespace gx {
 // Only the iOS renderer exports these; simulation and desktop paths are unchanged.
+void ios_configure_native(const Batch& batch, int width, int height);
 bool ios_prepare_scene(const Batch& batch, bool liveRace);
 const char* ios_scene_name();
 const char* ios_motion_status();

@@ -1,10 +1,11 @@
 #pragma once
 #include "gx/render.h"
+#include "guest_state.h"
 #include <algorithm>
 #include <cmath>
 #include <vector>
 namespace ios_scene {
-enum class Mode { Menu, World, Movie };
+enum class Mode { Menu, World, Movie, Flat };
 inline bool full_view(const gx::PixelState& s){return std::fabs(s.viewport[0])*2>=600 && std::fabs(s.viewport[1])*2>=400;}
 inline bool movie_state(const gx::PixelState& s){
     // THP video is composed from three I8 luminance/chroma planes. Ordinary
@@ -17,7 +18,25 @@ inline bool movie_state(const gx::PixelState& s){
     }
     return planes>=3;
 }
-inline Mode classify(const gx::Batch& b,bool liveRace=false){
+// Bounds in the guest's normalized screen, before any iOS correction.
+inline bool draw_bounds(const gx::Batch& b,const gx::Cmd& c,const gx::PixelState& st,float box[4]){
+    if(!c.vcount || size_t(c.vfirst)+c.vcount>b.verts.size())return false;
+    box[0]=box[1]=INFINITY;box[2]=box[3]=-INFINITY;
+    for(uint32_t j=0;j<c.vcount;++j){const auto& v=b.verts[c.vfirst+j];
+        float x=st.proj[0]*v.pos[0]+st.proj[1],y=st.proj[2]*v.pos[1]+st.proj[3];
+        if(!std::isfinite(x)||!std::isfinite(y))return false;
+        box[0]=std::min(box[0],x);box[1]=std::min(box[1],y);box[2]=std::max(box[2],x);box[3]=std::max(box[3],y);
+    }return true;
+}
+inline bool black_side_mask(const gx::Batch& b,const gx::Cmd& c,const gx::PixelState& st,const float* box){
+    if(box[3]-box[1]<1.5f || box[2]-box[0]>.5f || !(box[2]<-.5f || box[0]>.5f))return false;
+    // Only opaque, solid black masks on the selection screen. Textured artwork,
+    // working render targets, text panels and full-screen fades are preserved.
+    for(auto id:st.tex_id)if(id)return false;
+    for(uint32_t j=0;j<c.vcount;++j){const auto* col=b.verts[c.vfirst+j].col[0];if(col[0]||col[1]||col[2]||col[3]!=255)return false;}
+    return true;
+}
+inline Mode classify(const gx::Batch& b,bool liveRace=false,unsigned modules=0,int phase=-1){
     bool world=false,movie=false;
     size_t passStart=0;
     std::vector<uint8_t> offscreen(b.cmds.size());
@@ -59,6 +78,15 @@ inline Mode classify(const gx::Batch& b,bool liveRace=false){
         // Full-view course/sky geometry, unlike an individual menu preview.
         if(front>=4 && x1-x0>=1.5f && y1-y0>=1.1f)world=true;
     }
-    return movie?Mode::Movie:(world||liveRace)?Mode::World:Mode::Menu;
+    if(movie)return Mode::Movie;
+    if(liveRace)return Mode::World;
+    if(modules & (ios_guest::Selection|ios_guest::Option))return Mode::Menu;
+    if(modules & (ios_guest::Title|ios_guest::Replay))return Mode::World;
+    if(phase==37 || phase==38)return Mode::Menu;
+    if(phase>=39 && phase<=43)return Mode::World;
+    if(world)return Mode::World;
+    bool perspective=false;
+    for(const auto& c:b.cmds)if(c.type==gx::CmdType::Draw && c.state<b.states.size() && b.states[c.state].proj[6]==0)perspective=true;
+    return perspective?Mode::Menu:Mode::Flat;
 }
 }
