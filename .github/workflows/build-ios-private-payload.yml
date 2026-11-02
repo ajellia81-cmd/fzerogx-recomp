@@ -115,7 +115,7 @@ jobs:
             -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO > build-private-logs/ios-configure.txt 2>&1
       - name: Compile and link real game (no guest stubs)
         if: ${{ !inputs.probe_only }}
-        run: cmake --build build-ios --config Release --target fzerogx_ios --parallel 3 > build-private-logs/ios-build.txt 2>&1
+        run: python3 ios/build_device.py build-ios
       - name: Audit and package unsigned IPA
         if: ${{ !inputs.probe_only }}
         shell: bash

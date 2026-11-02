@@ -133,3 +133,15 @@ remain pixel-identical to build 6. In pause/confirmation captures, portrait,
 timer and minimap/speed regions outside the popup remain pixel-identical.
 All 16 newly replayed snapshots reported GL error zero. These are software GLES
 checks, not Metal/device startup, gameplay or physical 120-fps measurements.
+
+## Full-game compiler retry
+
+Run 41484129704 passed configuration but Apple Clang 17 aborted internally with
+signal 6 while compiling a generated guest C translation unit. There was no
+source-level diagnostic in the retained log. The exact renderer/controller
+source separately passed ARM64 runtime compilation and the original regression
+fixtures in run 41483826142. The crash does not establish memory exhaustion or a
+deterministic source bug. The build wrapper now preserves that first log, records
+private resource summaries and retries only an internal compiler abort once with
+one compile job. Syntax/link errors still fail immediately. Completed objects,
+Release optimization, runtime code and gameplay timing remain unchanged.
