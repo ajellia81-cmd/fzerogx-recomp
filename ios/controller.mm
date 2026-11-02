@@ -36,8 +36,9 @@ PadState ios_controller_pad(const IOSControllerState& s) {
     PadState p;
     p.connected = s.connected;
     if (!s.connected) return p;
-    // Match the upstream desktop face-button layout: A/X/B/Y -> GC A/B/X/Y.
-    const uint16_t mapping[] = {PAD_A, PAD_X, PAD_B, PAD_Y, 0, PAD_Z,
+    // Backbone/iOS physical A/B/X/Y: accelerate/brake/boost/side attack.
+    // The guest default controls are GameCube A/B/Y/X respectively.
+    const uint16_t mapping[] = {PAD_A, PAD_B, PAD_Y, PAD_X, 0, PAD_Z,
                                PAD_START, PAD_UP, PAD_DOWN, PAD_LEFT, PAD_RIGHT};
     for (unsigned i = 0; i < sizeof(mapping) / sizeof(mapping[0]); ++i)
         if (s.buttons & (1u << i)) p.buttons |= mapping[i];
