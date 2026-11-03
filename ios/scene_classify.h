@@ -6,6 +6,11 @@
 #include <vector>
 namespace ios_scene {
 enum class Mode { Menu, World, Movie, Flat };
+inline unsigned sampled_maps(const gx::PixelState& s){
+    unsigned mask=0,stages=((s.bp[0]>>10)&15)+1;
+    for(unsigned i=0;i<stages;++i){unsigned order=s.bp[0x28+i/2]>>((i&1)*12);if(order&0x40)mask|=1u<<(order&7);}
+    return mask;
+}
 inline bool full_view(const gx::PixelState& s){return std::fabs(s.viewport[0])*2>=600 && std::fabs(s.viewport[1])*2>=400;}
 inline bool movie_state(const gx::PixelState& s){
     // F-Zero GX's existing movie path uses I8 Y + half-size IA8 UV,
@@ -95,7 +100,7 @@ inline Mode classify(const gx::Batch& b,bool liveRace=false,unsigned modules=0,i
         // Require both drawn full-width frame strips; an individual HUD sprite
         // or the presence of Story alone does not identify a menu.
         if(s.proj[6]!=0 && full_view(s)){
-            for(unsigned m=0;m<8;++m)if(s.tex_id[m] && !s.tex_is_efb[m]){
+            for(unsigned m=0,used=sampled_maps(s);m<8;++m)if((used&(1u<<m)) && s.tex_id[m] && !s.tex_is_efb[m]){
                 unsigned r=0x88+(m&3)+(m>=4?0x20:0),t=s.bp[r],h=(t>>10)&1023;
                 if(((t>>20)&15)==5 && (t&1023)==639 && (h==43 || h==59)){
                     float box[4];
@@ -120,13 +125,16 @@ inline Mode classify(const gx::Batch& b,bool liveRace=false,unsigned modules=0,i
         if(front>=4 && x1-x0>=1.5f && y1-y0>=1.1f)world=true;
     }
     if(movie || (modules & ios_guest::Movie))return Mode::Movie;
-    if((modules & (ios_guest::Title|ios_guest::Story)) && menu44 && menu60)return Mode::Menu;
+    // The frame belongs to the screen being drawn, independently of the
+    // linked module or a race phase retained after leaving gameplay. Replay
+    // lists and data-management dialogs use the same frame as other menus.
+    if(menu44 && menu60)return Mode::Menu;
     // Startup logos are orthographic-only Title frames. Linking Title does not
     // make those images a 3D world; the actual intro camera still has perspective.
     if((modules & ios_guest::Title) && !(modules & (ios_guest::Selection|ios_guest::Option)) && !perspective)return Mode::Flat;
     if(modules & ios_guest::Interview)return Mode::World;
     if(liveRace)return Mode::World;
-    if(modules & (ios_guest::Selection|ios_guest::Option))return Mode::Menu;
+    if(modules & ios_guest::MenuModules)return Mode::Menu;
     if(modules & (ios_guest::Title|ios_guest::Replay))return Mode::World;
     if(phase==37 || phase==38)return Mode::Menu;
     if(phase>=39 && phase<=43)return Mode::World;

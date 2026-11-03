@@ -10,7 +10,7 @@ struct Snapshot {unsigned modules=0;int phase=-1;bool live=false,stamped=false;}
 inline uint8_t encode(unsigned modules,int phase,bool live){
     unsigned k=modules&ios_guest::Movie?Movie:
         modules&ios_guest::Interview?Interview:
-        modules&(ios_guest::Selection|ios_guest::Option)?Menu:
+        modules&ios_guest::MenuModules?Menu:
         modules&ios_guest::Title?Title:modules&ios_guest::Replay?Replay:
         modules&ios_guest::Story?Story:modules&ios_guest::Winning?Winning:
         phase>=37 && phase<=43?Settings37+unsigned(phase-37):Unknown;

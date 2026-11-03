@@ -99,6 +99,21 @@ jobs:
           cmake -S . -B build-host -G Ninja -DGCN_BENCH_ONLY=ON -DFZGX_IOS_INPUT_PROBE=ON -DFZGX_IOS_LOGO_PROBE=ON -DCMAKE_BUILD_TYPE=Release -DGAME_ISO="$PWD/rom/game.iso" > build-private-logs/logo-configure.txt 2>&1
           cmake --build build-host --target fzerogx_bench --parallel 3 > build-private-logs/logo-build.txt 2>&1
           GCN_TIMESCALE=1 FZGX_LOGO_TRACE=1 build-host/fzerogx_bench --seconds=20 --warmup=0 "$PWD/rom/game.iso" > build-private-logs/logo-timing.txt 2>&1
+      - name: Inspect menu compositing regressions (private headless captures)
+        if: ${{ !inputs.probe_only }}
+        run: python3 ios/probe_menu_routes.py
+      - name: Encrypt menu review before device compilation
+        if: ${{ !inputs.probe_only }}
+        run: |
+          python3 ios/package_private_diagnostics.py
+          openssl cms -encrypt -binary -aes256 -in private-logs.tar.gz -out FZeroGX-menu-review.enc -outform DER ios/delivery-public.pem
+      - uses: actions/upload-artifact@v4
+        if: ${{ !inputs.probe_only }}
+        with:
+          name: FZeroGX-encrypted-menu-review
+          path: FZeroGX-menu-review.enc
+          if-no-files-found: error
+          retention-days: 1
       - name: Cache public ANGLE dependency only
         if: ${{ !inputs.probe_only }}
         id: angle-cache
@@ -132,8 +147,8 @@ jobs:
         run: |
           APP=$(find build-ios -path '*/Release-iphoneos/FZeroGX.app' -type d -print -quit)
           test -n "$APP"
-          python3 ios/package_unsigned.py "$APP" FZeroGX-iOS-build14-unsigned.ipa
-          openssl cms -encrypt -binary -aes256 -in FZeroGX-iOS-build14-unsigned.ipa -out FZeroGX-private.ipa.enc -outform DER ios/delivery-public.pem
+          python3 ios/package_unsigned.py "$APP" FZeroGX-iOS-build15-unsigned.ipa
+          openssl cms -encrypt -binary -aes256 -in FZeroGX-iOS-build15-unsigned.ipa -out FZeroGX-private.ipa.enc -outform DER ios/delivery-public.pem
       - name: Encrypt diagnostics for private review
         if: always()
         shell: bash

@@ -3,22 +3,6 @@
 #include <algorithm>
 #include <cmath>
 
-static ios_bindings::Map& bindings(){
-    static auto map=[] {
-        auto value=ios_bindings::defaults;
-        id saved=[NSUserDefaults.standardUserDefaults objectForKey:@"recomp.controller.v1"];
-        if([saved isKindOfClass:NSArray.class] && [saved count]==value.size()){
-            for(unsigned i=0;i<value.size();++i){id n=saved[i];if(![n isKindOfClass:NSNumber.class] || !ios_bindings::valid([n unsignedShortValue]))return ios_bindings::defaults;value[i]=[n unsignedShortValue];}
-        }
-        return value;
-    }();
-    return map;
-}
-static void save_bindings(){NSMutableArray* values=[NSMutableArray array];for(auto value:bindings())[values addObject:@(value)];[NSUserDefaults.standardUserDefaults setObject:values forKey:@"recomp.controller.v1"];}
-ios_bindings::Map ios_controller_bindings(){return bindings();}
-void ios_controller_assign(unsigned physical,uint16_t action){ios_bindings::assign(bindings(),physical,action);save_bindings();}
-void ios_controller_reset_bindings(){bindings()=ios_bindings::defaults;save_bindings();}
-
 // Read on the main thread, then pass the value to the guest thread. Never share
 // mutable GCController objects with the simulation. Backbone uses this API.
 IOSControllerState ios_controller_snapshot() {
@@ -54,9 +38,9 @@ PadState ios_controller_pad(const IOSControllerState& s) {
     PadState p;
     p.connected = s.connected;
     if (!s.connected) return p;
-    // Backbone A/B/X: accelerate/brake/boost. LB supplies the guest X side
-    // attack; physical Y is unassigned so the action has actually moved to LB.
-    const auto mapping=bindings();
+    // Match the upstream gamepad layout; game-specific assignment belongs to
+    // the game's own controller settings.
+    const auto& mapping=ios_bindings::defaults;
     for (unsigned i = 0; i < mapping.size(); ++i)
         if (s.buttons & (1u << i)) p.buttons |= mapping[i];
     auto axis = [](float v) -> uint8_t {

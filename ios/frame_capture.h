@@ -17,7 +17,10 @@ inline void observe(const gx::Batch& b,unsigned frame,unsigned modules,int phase
     for(auto id:b.dead_textures)live.erase(id);
     for(auto& t:b.new_textures)live[t->id]=t;
     const unsigned selected[]={30,60,120,180,240,360,480,600,1000,1900,2300,2700,3100,3500,4000,4500,5400,5600,5900,6100,6300,6500,6800,7200,7800,8400};
-    bool capture=false;for(auto f:selected)capture|=frame==f;
+    bool capture=false;
+    if(const char* list=getenv("FZGX_CAPTURE_FRAMES")){
+        for(const char* at=list;*at;){char* end=nullptr;unsigned long value=strtoul(at,&end,10);if(end==at)break;capture|=frame==value;at=*end==','?end+1:end;}
+    }else for(auto f:selected)capture|=frame==f;
     if(!capture)return;
     char path[128];snprintf(path,sizeof path,"frame-%u.capture",frame);
     FILE* f=fopen(path,"wb");if(!f)std::abort();

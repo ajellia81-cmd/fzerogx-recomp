@@ -21,11 +21,10 @@ int main(){
  for(int i=0;i<4;++i)ios_logo::note_av_update(0);
  assert(ios_logo::av_updates==120 && ios_logo::av_fades==12 && ios_logo::av_complete);
  for(unsigned phase:{0u,1u,3u})assert(timer.remaining(phase,280)==280);
- auto map=ios_bindings::defaults;
- assert(map[0]==PAD_A && map[1]==PAD_B && map[2]==PAD_Y && map[4]==PAD_X);
- ios_bindings::assign(map,3,PAD_X);assert(map[3]==PAD_X && !map[4]);
- auto saved=map;ios_bindings::assign(map,99,PAD_A);assert(map==saved);
- ios_bindings::assign(map,4,PAD_A|PAD_B);assert(map==saved);
+ constexpr auto map=ios_bindings::defaults;
+ static_assert(map[0]==PAD_A && map[1]==PAD_X && map[2]==PAD_B && map[3]==PAD_Y);
+ static_assert(map[4]==0 && map[5]==PAD_Z && map[6]==PAD_START);
+
  ios_lifecycle::Gate gate;gate.reset_clock_baseline();gate.renderer_started();
  gate.pause();gate.pause();
  std::atomic<int> drained{0};

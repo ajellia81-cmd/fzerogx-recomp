@@ -68,13 +68,22 @@ int main(){
  b->states[0].bp[0x88]=(5<<20)|639|(43<<10);
  b->states[1].bp[0x88]=(5<<20)|639|(59<<10);
  for(int i=0;i<4;++i){b->verts[i].pos[0]=(i&1)?640:0;b->verts[i].pos[1]=(i&2)?60:0;}
- for(unsigned module:{unsigned(ios_guest::Title),unsigned(ios_guest::Story)}){
+ for(unsigned module:{0u,unsigned(ios_guest::Title),unsigned(ios_guest::Story),unsigned(ios_guest::Replay),unsigned(ios_guest::Profile),unsigned(ios_guest::Customize),unsigned(ios_guest::Shop),unsigned(ios_guest::Paint)}){
   assert(ios_scene::classify(*b,false,module,41)==ios_scene::Mode::Menu);
   assert(ios_scene::classify(*b,true,module,41)==ios_scene::Mode::Menu);
   assert(ios_scene::classify(*b,true,module|ios_guest::Movie,41)==ios_scene::Mode::Movie);
   b->states[1].tex_is_efb[0]=true;
-  assert(ios_scene::classify(*b,false,module,41)!=ios_scene::Mode::Menu);
+  if(!(module&ios_guest::MenuModules))assert(ios_scene::classify(*b,false,module,41)!=ios_scene::Mode::Menu);
   b->states[1].tex_is_efb[0]=false;
+ }
+ // Menu-specific modules retain their entire composition even when a large
+ // perspective preview appears. The encoded context must carry that decision.
+ for(unsigned module:{unsigned(ios_guest::Profile),unsigned(ios_guest::Customize),unsigned(ios_guest::Shop),unsigned(ios_guest::Paint)}){
+  b->states={s,s};b->states[1].proj[6]=0;b->cmds={d,d};b->cmds[1].state=1;
+  auto tag=ios_context::decode(ios_context::encode(module,41,false));assert(tag.stamped && (tag.modules&ios_guest::MenuModules));
+  for(auto& st:b->states)st.tag=ios_context::encode(module,41,false);
+  b->new_textures.clear();gx::ios_prepare_scene(*b,false);assert(gx::g_ios_scene==ios_scene::Mode::Menu);
+  auto before=b->states;gx::ios_widen(*b,2868,1320);assert(b->states.size()==before.size()&&!memcmp(b->states.data(),before.data(),before.size()*sizeof(gx::PixelState)));
  }
  // Standalone startup art is flat; a real Title camera retains fullscreen 3D.
  b->states={s};b->cmds={d};

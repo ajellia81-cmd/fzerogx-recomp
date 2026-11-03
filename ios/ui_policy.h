@@ -3,11 +3,7 @@
 #include <array>
 
 namespace ios_ui {
-inline unsigned sampled_maps(const gx::PixelState& s){
-    unsigned mask=0,stages=((s.bp[0]>>10)&15)+1;
-    for(unsigned i=0;i<stages;++i){unsigned order=s.bp[0x28+i/2]>>((i&1)*12);if(order&0x40)mask|=1u<<(order&7);}
-    return mask;
-}
+inline unsigned sampled_maps(const gx::PixelState& s){return ios_scene::sampled_maps(s);}
 // Recognize the shared 24x24 I4 glyph path by its actual texel mapping.
 // Already-compensated geometry yields 16:9 and is left alone. Whole bitmaps
 // cannot use this inference: intentional image scaling and nine-slice widgets

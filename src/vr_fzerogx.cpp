@@ -90,6 +90,10 @@ void guest_frame(uint32_t frame) {
         if(!std::strcmp(m.name,"fze.interview.rel"))modes|=ios_guest::Interview;
         if(!std::strcmp(m.name,"fze.movie.rel") || !std::strcmp(m.name,"fze.movie_module.rel"))modes|=ios_guest::Movie;
         if(!std::strcmp(m.name,"fze.option.rel"))modes|=ios_guest::Option;
+        if(!std::strcmp(m.name,"fze.profile.rel"))modes|=ios_guest::Profile;
+        if(!std::strcmp(m.name,"fze.customize.rel"))modes|=ios_guest::Customize;
+        if(!std::strcmp(m.name,"fze.pilotpoint.rel"))modes|=ios_guest::Shop;
+        if(!std::strcmp(m.name,"fze.car_colchg.rel"))modes|=ios_guest::Paint;
     }
     ios_guest::modules.store(modes,std::memory_order_relaxed);
     ios_guest::phase.store(race.linked?race.state:-1,std::memory_order_relaxed);

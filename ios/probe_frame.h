@@ -49,6 +49,7 @@ inline int finish(){
     fprintf(stderr,"iOS input probe FINAL: batches=%llu world=%llu menu=%llu movie=%llu moving_frames=%llu moving_draws=%llu partial=%llu multi=%llu eligible_moving=%llu menu_masks=%llu\n",
             frames,world,menu,movie,movingFrames,movingDraws,partial,multi,eligibleMoving,menuMasks);
     fprintf(stderr,"Headless input validation only; no iOS execution, pixels, Metal or display FPS measured.\n");
+    if(getenv("FZGX_MENU_PROBE"))return frames>=4500 && menu?0:2;
     return world && eligibleMoving?0:2;
 }
 }

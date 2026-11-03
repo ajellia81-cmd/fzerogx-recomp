@@ -84,9 +84,7 @@ static bool metal_context(CAMetalLayer* layer, EGLDisplay* display, EGLSurface* 
 @property(nonatomic) BOOL fpsEnabled;
 @property(nonatomic) BOOL appActive;
 @property(nonatomic) BOOL menuOpen;
-@property(nonatomic) NSInteger menuMode;
 @property(nonatomic) NSInteger menuIndex;
-@property(nonatomic) uint16_t waitingAction;
 @property(nonatomic) uint32_t previousButtons;
 @property(nonatomic,strong) UIView* recompPanel;
 @property(nonatomic,strong) UIStackView* recompStack;
@@ -106,6 +104,7 @@ static __weak GameController* currentController;
 - (UIInterfaceOrientationMask)supportedInterfaceOrientations { return UIInterfaceOrientationMaskLandscape; }
 - (void)viewDidLoad {
     [super viewDidLoad];
+    [NSUserDefaults.standardUserDefaults removeObjectForKey:@"recomp.controller.v1"];
     currentController=self;
     self.appActive=YES;
     [NSUserDefaults.standardUserDefaults registerDefaults:@{@"recomp.smooth":@(UIScreen.mainScreen.maximumFramesPerSecond>=120),@"recomp.fps":@YES}];

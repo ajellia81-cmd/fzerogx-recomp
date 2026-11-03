@@ -1,1 +1,1 @@
-Build14: audit expanded-world overlays; correct uncompensated glyph lines and sampled modal materials while preserving compensated HUD, native 3D and movie/menu composition.
+Build15: separate preview/data-management menus from fullscreen worlds; inspect real replay/profile/customize/shop routes; restore upstream controller defaults and remove frontend remapping.

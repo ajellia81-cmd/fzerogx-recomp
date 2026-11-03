@@ -18,6 +18,7 @@ bool ios_prepare_scene(const Batch& b,bool liveRace) {
     if(startup)logoTransition=true;
     else if(!ios_ui::only_transition_draws(b))logoTransition=false;
     auto mode=logoTransition?ios_scene::Mode::Flat:ios_scene::classify(b,context.live,context.modules,context.phase);
+    g_ios_frame_scene|=uint64_t(mode)<<60;
     g_ios_scene.store(mode,std::memory_order_relaxed);
     g_ios_wide_view=mode==ios_scene::Mode::World;
     static float movieAspect=4.f/3;
