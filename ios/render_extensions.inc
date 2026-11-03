@@ -189,6 +189,82 @@ void ios_configure_native(const Batch& b,int width,int height){
     fprintf(stderr,"iOS native: drawable=%dx%d EFB=%dx%d source=%ux%u\n",width,height,ios_px_x(EFB_W),ios_px_y(EFB_H),sourceW,sourceH);
 }
 
+// Startup only: force ANGLE's lazy Metal pipelines to see real non-empty draws.
+// Private 4x4 RGBA8/depth32 targets match the real attachment formats. Never
+// touch the guest EFB, guest RAM, frame counters, or presentation history.
+bool ios_warm_pipeline_step(int* done,int* total) {
+    static std::vector<std::pair<GLuint,unsigned>> programs;
+    static size_t next=0;
+    static IOSFrameTarget target;
+    static GLuint vao=0,vbo=0,texture=0;
+    static bool initialized=false,complete=false;
+    if(!initialized){
+        initialized=true;
+        for(const auto& entry:g_programs)programs.emplace_back(entry.second.prog,std::min(entry.first.num_texgens,8u));
+        if(!target.create(4,4,true))fatal("iOS pipeline warmup framebuffer incomplete");
+        glGenVertexArrays(1,&vao);glBindVertexArray(vao);
+        glGenBuffers(1,&vbo);glBindBuffer(GL_ARRAY_BUFFER,vbo);
+        glEnableVertexAttribArray(0);
+        glEnableVertexAttribArray(1);glEnableVertexAttribArray(2);
+        glGenTextures(1,&texture);
+        for(int i=0;i<16;++i){
+            glActiveTexture(GL_TEXTURE0+i);glBindTexture(GL_TEXTURE_2D,texture);glBindSampler(i,0);
+        }
+        const uint32_t white=0xffffffff;
+        glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA8,1,1,0,GL_RGBA,GL_UNSIGNED_BYTE,&white);
+        glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
+    }
+    if(!complete && next<programs.size()){
+        glBindFramebuffer(GL_FRAMEBUFFER,target.fbo);glBindVertexArray(vao);
+        glViewport(0,0,4,4);glDisable(GL_SCISSOR_TEST);glDisable(GL_CULL_FACE);
+        glDisable(GL_DEPTH_TEST);glDepthMask(GL_FALSE);
+        const auto [program,ntex]=programs[next++];glUseProgram(program);
+        // Match the packed vertex layout the real draw uses; Metal includes it
+        // in its pipeline key. A universal eight-coordinate layout is insufficient.
+        GpuVertex vertices[3];memset(vertices,0,sizeof(vertices));
+        const float positions[3][3]={{-1,-1,-.5f},{3,-1,-.5f},{-1,3,-.5f}};
+        size_t stride=packed_stride(ntex);std::vector<uint8_t> packed(stride*3);
+        for(int i=0;i<3;++i){memcpy(vertices[i].pos,positions[i],12);memset(vertices[i].col,255,8);for(auto& coord:vertices[i].tex)coord[2]=1;memcpy(packed.data()+i*stride,&vertices[i],stride);}
+        glBindBuffer(GL_ARRAY_BUFFER,vbo);glBufferData(GL_ARRAY_BUFFER,packed.size(),packed.data(),GL_STATIC_DRAW);
+        glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,stride,(void*)offsetof(GpuVertex,pos));
+        for(int i=0;i<2;++i)glVertexAttribPointer(1+i,4,GL_UNSIGNED_BYTE,GL_TRUE,stride,(void*)(offsetof(GpuVertex,col)+4*i));
+        for(unsigned i=0;i<8;++i){if(i<ntex){glEnableVertexAttribArray(3+i);glVertexAttribPointer(3+i,3,GL_FLOAT,GL_FALSE,stride,(void*)(offsetof(GpuVertex,tex)+12*i));}else{glDisableVertexAttribArray(3+i);glVertexAttrib4f(3+i,0,0,1,1);}}
+        const float identity[16]={1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1};
+        glUniformMatrix4fv(glGetUniformLocation(program,"u_proj"),1,GL_FALSE,identity);
+        glUniform4f(glGetUniformLocation(program,"u_vp_a"),0,1,0,1);
+        glUniform4f(glGetUniformLocation(program,"u_vp_b"),0,1,0,0);
+        glUniform1i(glGetUniformLocation(program,"u_vr"),0);
+        float sizes[16];for(auto& v:sizes)v=1;
+        glUniform2fv(glGetUniformLocation(program,"u_texsize"),8,sizes);
+        // Frequent opaque, alpha, additive and subtractive paths; color write
+        // masks are part of a Metal pipeline too. No missing draws are allowed.
+        const GLenum factors[4][2]={{GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA},{GL_ONE,GL_ONE},{GL_SRC_ALPHA,GL_ONE},{GL_ONE,GL_ONE_MINUS_SRC_ALPHA}};
+        for(int mask=0;mask<2;++mask){
+            glColorMask(GL_TRUE,GL_TRUE,GL_TRUE,mask?GL_TRUE:GL_FALSE);
+            glDisable(GL_BLEND);glDrawArrays(GL_TRIANGLES,0,3);
+            glEnable(GL_BLEND);glBlendEquation(GL_FUNC_ADD);
+            for(auto& pair:factors){glBlendFunc(pair[0],pair[1]);glDrawArrays(GL_TRIANGLES,0,3);}
+            glBlendEquation(GL_FUNC_REVERSE_SUBTRACT);glBlendFunc(GL_ONE,GL_ONE);glDrawArrays(GL_TRIANGLES,0,3);
+        }
+        glFinish(); // Startup only: complete the lazy pipeline work before boot.
+        GLenum error=glGetError();
+        if(error!=GL_NO_ERROR)fatal("iOS pipeline warmup GL error %x",unsigned(error));
+    }
+    if(!complete && next==programs.size()){
+        complete=true;
+        glDeleteVertexArrays(1,&vao);glDeleteBuffers(1,&vbo);
+        for(int i=0;i<16;++i){glActiveTexture(GL_TEXTURE0+i);glBindTexture(GL_TEXTURE_2D,0);}
+        glDeleteTextures(1,&texture);target.drop();
+        glActiveTexture(GL_TEXTURE0);glBindFramebuffer(GL_FRAMEBUFFER,g_efb_fbo);
+        glBindVertexArray(g_vao);glBindBuffer(GL_ARRAY_BUFFER,g_vbo);
+        glBlendEquation(GL_FUNC_ADD);glDisable(GL_BLEND);glColorMask(1,1,1,1);glDepthMask(GL_TRUE);
+        gl_state_invalidate();uniforms_invalidate();
+        fprintf(stderr,"iOS warmup: %zu programs, %zu pipeline draws completed before guest boot (coverage is not exhaustive)\n",programs.size(),programs.size()*12);
+    }
+    if(done)*done=int(next);if(total)*total=int(programs.size());return complete;
+}
+
 bool ios_render_motion(Batch& b,bool smooth,void (*show)(void*),void* context) {
     static ios_motion::History history;
     // Reset at actual guest mode changes, not a fluctuating geometry heuristic.

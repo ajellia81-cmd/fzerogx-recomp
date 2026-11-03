@@ -1,6 +1,1 @@
-Build 11: match SEGA and AV logo timing to the supplied reference.
-Validate the same timer hooks with real guest code before ARM64 compilation.
-Approved icon unchanged.
-Retry: replace the CPU object in gcn_core instead of adding a second copy to the harness.
-Retry 2: real trace identifies phase 1 as overlap and phase 2 as AV; verify 120 AV updates directly.
-Retry 3: exclude observed zero-count handoff calls from verification totals; guest timing policy unchanged.
+Build12: cold-cache shader variants and pre-boot Metal pipeline warmup; approved icon unchanged.

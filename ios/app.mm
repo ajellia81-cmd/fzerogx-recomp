@@ -353,6 +353,12 @@ static __weak GameController* currentController;
                 int progress=done,count=total;
                 dispatch_async(dispatch_get_main_queue(), ^{weakSelf.status.text=[NSString stringWithFormat:@"셰이더 준비 중… %d / %d",progress,count];});
             }
+            while(!gx::ios_warm_pipeline_step(&done,&total)){
+                checkpoint();
+                if(done%8==0){int progress=done,count=total;
+                    dispatch_async(dispatch_get_main_queue(), ^{weakSelf.status.text=[NSString stringWithFormat:@"렌더링 준비 중… %d / %d",progress,count];});
+                }
+            }
             checkpoint();
             fprintf(stderr,"iOS: GL %s / %s\n",glGetString(GL_VERSION),glGetString(GL_RENDERER));
             if (!audio_open()) fprintf(stderr,"iOS: audio unavailable\n");

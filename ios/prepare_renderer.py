@@ -24,6 +24,20 @@ if text.count('canonicalize_shader_key(r.k);')!=2:
     raise SystemExit('Pinned shader cache record normalization changed')
 text=text.replace('canonicalize_shader_key(r.k);','ios_shader_key(r.k);')
 replace('canonicalize_shader_key(k);\n                if (have.insert(k).second)', 'ios_shader_key(k);\n                if (have.insert(k).second)')
+# Cover flat iOS framebuffer/destination-alpha variants before first use. These
+# are renderer metadata combinations, not generated guest code or game assets.
+replace('if (have.insert(k).second) L.shipped.push_back(k);', '''for (unsigned alpha=0; alpha<2; ++alpha) {
+                    for (unsigned dst=0; dst<=alpha; ++dst) {
+                        ShaderKey variant=k;variant.fg_depth=0;
+                        variant.efb_has_alpha=alpha;variant.dst_alpha=dst;
+                        ios_shader_key(variant);
+                        if(have.insert(variant).second)L.shipped.push_back(variant);
+                    }
+                }
+                if(have.insert(k).second)L.shipped.push_back(k);''')
+# At 120 Hz a 20 ms frame is already a visible hitch. Keep diagnostic detail
+# without enabling per-draw logging or changing desktop diagnostics.
+replace('if (ms > 50.0)', 'if (ms > 20.0)')
 replace('static int g_scale = 2;', 'static int g_scale = 2;\nstatic bool g_ios_transient=false, g_ios_prepared=false, g_ios_wide_view=false;\nstatic float g_ios_fixed_aspect=16.f/9;\nstatic float g_ios_scale_x=1, g_ios_scale_y=1;\nstatic int ios_px_x(float v){return int(std::lround(v*g_ios_scale_x));}\nstatic int ios_px_y(float v){return int(std::lround(v*g_ios_scale_y));}')
 replace('int vw = w, vh = w * 3 / 4;\n    if (vh > h) { vh = h; vw = h * 4 / 3; }', 'int vw=w, vh=h; if(!g_ios_wide_view){ vh=int(w/g_ios_fixed_aspect); if(vh>h){vh=h;vw=int(h*g_ios_fixed_aspect);} }')
 replace('if (c.writeback) copy_writeback(c);', 'if (c.writeback && !g_ios_transient) copy_writeback(c);')
