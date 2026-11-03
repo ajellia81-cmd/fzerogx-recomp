@@ -34,5 +34,9 @@ jobs:
         run: cmake --build build-ios-check --config Release --target ios_runtime_check --parallel 3
       - name: Check original renderer aspect regression fixtures (no game data)
         run: python3 ios/tests/check_policy.py
+      - name: Stress native detached thread resource reclamation (no game data)
+        run: |
+          c++ -std=c++20 -O1 -ffunction-sections -fdata-sections -Igcn-recomp/runtime ios/tests/thread_resources.cpp build-ios-check/platform_ios.cpp -Wl,-dead_strip -pthread -o build-ios-check/thread-resources
+          build-ios-check/thread-resources
       # No build-directory upload: a later private game build must never leak
       # generated guest code by adding a broad artifact pattern here.

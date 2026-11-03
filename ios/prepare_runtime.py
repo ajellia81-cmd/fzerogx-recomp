@@ -13,6 +13,14 @@ def variant(source,name,replacements):
         text=text.replace(old,new)
     (out/name).write_text(text)
 
+# The runtime never joins these fire-and-forget host threads. POSIX defaults
+# to joinable, retaining each finished thread's 64 MB stack until pthread_join.
+# Select detached state BEFORE creation, so even immediate exit is reclaimed.
+variant('runtime/platform.cpp','platform_ios.cpp',[
+ ('    pthread_t th;\n    int rc = pthread_create(&th, &attr, fn, arg);',
+  '    int detach_rc=pthread_attr_setdetachstate(&attr,PTHREAD_CREATE_DETACHED);\n'
+  '    if(detach_rc){pthread_attr_destroy(&attr);return false;}\n'
+  '    pthread_t th;\n    int rc = pthread_create(&th, &attr, fn, arg);')])
 variant('runtime/threads.cpp','threads_ios.cpp',[
  ('#include "runtime.h"','#include "runtime.h"\n#include "lifecycle.h"'),
  ('extern "C" void irq_poll(CPU* c) {','extern "C" void irq_poll(CPU* c) {\n    ios_lifecycle::guest_checkpoint();')])

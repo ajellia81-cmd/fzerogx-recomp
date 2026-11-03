@@ -6,7 +6,7 @@
 #include <cstdio>
 
 namespace {
-dispatch_queue_t queue(){static auto q=dispatch_queue_create("fzerogx.rumble",DISPATCH_QUEUE_SERIAL);return q;}
+dispatch_queue_t queue(){static auto attributes=dispatch_queue_attr_make_with_autorelease_frequency(DISPATCH_QUEUE_SERIAL,DISPATCH_AUTORELEASE_FREQUENCY_WORK_ITEM);static auto q=dispatch_queue_create("fzerogx.rumble",attributes);return q;}
 // All engine/player references live on queue(). Callback threads only invalidate
 // atomics. Each preparation gets a generation so old callbacks cannot tear down
 // a newer engine, and suspension cancels work before draining the queue.

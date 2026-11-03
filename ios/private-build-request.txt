@@ -1,1 +1,1 @@
-Build12: cold-cache shader variants and pre-boot Metal pipeline warmup; approved icon unchanged.
+Build13: release detached host-thread resources on exit; preserve Build12 warmup and approved icon.

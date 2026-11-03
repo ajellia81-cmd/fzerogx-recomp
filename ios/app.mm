@@ -369,6 +369,7 @@ static __weak GameController* currentController;
             dispatch_async(dispatch_get_main_queue(), ^{ [NSUserDefaults.standardUserDefaults setBool:YES forKey:@"recomp.setupComplete"]; [weakSelf.view viewWithTag:100].hidden=YES; });
             IOSPresentContext presentation{display,surface,swap};
             while (running) {
+                @autoreleasepool {
                 checkpoint();
                 auto batch=gx::take_batch(4);
                 if (!batch) continue;
@@ -386,6 +387,7 @@ static __weak GameController* currentController;
                 gx::ios_render_motion(*batch,smoothMotion.load(),show_frame,&presentation);
                 gx::render_report_frame(gx::ios_scene_name(),std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-renderStart).count());
                 if (presentation.failed) { fprintf(stderr,"iOS: surface presentation failed\n"); break; }
+                } // Drain temporary Objective-C/Metal objects every frame.
             }
             ios_lifecycle::gate().resume();threads_request_quit();
         }

@@ -18,8 +18,8 @@ set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
   "${IOS_DIR}/prepare_runtime.py")
 set(IOS_CORE ${GCN_CORE_SOURCES})
 list(REMOVE_ITEM IOS_CORE "${GCN_RT}/audio_stub.cpp")
-list(REMOVE_ITEM IOS_CORE "${GCN_RT}/cpu.cpp" "${GCN_RT}/threads.cpp")
-list(APPEND IOS_CORE "${CMAKE_BINARY_DIR}/cpu_ios.cpp" "${CMAKE_BINARY_DIR}/threads_ios.cpp")
+list(REMOVE_ITEM IOS_CORE "${GCN_RT}/cpu.cpp" "${GCN_RT}/threads.cpp" "${GCN_RT}/platform.cpp")
+list(APPEND IOS_CORE "${CMAKE_BINARY_DIR}/cpu_ios.cpp" "${CMAKE_BINARY_DIR}/threads_ios.cpp" "${CMAKE_BINARY_DIR}/platform_ios.cpp")
 set(IOS_RENDER_SOURCES ${GCN_RENDER_SOURCES})
 list(REMOVE_ITEM IOS_RENDER_SOURCES "${GCN_RT}/gx/render_gl.cpp")
 set(IOS_SOURCES ${IOS_CORE} ${GCN_AUDIO_SOURCES} ${IOS_RENDER_SOURCES}
