@@ -1,0 +1,38 @@
+name: Analyze startup logo timers (encrypted)
+on:
+  push:
+    branches: [main]
+    paths: [ios/logo-analysis-request.txt]
+permissions:
+  contents: read
+jobs:
+  timers:
+    runs-on: macos-15-intel
+    timeout-minutes: 30
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - name: Receive private build input
+        env:
+          ICLOUD_SOURCE_ID: ${{ secrets.ICLOUD_SOURCE_ID }}
+        run: python3 ios/fetch_private_disc.py
+      - name: Generate supported game privately
+        run: |
+          mkdir -p build-private-logs
+          cmake -S . -B build-host -G Ninja -DGCN_BENCH_ONLY=ON -DFZGX_IOS_INPUT_PROBE=ON -DCMAKE_BUILD_TYPE=Release -DGAME_ISO="$PWD/rom/game.iso" > build-private-logs/configure.txt 2>&1
+          python3 ios/inspect_logo_timers.py build-host build-private-logs/logo-timers.txt
+      - name: Encrypt private analysis
+        if: always()
+        run: |
+          tar -czf private-analysis.tar.gz build-private-logs
+          openssl cms -encrypt -binary -aes256 -in private-analysis.tar.gz -out logo-analysis.enc -outform DER ios/delivery-public.pem
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: owner-encrypted-logo-analysis
+          path: logo-analysis.enc
+          retention-days: 1

@@ -1,0 +1,1 @@
+Measure SEGA and AV timelines against the owner-supplied reference clip.
