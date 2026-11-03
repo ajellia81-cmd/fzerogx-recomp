@@ -1,1 +1,1 @@
-Build13: release detached host-thread resources on exit; preserve Build12 warmup and approved icon.
+Build14: audit expanded-world overlays; correct uncompensated glyph lines and sampled modal materials while preserving compensated HUD, native 3D and movie/menu composition.
