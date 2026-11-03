@@ -1,0 +1,1 @@
+Verify Build15 pilot detail, garage question and actual shop entry; first navigation passed parent menus but entered Garage instead of Shop.

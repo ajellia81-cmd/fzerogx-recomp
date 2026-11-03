@@ -1,0 +1,41 @@
+name: Verify specific menu preview regressions privately
+on:
+  push:
+    branches: [main]
+    paths: [ios/menu-regression-request.txt]
+permissions:
+  contents: read
+jobs:
+  menus:
+    runs-on: macos-15-intel
+    timeout-minutes: 60
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - name: Receive owner-supplied disc privately
+        env:
+          ICLOUD_SOURCE_ID: ${{ secrets.ICLOUD_SOURCE_ID }}
+        run: python3 ios/fetch_private_disc.py
+      - name: Generate and compile existing host game
+        run: |
+          mkdir -p build-private-logs
+          cmake -S . -B build-host -G Ninja -DGCN_BENCH_ONLY=ON -DFZGX_IOS_INPUT_PROBE=ON -DFZGX_IOS_LOGO_PROBE=ON -DCMAKE_BUILD_TYPE=Release -DGAME_ISO="$PWD/rom/game.iso" > build-private-logs/configure.txt 2>&1
+          cmake --build build-host --target fzerogx_bench --parallel 3 > build-private-logs/build.txt 2>&1
+      - name: Exercise replay, pilot detail, garage dialog and shop
+        run: python3 ios/probe_menu_routes.py
+      - name: Encrypt diagnostics
+        if: always()
+        run: |
+          python3 ios/package_private_diagnostics.py
+          openssl cms -encrypt -binary -aes256 -in private-logs.tar.gz -out FZeroGX-menu-review.enc -outform DER ios/delivery-public.pem
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: FZeroGX-encrypted-menu-review
+          path: FZeroGX-menu-review.enc
+          if-no-files-found: error
+          retention-days: 1
