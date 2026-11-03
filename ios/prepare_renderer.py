@@ -13,7 +13,7 @@ def replace(old, new):
         raise SystemExit(f"Pinned renderer changed: expected one occurrence of {old[:90]!r}")
     text = text.replace(old, new)
 
-replace('#include "gl.h"', '#include "gl.h"\n#include "motion_history.h"\n#include "scene_classify.h"\n#include "scene_context.h"\n#include "ui_policy.h"\n#include <cmath>')
+replace('#include "gl.h"', '#include "gl.h"\n#include "motion_history.h"\n#include "scene_classify.h"\n#include "scene_context.h"\n#include "ui_policy.h"\n#include "logo_timing.h"\n#include <cmath>')
 # Compile shipped shader keys before gameplay even when ANGLE has no program binaries.
 replace('if (g_shipped_keys && g_binaries_supported) {', 'if (g_shipped_keys) {')
 # The shipped desktop list contains dual-source destination-alpha variants.

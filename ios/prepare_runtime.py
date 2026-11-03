@@ -29,16 +29,46 @@ variant('visionos/audio_coreaudio.mm','audio_ios.mm',[
   'void ios_audio_suspend(){if(g_unit)AudioOutputUnitStop(g_unit);[AVAudioSession.sharedInstance setActive:NO error:nil];}\n'
   'void ios_audio_resume(){resume_after_interruption(0);}\n\nbool audio_open() {')])
 
-# Original timing metadata only; no game instructions or data are reproduced.
+# Original timing policy only; game instructions/data are not reproduced.
 p=out/'cpu_ios.cpp'
 p.write_text(p.read_text()+'''
 #include "logo_timing.h"
+static void ios_logo_advance(CPU* c,uint64_t ticks){
+    const uint64_t end=now_ticks()+ticks;
+    while(now_ticks()<end){
+        uint64_t part=std::min<uint64_t>(end-now_ticks(),TB_FREQ/120);
+        g_vcount=g_vcount+(part+g_ticks_per_edge-1)/g_ticks_per_edge;
+        irq_poll(c);
+    }
+}
 extern "C" void fzgx_ios_logo_delay(CPU* c){
-    uint64_t ticks=ios_logo::delay_ticks(ios_guest::modules.load(std::memory_order_relaxed));
-    if(!ticks)return;
-    // Consume equivalent virtual time and let the existing event/pacing path
-    // deliver interrupts and sleep. Never busy-spin or change the 60Hz game tick.
-    g_vcount=g_vcount+(ticks+g_ticks_per_edge-1)/g_ticks_per_edge;
-    irq_poll(c);
+    const uint32_t caller=c->lr;
+    const uint64_t ticks=ios_logo::delay_ticks(caller);
+    if(ticks){ios_logo::note_submission(host_ns());ios_logo_advance(c,ticks);return;}
+    if(caller!=ios_logo::title_tick)return;
+    // This caller has already installed the relocated title-state pointer.
+    const uint32_t state=c->r[30];
+    const unsigned phase=LD8(state+576);
+    static const bool trace=std::getenv("FZGX_LOGO_TRACE")!=nullptr;
+    static unsigned previous=~0u;
+    if(trace && previous!=phase){
+        fprintf(stderr,"iOS logo phase=%u counter=%u host=%.6f virtual=%.6f deadline=%.6f\\n",phase,unsigned(LD16(state+574)),host_ns()/1e9,now_ticks()/double(TB_FREQ),ios_logo::hold_deadline()/1e9);
+        previous=phase;
+    }
+    static bool held=false;
+    if(!held && phase==0){
+        held=true;
+        // Guest/renderer cooperation and pause-adjusted host time keep a slow
+        // loader or a foreground transition from shortening the visible hold.
+        for(uint64_t deadline=ios_logo::hold_deadline();deadline && host_ns()<deadline;){
+            ios_logo_advance(c,TB_FREQ/120);
+            deadline=ios_logo::hold_deadline();
+        }
+    }
+    static ios_logo::AVTimer timer;
+    const uint16_t before=LD16(state+574);
+    const uint16_t after=timer.remaining(phase,before);
+    if(trace && phase==1 && (before>138 || before<=30))fprintf(stderr,"iOS AV timer before=%u policy=%u host=%.6f\\n",unsigned(before),unsigned(after),host_ns()/1e9);
+    if(after!=before)ST16(state+574,after);
 }
 ''')

@@ -1,3 +1,3 @@
-Build 10: user-authorized startup logo transition and timing follow-up.
-Source: 8cf10f01c282ad4a28c0c345f88956592c715353
-Approved icon unchanged; existing private capture review passed.
+Build 11: match SEGA and AV logo timing to the supplied reference.
+Validate the same timer hooks with real guest code before ARM64 compilation.
+Approved icon unchanged.

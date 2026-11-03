@@ -5,6 +5,7 @@ static std::atomic<uint64_t> g_ios_native_frames{0}, g_ios_intermediate_frames{0
 static std::atomic<ios_scene::Mode> g_ios_scene{ios_scene::Mode::Menu};
 static std::atomic<int> g_ios_motion_reason{0};
 static uint64_t g_ios_frame_scene=0;
+static bool g_ios_frame_sega=false;
 bool ios_prepare_scene(const Batch& b,bool liveRace) {
     auto context=ios_context::read(b);
     if(!context.stamped){context.modules=ios_guest::modules.load(std::memory_order_relaxed);context.phase=ios_guest::phase.load(std::memory_order_relaxed);context.live=liveRace;}
@@ -12,6 +13,7 @@ bool ios_prepare_scene(const Batch& b,bool liveRace) {
     std::unordered_map<uint32_t,uint64_t> incoming;
     for(const auto& t:b.new_textures)incoming[t->id]=t->hash;
     bool startup=ios_ui::startup_art(b,[&](uint32_t id){auto it=incoming.find(id);return it==incoming.end()?render_texture_hash(id):it->second;});
+    g_ios_frame_sega=ios_ui::startup_art(b,[&](uint32_t id){auto it=incoming.find(id);return it==incoming.end()?render_texture_hash(id):it->second;},true);
     static bool logoTransition=false;
     if(startup)logoTransition=true;
     else if(!ios_ui::only_transition_draws(b))logoTransition=false;
@@ -280,7 +282,7 @@ bool ios_render_motion(Batch& b,bool smooth,void (*show)(void*),void* context) {
     g_ios_motion_reason.store(reason,std::memory_order_relaxed);
     bool presented=render_execute(b);
     g_ios_prepared=false;
-    if(presented && show) { show(context); ++outputs; ++g_ios_native_frames; }
+    if(presented && show) { show(context); if(g_ios_frame_sega)ios_logo::note_presentation(host_ns()); ++outputs; ++g_ios_native_frames; }
     ++ticks;
     double seconds=std::chrono::duration<double>(std::chrono::steady_clock::now()-since).count();
     if(seconds>=5) {

@@ -9,7 +9,7 @@ inline unsigned sampled_maps(const gx::PixelState& s){
     return mask;
 }
 inline bool logo_hash(uint64_t h){return h==0xffef214b102f891cull || h==0x9bf11ed63fad3dc8ull || h==0x4c8a45da63b18ea5ull || h==0xc98c5bd376ab7632ull;}
-template<class HashLookup> bool startup_art(const gx::Batch& b,HashLookup hash){
+template<class HashLookup> bool startup_art(const gx::Batch& b,HashLookup hash,bool segaOnly=false){
     // Identify the actual logo draw, not every retained binding or unrelated
     // pass in its batch. Transitions can submit both logos and fade geometry.
     for(const auto& c:b.cmds){
@@ -17,7 +17,7 @@ template<class HashLookup> bool startup_art(const gx::Batch& b,HashLookup hash){
         const auto& s=b.states[c.state];
         if(s.proj[6]==0 || !ios_scene::full_view(s))continue;
         unsigned used=sampled_maps(s);
-        for(unsigned m=0;m<8;++m)if((used&(1u<<m)) && s.tex_id[m] && !s.tex_is_efb[m] && logo_hash(hash(s.tex_id[m])))return true;
+        for(unsigned m=0;m<8;++m)if((used&(1u<<m)) && s.tex_id[m] && !s.tex_is_efb[m] && logo_hash(hash(s.tex_id[m])) && (!segaOnly || hash(s.tex_id[m])!=0xc98c5bd376ab7632ull))return true;
     }
     return false;
 }
