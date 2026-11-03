@@ -1,5 +1,8 @@
 name: Build iOS game (encrypted private delivery)
 on:
+  push:
+    branches: [main]
+    paths: [ios/private-build-request.txt]
   workflow_dispatch:
     inputs:
       approved_icon_sha256:
@@ -23,7 +26,7 @@ permissions:
   contents: read
 jobs:
   device:
-    runs-on: ${{ inputs.runner_label }}
+    runs-on: ${{ inputs.runner_label || 'macos-15-intel' }}
     timeout-minutes: 120
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
@@ -34,7 +37,7 @@ jobs:
           persist-credentials: false
       - name: Reproduce approved cover-crop app icon
         env:
-          APPROVED_ICON_SHA256: ${{ inputs.approved_icon_sha256 }}
+          APPROVED_ICON_SHA256: ${{ inputs.approved_icon_sha256 || 'bd2fe02cdf39f41f5f027bb2de447f5be6eeb47567305d11bb336bccb503e7aa' }}
         run: |
           python3 -m pip install --target build-icon-python Pillow==12.3.0
           PYTHONPATH="$PWD/build-icon-python" python3 ios/prepare_icon.py build-ios/Assets.xcassets --approved-sha256 "$APPROVED_ICON_SHA256"
@@ -52,7 +55,7 @@ jobs:
           cmake -S . -B build-host -G Ninja -DGCN_BENCH_ONLY=ON -DFZGX_IOS_INPUT_PROBE=ON -DCMAKE_BUILD_TYPE=Release -DGAME_ISO="$PWD/rom/game.iso" > build-private-logs/host-configure.txt 2>&1
           test -s build-host/rels-runtime/fze.main.rel
       - name: Validate real game scene and interpolation inputs (headless)
-        if: ${{ !inputs.skip_probes }}
+        if: ${{ github.event_name == 'workflow_dispatch' && !inputs.skip_probes }}
         shell: bash
         env:
           FZGX_PRIVATE_CAPTURE: "1"
@@ -63,26 +66,26 @@ jobs:
           cd build-probe
           ../build-host/fzerogx_bench --seconds=45 --warmup=0 "$GITHUB_WORKSPACE/rom/game.iso" > ../build-private-logs/interpolation-probe.txt 2>&1
       - name: Inspect menu to race scene transitions (headless)
-        if: ${{ !inputs.skip_probes }}
+        if: ${{ github.event_name == 'workflow_dispatch' && !inputs.skip_probes }}
         shell: bash
         run: |
           mkdir -p build-probe-race
           cd build-probe-race
           FZGX_PRIVATE_CAPTURE=1 GCN_INPUT="500:A:5,1300:A:5,1340:A:5,1380:A:5,1440:START:5,1500:A:5,1580:LEFT:5,1620:A:5,1800:A:5,2000:START:5,2200:A:5,2400:A:5,2600:A:5,2800:A:5,3000:A:5,3200:A:5,3400:A:5,3700:A:5,3800:A:1500,5500:START:5,5800:DOWN:5,6000:DOWN:5,6200:A:5,6400:LEFT:5,6600:A:5,7200:A:5" ../build-host/fzerogx_bench --seconds=90 --warmup=0 "$GITHUB_WORKSPACE/rom/game.iso" > ../build-private-logs/race-probe.txt 2>&1
       - name: Inspect story movie presentation inputs (headless)
-        if: ${{ !inputs.skip_probes }}
+        if: ${{ github.event_name == 'workflow_dispatch' && !inputs.skip_probes }}
         shell: bash
         run: |
           mkdir -p build-probe-story
           cd build-probe-story
           FZGX_PRIVATE_CAPTURE=1 GCN_INPUT="500:A:5,1300:A:5,1340:A:5,1380:A:5,1440:START:5,1500:A:5,1580:LEFT:5,1620:A:5,1800:A:5,2000:START:5,2200:DOWN:5,2400:RIGHT:5,2600:A:5,2800:A:5" ../build-host/fzerogx_bench --seconds=60 --warmup=0 "$GITHUB_WORKSPACE/rom/game.iso" > ../build-private-logs/story-probe.txt 2>&1
       - name: Encrypt renderer review before device compilation
-        if: ${{ !inputs.skip_probes }}
+        if: ${{ github.event_name == 'workflow_dispatch' && !inputs.skip_probes }}
         run: |
           python3 ios/package_private_diagnostics.py
           openssl cms -encrypt -binary -aes256 -in private-logs.tar.gz -out FZeroGX-renderer-review.enc -outform DER ios/delivery-public.pem
       - name: Upload encrypted renderer review only
-        if: ${{ !inputs.skip_probes }}
+        if: ${{ github.event_name == 'workflow_dispatch' && !inputs.skip_probes }}
         uses: actions/upload-artifact@v4
         with:
           name: FZeroGX-encrypted-renderer-review

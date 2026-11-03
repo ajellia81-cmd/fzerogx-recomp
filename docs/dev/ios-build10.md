@@ -34,3 +34,9 @@ movies retain classification. No private asset bytes or generated code are store
 in this repository. Native compile and package audit are recorded after the build.
 Physical logo timing, transitions, application launch and real display rate remain
 unverified until tested on the user's phone.
+
+The workflow also accepts an explicit main-branch change to
+`ios/private-build-request.txt`. This provides a narrowly scoped alternative to
+manual dispatch when the GitHub web UI does not create a run. Ordinary source
+pushes do not start the private build. The approved icon and Intel runner defaults
+are fixed for this route, and already reviewed captures are not repeated.
