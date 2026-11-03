@@ -11,6 +11,12 @@ inline constexpr uint64_t visible_hold_ns=2300000000ull;
 inline std::atomic<uint64_t> submitted_ns{0},presented_ns{0};
 inline std::atomic<unsigned> av_updates{0},av_fades{0};
 inline std::atomic<bool> hold_complete{false},av_complete{false};
+inline void note_av_update(uint16_t before){
+    // The guest calls its logo routine a few more times at zero while handing
+    // off to the intro. These are completion observations, not timer updates.
+    if(!before){if(av_updates.load())av_complete=true;return;}
+    ++av_updates;if(before<=30)++av_fades;
+}
 inline void note_submission(uint64_t ns){uint64_t zero=0;submitted_ns.compare_exchange_strong(zero,ns+1);}
 inline void note_presentation(uint64_t ns){uint64_t zero=0;presented_ns.compare_exchange_strong(zero,ns+1);}
 inline uint64_t hold_deadline(){

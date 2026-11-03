@@ -70,7 +70,7 @@ extern "C" void fzgx_ios_logo_delay(CPU* c){
     static ios_logo::AVTimer timer;
     const uint16_t before=LD16(state+574);
     const uint16_t after=timer.remaining(phase,before);
-    if(phase==2){++ios_logo::av_updates;if(before<=30)++ios_logo::av_fades;}
+    if(phase==2)ios_logo::note_av_update(before);
     if(trace && phase==2 && (before>138 || before<=30))fprintf(stderr,"iOS AV timer before=%u policy=%u host=%.6f\\n",unsigned(before),unsigned(after),host_ns()/1e9);
     if(after!=before)ST16(state+574,after);
 }

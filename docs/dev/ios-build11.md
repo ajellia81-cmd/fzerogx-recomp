@@ -41,3 +41,16 @@ updates and progression past AV. The old general probe required moving 3D race
 geometry and was inappropriate for this short no-input logo run. It remains
 unchanged for ordinary scene/motion validation; logo tracing selects the stricter
 logo-specific completion check. No IPA was produced by either failed attempt.
+
+The third real-guest run (`41609820157`) reached the hold deadline, then ran the
+AV countdown exactly as designed. Four extra calls at counter zero occurred
+during handoff to the intro; the checker incorrectly counted these as updates
+and expected a subsequent phase-3 call which the guest never made. Its reported
+124/16 therefore contains exactly 120 positive-counter updates and 12 positive
+fade updates. The checker now counts only positive counters and uses the observed
+zero-counter handoff as completion. A four-zero-call regression is included.
+This correction changes verification statistics only, not the guest timing policy.
+Host trace: initial phase 1 at 1.681776 s, hold deadline 2.458054 s; phase 2 starts
+at 3.225959 s, last positive counter at 6.025927 s and zero observed at 6.055250 s.
+This paced headless host ran about 40 updates/s, so these wall times are not a
+claim of iPhone output speed. At 60 updates/s the AV policy is 2.0 s after overlap.
