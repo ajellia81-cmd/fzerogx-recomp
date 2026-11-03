@@ -5,9 +5,9 @@ import sys
 source, destination = map(Path, sys.argv[1:])
 text = source.read_text()
 for old, new in [
-    ('#include "runtime.h"', '#include "runtime.h"\n#include "probe_frame.h"'),
+    ('#include "runtime.h"', '#include "runtime.h"\n#include "probe_frame.h"\n#include "logo_timing.h"'),
     ('verts += b->verts.size();', 'ios_probe::observe(*b);\n            verts += b->verts.size();'),
-    ('plat_exit_now(0);', 'plat_exit_now(ios_probe::finish());'),
+    ('plat_exit_now(0);', 'plat_exit_now(getenv("FZGX_LOGO_TRACE")?ios_logo::probe_finish():ios_probe::finish());'),
 ]:
     if text.count(old) != 1:
         raise SystemExit(f"Pinned harness changed: {old}")

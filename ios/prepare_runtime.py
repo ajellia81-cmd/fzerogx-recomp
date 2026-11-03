@@ -56,7 +56,7 @@ extern "C" void fzgx_ios_logo_delay(CPU* c){
         previous=phase;
     }
     static bool held=false;
-    if(!held && phase==0){
+    if(!held && phase==1){
         held=true;
         // Guest/renderer cooperation and pause-adjusted host time keep a slow
         // loader or a foreground transition from shortening the visible hold.
@@ -65,10 +65,13 @@ extern "C" void fzgx_ios_logo_delay(CPU* c){
             deadline=ios_logo::hold_deadline();
         }
     }
+    if(held && ios_logo::hold_deadline() && host_ns()>=ios_logo::hold_deadline())ios_logo::hold_complete=true;
+    if(phase>2 && ios_logo::av_updates.load())ios_logo::av_complete=true;
     static ios_logo::AVTimer timer;
     const uint16_t before=LD16(state+574);
     const uint16_t after=timer.remaining(phase,before);
-    if(trace && phase==1 && (before>138 || before<=30))fprintf(stderr,"iOS AV timer before=%u policy=%u host=%.6f\\n",unsigned(before),unsigned(after),host_ns()/1e9);
+    if(phase==2){++ios_logo::av_updates;if(before<=30)++ios_logo::av_fades;}
+    if(trace && phase==2 && (before>138 || before<=30))fprintf(stderr,"iOS AV timer before=%u policy=%u host=%.6f\\n",unsigned(before),unsigned(after),host_ns()/1e9);
     if(after!=before)ST16(state+574,after);
 }
 ''')

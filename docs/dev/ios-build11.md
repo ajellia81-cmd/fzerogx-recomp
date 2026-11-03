@@ -32,3 +32,12 @@ The first real-guest verification attempt (`41586818427`) failed at host linking
 the core is an OBJECT library, so removing cpu.cpp from the executable source
 list did not remove its original object. The probe now replaces the source in
 `gcn_core` itself. No IPA was produced by that failed attempt.
+
+The second attempt (`41608528173`) linked successfully and ran the guest. Its
+trace disproved the assumed phase numbering: phase 1 starts at 30 (SEGA/AV
+overlap); phase 2 starts at 280 (AV). The hold and AV policy now use those actual
+phases. The dedicated probe verifies the hold deadline, 120 AV updates, 12 fade
+updates and progression past AV. The old general probe required moving 3D race
+geometry and was inappropriate for this short no-input logo run. It remains
+unchanged for ordinary scene/motion validation; logo tracing selects the stricter
+logo-specific completion check. No IPA was produced by either failed attempt.

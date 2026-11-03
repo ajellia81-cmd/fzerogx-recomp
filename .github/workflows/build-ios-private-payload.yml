@@ -98,7 +98,7 @@ jobs:
         run: |
           cmake -S . -B build-host -G Ninja -DGCN_BENCH_ONLY=ON -DFZGX_IOS_INPUT_PROBE=ON -DFZGX_IOS_LOGO_PROBE=ON -DCMAKE_BUILD_TYPE=Release -DGAME_ISO="$PWD/rom/game.iso" > build-private-logs/logo-configure.txt 2>&1
           cmake --build build-host --target fzerogx_bench --parallel 3 > build-private-logs/logo-build.txt 2>&1
-          GCN_TIMESCALE=1 FZGX_LOGO_TRACE=1 build-host/fzerogx_bench --seconds=12 --warmup=0 "$PWD/rom/game.iso" > build-private-logs/logo-timing.txt 2>&1
+          GCN_TIMESCALE=1 FZGX_LOGO_TRACE=1 build-host/fzerogx_bench --seconds=20 --warmup=0 "$PWD/rom/game.iso" > build-private-logs/logo-timing.txt 2>&1
       - name: Cache public ANGLE dependency only
         if: ${{ !inputs.probe_only }}
         id: angle-cache

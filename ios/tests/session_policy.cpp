@@ -16,9 +16,9 @@ int main(){
  ios_logo::note_presentation(200);ios_logo::note_presentation(999);
  assert(ios_logo::hold_deadline()==200+ios_logo::visible_hold_ns);
  ios_logo::AVTimer timer;unsigned frames=0,fade=0;uint16_t counter=280;
- while(counter){auto next=timer.remaining(1,counter);if(next<=30)++fade;counter=next-1;++frames;assert(frames<=120);}
+ while(counter){auto next=timer.remaining(2,counter);if(next<=30)++fade;counter=next-1;++frames;assert(frames<=120);}
  assert(frames==120 && fade==12);
- for(unsigned phase:{0u,2u,3u})assert(timer.remaining(phase,280)==280);
+ for(unsigned phase:{0u,1u,3u})assert(timer.remaining(phase,280)==280);
  auto map=ios_bindings::defaults;
  assert(map[0]==PAD_A && map[1]==PAD_B && map[2]==PAD_Y && map[4]==PAD_X);
  ios_bindings::assign(map,3,PAD_X);assert(map[3]==PAD_X && !map[4]);
