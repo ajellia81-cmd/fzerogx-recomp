@@ -28,3 +28,17 @@ variant('visionos/audio_coreaudio.mm','audio_ios.mm',[
  ('bool audio_open() {',
   'void ios_audio_suspend(){if(g_unit)AudioOutputUnitStop(g_unit);[AVAudioSession.sharedInstance setActive:NO error:nil];}\n'
   'void ios_audio_resume(){resume_after_interruption(0);}\n\nbool audio_open() {')])
+
+# Original timing metadata only; no game instructions or data are reproduced.
+p=out/'cpu_ios.cpp'
+p.write_text(p.read_text()+'''
+#include "logo_timing.h"
+extern "C" void fzgx_ios_logo_delay(CPU* c){
+    uint64_t ticks=ios_logo::delay_ticks(ios_guest::modules.load(std::memory_order_relaxed));
+    if(!ticks)return;
+    // Consume equivalent virtual time and let the existing event/pacing path
+    // deliver interrupts and sleep. Never busy-spin or change the 60Hz game tick.
+    g_vcount=g_vcount+(ticks+g_ticks_per_edge-1)/g_ticks_per_edge;
+    irq_poll(c);
+}
+''')

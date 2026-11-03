@@ -15,6 +15,15 @@ endif()
 add_subdirectory(gcn-recomp)
 gcn_enable_languages()
 
+set(FZGX_TABLES "${CMAKE_SOURCE_DIR}/recomp")
+if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+  find_package(Python3 REQUIRED COMPONENTS Interpreter)
+  set(FZGX_TABLES "${CMAKE_BINARY_DIR}/ios-recomp")
+  execute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/ios/prepare_tables.py"
+    "${CMAKE_SOURCE_DIR}/recomp" "${FZGX_TABLES}" COMMAND_ERROR_IS_FATAL ANY)
+  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/ios/prepare_tables.py" "${CMAKE_SOURCE_DIR}/recomp/patches.txt")
+endif()
+
 gcn_add_game(
   NAME fzerogx
   TITLE "F-Zero GX"
@@ -22,7 +31,7 @@ gcn_add_game(
   DISC_ID GFZE01
   DOL_SHA1 421c88106697d3275a3fc26fb7a01bf6d816b271
   SYMBOLS ${CMAKE_SOURCE_DIR}/analysis/symbols.txt
-  TABLES ${CMAKE_SOURCE_DIR}/recomp
+  TABLES ${FZGX_TABLES}
   FPS 60
   # The shader keys a play-through uses, compiled on a fresh install before the game starts:
   # made by gcn-recomp/tools/shader_keys from the Vision Pro's cache (docs/dev/vr.md).

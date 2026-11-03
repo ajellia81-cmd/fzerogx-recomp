@@ -3,14 +3,16 @@
 - (void)syncPause {
     bool pause=self.menuOpen || !self.appActive;
     if(pause){
+        ios_rumble_suspend();
         ios_lifecycle::gate().pause();
         if(self.started)irq_request();
         ios_lifecycle::gate().wait_for_renderer();
         if(self.started)ios_audio_suspend();
-        ios_rumble_update(false);[self.touchControls resetInput];
+        [self.touchControls resetInput];
         PadState neutral{};neutral.connected=ios_controller_snapshot().connected;pad_set_state(0,neutral);
     }else if(ios_lifecycle::gate().resume()){
         ++fpsEpoch;if(self.started)ios_audio_resume();
+        ios_rumble_resume();
     }
 }
 - (void)foregroundChanged:(BOOL)active {
