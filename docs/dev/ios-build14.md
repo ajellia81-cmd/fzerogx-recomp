@@ -1,4 +1,4 @@
-# iOS fullscreen-world overlay audit (Build14 candidate)
+# iOS Build14: fullscreen-world overlay audit
 
 ## Scope and evidence
 
@@ -55,10 +55,18 @@ Common modal runs are recognized as a unit: shadow glyphs, panel pieces, foregro
 
 ## Verification and limits
 
-ROM-free renderer/session policy fixtures pass on the cloud Linux host. They cover sampled/stale textures, interview tag priority, compensated/uncompensated primitives sharing a state, outlined glyphs, indirect-stage exclusions, logos, movies, common panels and offscreen boundaries. The previous audit commit passed the macOS iOS ARM64 runtime check; the final candidate needs its own run.
+ROM-free renderer/session policy fixtures pass on the cloud Linux host. They cover sampled/stale textures, interview tag priority, compensated/uncompensated primitives sharing a state, outlined glyphs, indirect-stage exclusions, logos, movies, common panels and offscreen boundaries. The final code passed macOS iOS ARM64 runtime checks in runs 41666283772 and 41667409266, including the native 1,500-thread resource-reclamation stress check.
 
 The private replay corpus contains 68 real decoded frames: startup logos, menus, course/race/popup and story/movie samples. Fifteen frames contain startup logos and eleven classify as movies. Shared legacy glyph draws are present outside the interview: 135 in each of two course-intro samples and 11 in several race samples. Presence is not necessarily visible text: some course glyphs are transparent in the chosen frame.
 
 Host GLES replay before/after comparison preserved HUD face/border composition after the generic-bitmap experiment was removed. Additional representative movie and menu replays are byte-identical before/after. Pause and confirmation popups retain their panel composition; only generic HUD font labels outside those runs change. Host rendering is not Metal/device validation. There is no actual interview, winning-screen, reward-screen or complete end-credit capture in this corpus. Bespoke broadcast artwork, nonstandard fonts, indirect presentation paths and every progressive subtitle animation are not proven covered. Do not describe this audit as every scene visually tested or all stretching eliminated. Additional per-material fixes require evidence rather than broad aspect guesses.
 
-Build13 thread-resource reclamation, autorelease pools and haptics queue draining, Build12 pipeline warmup, the approved icon and 60 Hz game logic remain intact. No ROM, save data, decoded frame or generated game source is committed. This document describes a candidate; it is not an IPA build or device-performance claim.
+Build13 thread-resource reclamation, autorelease pools and haptics queue draining, Build12 pipeline warmup, the approved icon and 60 Hz game logic remain intact. No ROM, save data, decoded frame or generated game source is committed. Build and delivery details follow; the audit is not a device-performance claim.
+
+## Build and delivery verification
+
+Source `d2dfee67b5eedeb686526e5115172a84836de740`, full Actions run 41667409409, completed successfully. Real generated game code compiled and linked for iPhoneOS ARM64 without a compiler retry. The host logo probe reports `hold=1 AV_updates=120 AV_fade_updates=12 completed=1 result=PASS`. The full race/story capture steps are dispatch-only and were skipped in this push build; the 68-frame review above used the existing private capture corpus.
+
+`FZeroGX-iOS-build14-unsigned.ipa`: 14,931,764 bytes; SHA-256 `60b4a9a443fb07c9cdb8cf1dcb5dcd7b3d4db20125d83e5e2ba759d4c84bb08b`. Encrypted Actions artifact 13248835070 has ZIP digest `5e2e9df980e00dd6ab601d58172dca1f9906edd8cfb4bba4a052f712791dd197`. The decrypted IPA passed an independent ZIP/plist/Mach-O audit: version 14, seven bundle files, no disc/save/source/capture files or provisioning/signature data. Both binaries are unsigned thin iPhoneOS ARM64. The executable minimum OS is 17.0, while the preserved ANGLE dependency requires 26.2; the effective bundle requirement remains 26.2.
+
+Compilation/package creation: verified. Device app launch: not verified for this build. Device gameplay/interview display: not verified. Physical 120 Hz output and complete elimination of all overlay stretching: not verified.
