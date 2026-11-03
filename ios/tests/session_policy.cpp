@@ -10,7 +10,7 @@ using namespace std::chrono_literals;
 int main(){
  assert(ios_logo::delay_ticks(0)>0);
  for(unsigned module:{unsigned(ios_guest::Title),unsigned(ios_guest::Selection),unsigned(ios_guest::Movie)})assert(ios_logo::delay_ticks(module)==0);
- assert(50*ios_logo::delay_ticks(0)>13000000 && 50*ios_logo::delay_ticks(0)<14000000);
+ assert(50*ios_logo::delay_ticks(0)==40000000);
  auto map=ios_bindings::defaults;
  assert(map[0]==PAD_A && map[1]==PAD_B && map[2]==PAD_Y && map[4]==PAD_X);
  ios_bindings::assign(map,3,PAD_X);assert(map[3]==PAD_X && !map[4]);

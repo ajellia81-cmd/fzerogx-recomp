@@ -2,9 +2,10 @@
 #include <cstdint>
 #include "guest_state.h"
 namespace ios_logo {
-// Upstream documents ~400k back-edges, charged 800k TB ticks but about
-// three times the hardware cost (docs/dev/boot.md). Restore that estimated
-// duration only for the initial boot screen. Title's logo is frame-counted;
-// restoring its per-frame busy work would reintroduce the old 20fps slowdown.
-inline constexpr uint64_t delay_ticks(unsigned modules){return modules?0:800000/3;}
+// Build 9's divided estimate was visibly too short on the user's phone.
+// Restore the documented virtual-loop budget ONLY before mode modules load.
+// Never restore Title's per-frame work: it would reduce the frame-counted fade
+// to 20fps. This is an explicit startup timing adjustment, not a measured claim
+// about the original hardware duration.
+inline constexpr uint64_t delay_ticks(unsigned modules){return modules?0:800000;}
 }

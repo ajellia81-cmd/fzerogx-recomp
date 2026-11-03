@@ -7,7 +7,7 @@ int main(){
  gx::ShaderKey cacheKey{};cacheKey.dst_alpha=2;gx::g_dual_source=false;gx::ios_shader_key(cacheKey);assert(cacheKey.dst_alpha==0);
  cacheKey.dst_alpha=2;gx::g_dual_source=true;gx::ios_shader_key(cacheKey);assert(cacheKey.dst_alpha==2);gx::g_dual_source=false;
 
- auto*b=new gx::Batch;gx::PixelState s{};s.proj[6]=1;s.proj[0]=2.f/640;s.proj[1]=-1;s.proj[2]=2.f/480;s.proj[3]=-1;s.viewport[0]=320;s.viewport[1]=240;s.viewport[3]=1002;s.viewport[4]=922;s.bp[0x59]=342|(342<<10);s.bp[0x20]=682|(682<<12);s.bp[0x21]=1161|(1321<<12);s.tex_id[0]=1;
+ auto*b=new gx::Batch;gx::PixelState s{};s.proj[6]=1;s.proj[0]=2.f/640;s.proj[1]=-1;s.proj[2]=2.f/480;s.proj[3]=-1;s.viewport[0]=320;s.viewport[1]=240;s.viewport[3]=1002;s.viewport[4]=922;s.bp[0x59]=342|(342<<10);s.bp[0x20]=682|(682<<12);s.bp[0x21]=1161|(1321<<12);s.tex_id[0]=1;s.bp[0x28]=0x40;
  gx::Cmd d{};d.type=gx::CmdType::Draw;d.vcount=d.count=4;b->cmds={d};b->states={s};b->verts.resize(4);
  for(int i=0;i<4;++i){auto&v=b->verts[i];v.pos[0]=320+((i&1)?37.5f:-37.5f);v.pos[1]=240+((i&2)?50.f:-50.f);}
  ios_guest::modules=ios_guest::Selection;gx::ios_prepare_scene(*b,false);gx::ios_widen(*b,2868,1320);
@@ -27,7 +27,26 @@ int main(){
  assert(!ios_ui::startup_art(*b,[](uint32_t){return uint64_t(123);}));
  b->states.push_back(s);b->states[1].proj[6]=0;b->cmds.push_back(d);b->cmds[1].state=1;b->cmds[1].count=0;
  assert(ios_ui::startup_art(*b,[](uint32_t){return uint64_t(0x4c8a45da63b18ea5ull);}));
- b->cmds[1].count=4;assert(!ios_ui::startup_art(*b,[](uint32_t){return uint64_t(0x4c8a45da63b18ea5ull);}));
+ b->cmds[1].count=4;assert(ios_ui::startup_art(*b,[](uint32_t){return uint64_t(0x4c8a45da63b18ea5ull);}));
+ // An unrelated transition draw or unused stale binding cannot change the
+ // logo canvas; a stale logo binding that TEV does not sample cannot select it.
+ b->states={s};b->cmds={d};b->states[0].tex_id[1]=2;
+ assert(ios_ui::startup_art(*b,[](uint32_t id){return id==1?0x4c8a45da63b18ea5ull:123ull;}));
+ b->states[0].bp[0x28]=0x41;
+ assert(!ios_ui::startup_art(*b,[](uint32_t id){return id==1?0x4c8a45da63b18ea5ull:123ull;}));
+ b->states[0].bp[0x28]=0;
+ assert(ios_ui::only_transition_draws(*b));
+ b->states[0].bp[0x28]=0x40;assert(!ios_ui::only_transition_draws(*b));
+ // End-to-end queued logo -> fade-only -> unrelated 2D -> world sequence.
+ b->states={s};b->cmds={d};b->states[0].tag=ios_context::encode(ios_guest::Selection,41,false);
+ auto logoTex=std::make_shared<gx::TexData>();logoTex->id=1;logoTex->hash=0x4c8a45da63b18ea5ull;b->new_textures={logoTex};
+ gx::ios_prepare_scene(*b,false);assert(gx::g_ios_scene==ios_scene::Mode::Flat);
+ b->new_textures.clear();b->states[0].bp[0x28]=0;
+ gx::ios_prepare_scene(*b,false);assert(gx::g_ios_scene==ios_scene::Mode::Flat);
+ b->states[0].tex_id[0]=99;b->states[0].bp[0x28]=0x40;
+ gx::ios_prepare_scene(*b,false);assert(gx::g_ios_scene==ios_scene::Mode::Menu);
+ b->states[0].tag=ios_context::encode(ios_guest::Title,41,false);b->states[0].proj[6]=0;
+ gx::ios_prepare_scene(*b,false);assert(gx::g_ios_scene==ios_scene::Mode::World);
  // Menu composition must retain perspective layers, copies and scissors too.
  b->states={s,s};b->states[0].proj[6]=0;b->states[0].proj[0]=1;b->states[0].proj[2]=4.f/3;b->cmds={d,d};b->cmds[1].state=1;
  gx::Cmd copy{};copy.type=gx::CmdType::EfbCopy;copy.copy.src_w=copy.copy.dst_w=640;copy.copy.src_h=copy.copy.dst_h=480;copy.copy.tex_id=42;copy.copy.clear=true;b->cmds.push_back(copy);
