@@ -55,3 +55,19 @@ ROM-free policy/session tests and generated CPU/thread syntax validation passed.
 Native ARM64 compile, final IPA audit and real-device results are recorded after
 completion. A successful compile does not establish that device suspension,
 Guide delivery or the logo's exact duration is fixed.
+
+
+## Completed validation
+
+- Source: `3c5fd80c1cc5ced355c1a97b4cd8f41a5f96dbcc`.
+- ARM64 runtime compile and policy tests: Actions `41575333719`, success.
+- Full game compile/link/package: Actions `41575464280`, success (8m21s).
+- File: `FZeroGX-iOS-build9-unsigned.ipa`, 14,923,371 bytes.
+- SHA256: `008af6321d3401547f3de01cf9e326999c4eaab9271edcd9e3e3a8453c425f2f`.
+- Seven bundle files; app and ANGLE are thin ARM64 iPhoneOS images without code
+  signatures. No ISO, raw card, GCI, generated C, capture, provisioning profile or
+  signature directory. Bundle version 9, id `com.ajellia81.fzerogx`.
+- All three icon resource files are byte-identical to approved build 8.
+- Effective minimum iOS remains 26.2 because of the embedded ANGLE dylib.
+- Application launch, gameplay, real 120Hz output, foreground restoration and
+  exact startup logo duration are not device-verified for this build.
