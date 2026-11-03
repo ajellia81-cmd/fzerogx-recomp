@@ -119,29 +119,57 @@ int main(){
  auto interview=ios_context::decode(code);assert(interview.stamped&&interview.modules==ios_guest::Interview);
  assert(ios_context::decode(ios_context::encode(ios_guest::Movie|ios_guest::Interview,43,false)).modules==ios_guest::Movie);
  assert(ios_scene::classify(*b,false,ios_guest::Interview,0)==ios_scene::Mode::World);
- // Exercise every presentation context, both canvas families and several
- // target ratios. A square from uncompensated interview coordinates and a
- // pre-compensated HUD square must each remain square on the physical display.
- for(unsigned module:{0u,unsigned(ios_guest::Title),unsigned(ios_guest::Selection),unsigned(ios_guest::Replay),unsigned(ios_guest::Story),unsigned(ios_guest::Winning),unsigned(ios_guest::Movie),unsigned(ios_guest::Option),unsigned(ios_guest::Interview)}){
-  for(float target:{4.f/3,16.f/9,2868.f/1320,21.f/9}){
-   for(bool popup:{false,true}){
-    float canvas=ios_ui::canvas_aspect(module,popup);
-    bool fixed=popup||(module&ios_guest::Interview);
-    assert(fabs(canvas-(fixed?4.f/3:16.f/9))<1e-6);
-    float sourceWidth=fixed?100.f:75.f;
-    float physicalAspect=(sourceWidth*(2.f/640)*canvas/target*target)/(100.f*(2.f/480));
-    assert(fabs(physicalAspect-1)<1e-6);
-   }
-  }
+ // Per-primitive glyph detection must work in ANY fullscreen 3D
+ // scene, while preserving already-compensated HUD art and panel atlas pieces.
+ gx::PixelState sprite=s;sprite.num_texgens=1;sprite.tex_id[0]=101;sprite.bp[0x88]=23|(23<<10);
+ b->states={sprite};b->cmds={d};b->verts.resize(4);
+ auto quad=[&](float width,float height,float umax=1.f){
+  memset(b->verts.data(),0,4*sizeof(gx::GpuVertex));
+  for(int i=0;i<4;++i){auto& v=b->verts[i];v.pos[0]=100+((i&1)?width:0);v.pos[1]=100+((i&2)?height:0);v.tex[0][0]=(i&1)?umax:0;v.tex[0][1]=(i&2)?1:0;v.tex[0][2]=1;}
+ };
+ quad(24,24);assert(ios_ui::fixed_glyph(*b,d,sprite));
+ sprite.bp[0]=1u<<16;assert(!ios_ui::fixed_glyph(*b,d,sprite));sprite.bp[0]=0;
+ sprite.num_texgens=2;sprite.bp[0]=1u<<10;sprite.bp[0x28]=0x40u|(0x48u<<12);
+ for(auto& v:b->verts){v.tex[1][0]=v.tex[0][0]+.1f;v.tex[1][1]=v.tex[0][1]-.1f;v.tex[1][2]=1;}
+ assert(ios_ui::fixed_glyph(*b,d,sprite));
+ b->verts[1].tex[1][0]+=.5f;assert(!ios_ui::fixed_glyph(*b,d,sprite));
+ sprite.num_texgens=1;sprite.bp[0]=0;sprite.bp[0x28]=0x40;
+
+ quad(18,24);assert(!ios_ui::fixed_glyph(*b,d,sprite));
+ quad(48,24);assert(!ios_ui::fixed_glyph(*b,d,sprite)); // deliberately wide
+ // A generic bitmap must not be inferred from aspect alone (HUD faces and
+ // borders intentionally use different primitive dimensions).
+ sprite.bp[0x88]=(5<<20)|99|(49<<10);quad(100,50);assert(!ios_ui::fixed_glyph(*b,d,sprite));
+ sprite.bp[0x88]=23|(23<<10);quad(24,24);sprite.tex_is_efb[0]=true;assert(!ios_ui::fixed_glyph(*b,d,sprite));sprite.tex_is_efb[0]=false;
+ b->verts[0].tex[0][2]=0;assert(!ios_ui::fixed_glyph(*b,d,sprite));
+ // Independent fixed and compensated primitives share the SAME PixelState.
+ b->states={sprite};b->cmds.assign(3,d);b->cmds[1].vfirst=4;b->cmds[2].state=1;b->verts.resize(8);
+ for(int i=0;i<8;++i){auto& v=b->verts[i];memset(&v,0,sizeof(v));v.pos[0]=100+((i&1)?(i<4?24:18):0);v.pos[1]=100+((i&2)?24:0);v.tex[0][0]=(i&1)?1:0;v.tex[0][1]=(i&2)?1:0;v.tex[0][2]=1;}
+ for(unsigned module:{0u,unsigned(ios_guest::Title),unsigned(ios_guest::Replay),unsigned(ios_guest::Story),unsigned(ios_guest::Winning),unsigned(ios_guest::Interview)}){
+  gx::PixelState worldSprite=sprite;worldSprite.proj[6]=0;worldSprite.proj[0]=1;worldSprite.proj[2]=4.f/3;
+  b->states={sprite,worldSprite};b->cmds[0].state=b->cmds[1].state=0;b->cmds[2].state=1;
+  for(auto& st:b->states)st.tag=ios_context::encode(module,41,false);
+  auto lines=ios_ui::glyph_lines(*b,{},{});assert(lines[0].fixed&&!lines[1].fixed);
+  float center=lines[0].anchor;
+  b->new_textures.clear();gx::ios_prepare_scene(*b,true);gx::ios_widen(*b,2868,1320);
+  const auto& correctedGlyph=b->states[b->cmds[0].state];float actualCenter=correctedGlyph.proj[0]*112+correctedGlyph.proj[1];
+  assert(fabs(actualCenter-center*(16.f/9)/(2868.f/1320))<1e-6);
+  for(int i=0;i<2;++i){float canvas=i==0?4.f/3:16.f/9;assert(fabs(b->states[b->cmds[i].state].proj[0]-s.proj[0]*canvas/(2868.f/1320))<1e-7);}
  }
- // Standalone interview captions, labels and panels receive one consistent
- // correction regardless of material. A shared PixelState in a mixed batch
- // still caches the independent HUD / interview canvas correctly.
- b->states={s,s,s};b->cmds.assign(3,d);for(int i=0;i<3;++i)b->cmds[i].state=i;
- b->states[0].tag=ios_context::encode(ios_guest::Interview,0,false);
- b->states[1].tag=ios_context::encode(ios_guest::Replay,43,false);
- b->states[2].tag=ios_context::encode(ios_guest::Interview,0,false);
- b->new_textures.clear();gx::ios_prepare_scene(*b,false);gx::ios_widen(*b,2868,1320);
- for(int i=0;i<3;++i){float canvas=i==1?16.f/9:4.f/3;assert(fabs(b->states[b->cmds[i].state].proj[0]-s.proj[0]*canvas/(2868.f/1320))<1e-7);}
+ // Correct spacing together with glyph widths; the run must keep its center.
+ b->states={sprite};b->cmds.assign(2,d);b->cmds[1].vfirst=4;b->verts.resize(8);
+ for(int i=0;i<8;++i){auto& v=b->verts[i];memset(&v,0,sizeof(v));v.pos[0]=100+(i/4)*30+((i&1)?24:0);v.pos[1]=100+((i&2)?24:0);v.tex[0][0]=(i&1)?1:0;v.tex[0][1]=(i&2)?1:0;v.tex[0][2]=1;}
+ auto lines=ios_ui::glyph_lines(*b,{},{});assert(lines[0].fixed&&lines[1].fixed&&lines[0].anchor==lines[1].anchor);
+ auto excluded=ios_ui::glyph_lines(*b,{1,1},{});assert(!excluded[0].fixed&&!excluded[1].fixed);
+ for(float target:{4.f/3,16.f/9,2868.f/1320,21.f/9}){
+  b->states={sprite};b->cmds[0].state=b->cmds[1].state=0;gx::g_ios_scene=ios_scene::Mode::World;gx::ios_widen(*b,int(target*1320+.5f),1320);
+  const auto& first=b->states[b->cmds[0].state];const auto& next=b->states[b->cmds[1].state];
+  float gap=(next.proj[0]*130+next.proj[1])-(first.proj[0]*124+first.proj[1]);
+  float glyphWidth=first.proj[0]*24;assert(fabs(gap/glyphWidth-.25f)<1e-5);
+ }
+ // The same glyphs accompanying a prerendered movie must not receive the
+ // new World-font correction, irrespective of their dimensions.
+ b->states={sprite};b->cmds[0].state=b->cmds[1].state=0;gx::g_ios_scene=ios_scene::Mode::Movie;gx::g_ios_fixed_aspect=16.f/9;gx::ios_widen(*b,2868,1320);
+ assert(b->states[b->cmds[0].state].proj[0]==sprite.proj[0]);
  puts("Menu, fullscreen HUD, flat logos, modal-group/cache boundaries and I8/IA8 movie policy passed");
 }

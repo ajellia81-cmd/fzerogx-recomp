@@ -3,16 +3,76 @@
 #include <array>
 
 namespace ios_ui {
-// Fixed-canvas UI (including free-standing captions) must not depend on a
-// particular glyph atlas or panel hash. Interview art uses the uncompensated
-// 4:3 canvas; ordinary racing HUD geometry is already compensated for 16:9.
-inline float canvas_aspect(unsigned modules,bool modal){
-    return modal || (modules & ios_guest::Interview)?4.f/3:16.f/9;
-}
 inline unsigned sampled_maps(const gx::PixelState& s){
     unsigned mask=0,stages=((s.bp[0]>>10)&15)+1;
     for(unsigned i=0;i<stages;++i){unsigned order=s.bp[0x28+i/2]>>((i&1)*12);if(order&0x40)mask|=1u<<(order&7);}
     return mask;
+}
+// Recognize the shared 24x24 I4 glyph path by its actual texel mapping.
+// Already-compensated geometry yields 16:9 and is left alone. Whole bitmaps
+// cannot use this inference: intentional image scaling and nine-slice widgets
+// otherwise separate their faces, borders, numeric fields or anchors.
+inline bool fixed_glyph(const gx::Batch& b,const gx::Cmd& c,const gx::PixelState& s){
+    if(s.proj[6]==0 || ((s.bp[0]>>16)&7) || c.vcount!=4 || size_t(c.vfirst)+4>b.verts.size())return false;
+    unsigned used=sampled_maps(s);
+    if(!used || (used&(used-1)))return false;
+    unsigned map=0;while(!(used&(1u<<map)))++map;
+    if(!s.tex_id[map] || s.tex_is_efb[map])return false;
+    unsigned coords=0,stages=((s.bp[0]>>10)&15)+1;
+    for(unsigned i=0;i<stages;++i){unsigned order=s.bp[0x28+i/2]>>((i&1)*12);if(order&0x40)coords|=1u<<((order>>3)&7);}
+    if(!coords || (coords>>std::min<unsigned>(s.num_texgens,8u)))return false;
+    unsigned coord=0;while(!(coords&(1u<<coord)))++coord;
+    unsigned t=s.bp[0x88+(map&3)+(map>=4?0x20:0)];
+    unsigned w=(t&1023)+1,h=((t>>10)&1023)+1,format=(t>>20)&15;
+    if(format!=0 || w!=24 || h!=24)return false;
+    float box[4];if(!ios_scene::draw_bounds(b,c,s,box))return false;
+    float dx=box[2]-box[0],dy=box[3]-box[1];
+    if(dx<1e-6f || dy<1e-6f)return false;
+    // Full-frame regular artwork may be a background/fade, not a UI sprite.
+    if(box[0]<=-.99f && box[1]<=-.99f && box[2]>=.99f && box[3]>=.99f)return false;
+    std::array<float,8> ulo,vlo,uhi,vhi;ulo.fill(INFINITY);vlo.fill(INFINITY);uhi.fill(-INFINITY);vhi.fill(-INFINITY);
+    for(unsigned j=0;j<4;++j){const auto& v=b.verts[c.vfirst+j];
+        float x=s.proj[0]*v.pos[0]+s.proj[1],y=s.proj[2]*v.pos[1]+s.proj[3];
+        if(std::min(fabs(x-box[0]),fabs(x-box[2]))>dx*.001f || std::min(fabs(y-box[1]),fabs(y-box[3]))>dy*.001f)return false;
+        for(unsigned at=0;at<8;++at)if(coords&(1u<<at)){
+            float q=v.tex[at][2];if(!std::isfinite(q)||fabs(q)<1e-7f)return false;
+            float u=v.tex[at][0]/q,vv=v.tex[at][1]/q;
+            if(!std::isfinite(u)||!std::isfinite(vv))return false;
+            ulo[at]=std::min(ulo[at],u);uhi[at]=std::max(uhi[at],u);vlo[at]=std::min(vlo[at],vv);vhi[at]=std::max(vhi[at],vv);
+        }
+    }
+    float u0=ulo[coord],u1=uhi[coord],v0=vlo[coord],v1=vhi[coord];
+    if(u1-u0<1e-6f || v1-v0<1e-6f)return false;
+    // Outline text samples the same atlas using translated coordinates. The
+    // spans must agree; unrelated multi-coordinate effects remain excluded.
+    for(unsigned at=0;at<8;++at)if(coords&(1u<<at)){
+        if(fabs((uhi[at]-ulo[at])-(u1-u0))>(u1-u0)*.001f || fabs((vhi[at]-vlo[at])-(v1-v0))>(v1-v0)*.001f)return false;
+    }
+
+    const float texelAspect=(u1-u0)*w/((v1-v0)*h);
+    const float naturalCanvas=texelAspect*dy/dx;
+    return std::isfinite(naturalCanvas) && fabs(naturalCanvas-4.f/3)<.02f;
+}
+struct GlyphLine {bool fixed=false;float anchor=0;};
+inline std::vector<GlyphLine> glyph_lines(const gx::Batch& b,const std::vector<uint8_t>& skip,const std::vector<uint8_t>& modal){
+    std::vector<GlyphLine> result(b.cmds.size());
+    auto valid=[&](size_t i){const auto& c=b.cmds[i];return c.type==gx::CmdType::Draw && c.state<b.states.size() && !(i<skip.size()&&skip[i]) && !(i<modal.size()&&modal[i]) && fixed_glyph(b,c,b.states[c.state]);};
+    for(size_t begin=0;begin<b.cmds.size();){
+        if(!valid(begin)){++begin;continue;}
+        const auto& first=b.states[b.cmds[begin].state];float bounds[4];ios_scene::draw_bounds(b,b.cmds[begin],first,bounds);
+        const float height=bounds[3]-bounds[1],cy=(bounds[3]+bounds[1])*.5f;
+        float left=bounds[0],right=bounds[2];size_t end=begin+1;
+        for(;end<b.cmds.size()&&valid(end);++end){
+            const auto& state=b.states[b.cmds[end].state];float box[4];ios_scene::draw_bounds(b,b.cmds[end],state,box);
+            if(memcmp(first.proj,state.proj,sizeof(first.proj)) || memcmp(first.viewport,state.viewport,sizeof(first.viewport)) || first.bp[0x20]!=state.bp[0x20] || first.bp[0x21]!=state.bp[0x21])break;
+            if(fabs((box[3]-box[1])-height)>height*.1f || fabs((box[3]+box[1])*.5f-cy)>height*.25f)break;
+            if(box[0]>right+height*4 || box[2]<left-height*4)break;
+            left=std::min(left,box[0]);right=std::max(right,box[2]);
+        }
+        for(size_t i=begin;i<end;++i)result[i]={true,(left+right)*.5f};
+        begin=end;
+    }
+    return result;
 }
 inline bool logo_hash(uint64_t h){return h==0xffef214b102f891cull || h==0x9bf11ed63fad3dc8ull || h==0x4c8a45da63b18ea5ull || h==0xc98c5bd376ab7632ull;}
 template<class HashLookup> bool startup_art(const gx::Batch& b,HashLookup hash,bool segaOnly=false){

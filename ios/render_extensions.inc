@@ -68,6 +68,7 @@ void ios_widen(Batch& b,int width,int height){
             auto it=incoming.find(id);return it==incoming.end()?render_texture_hash(id):it->second;
         });
     }
+    auto glyph=mode==ios_scene::Mode::World?ios_ui::glyph_lines(b,skip,modal):std::vector<ios_ui::GlyphLine>(b.cmds.size());
     const size_t original=b.states.size();
     // One original state can serve both HUD and a modal group. Cache each
     // canvas separately instead of letting the first draw choose for both.
@@ -76,12 +77,11 @@ void ios_widen(Batch& b,int width,int height){
         auto& c=b.cmds[i];
         if(c.type!=CmdType::Draw || skip[i] || c.state>=original)continue;
         PixelState st=b.states[c.state];
-        // Use this draw's FIFO-stamped context, not newer guest atomics or
-        // whichever scene happened to be last in a mixed transition batch.
-        auto context=ios_context::decode(st.tag);
-        unsigned modules=context.stamped?context.modules:unsigned(g_ios_frame_scene>>32);
-        float uiAspect=ios_ui::canvas_aspect(modules,modal[i]!=0);
-        unsigned canvas=uiAspect<1.5f?1:0;
+        // The same scene/state can contain compensated HUD art and legacy
+        // glyph draws. Classify each primitive before reusing a state.
+        bool anchored=glyph[i].fixed && !modal[i];
+        unsigned canvas=modal[i] || anchored?1:0;
+        float uiAspect=canvas?4.f/3:16.f/9;
         if(std::fabs(st.viewport[0])*2<600)continue;
         float ratio=1;
         if(st.proj[6]!=0){
@@ -92,29 +92,31 @@ void ios_widen(Batch& b,int width,int height){
             // overlays use the HUD or explicitly identified modal canvas.
             bool textured=false;for(auto id:st.tex_id)textured|=id!=0;
             if(!textured && bounds && box[0]<=-.99f && box[1]<=-.99f && box[2]>=.99f && box[3]>=.99f)continue;
-            if(corrected[c.state][canvas]>=0){c.state=uint32_t(corrected[c.state][canvas]);continue;}
+            if(!anchored && corrected[c.state][canvas]>=0){c.state=uint32_t(corrected[c.state][canvas]);continue;}
             // The game's widescreen option already compensates 2D geometry.
             // Inferring its canvas from the ortho matrix double-corrected it.
             ratio=uiAspect/aspect;
-            if(std::fabs(ratio-1.f)<.000001f)continue;
+            if(std::fabs(ratio-1.f)<.000001f && (!anchored || std::fabs(((16.f/9)/aspect-ratio)*glyph[i].anchor)<.000001f))continue;
             // Move the UI's clipping rectangle with its projection. Otherwise
             // the old scissor cuts corrected portraits/panels into black strips.
             float center=st.viewport[3];
+            float clipRatio=anchored?(16.f/9)/aspect:ratio;
             int left=int((st.bp[0x20]>>12)&2047),right=int((st.bp[0x21]>>12)&2047)+1;
-            left=std::clamp(int(std::floor(center+(left-center)*ratio)),0,2047);
-            right=std::clamp(int(std::ceil(center+(right-center)*ratio))-1,left,2047);
+            left=std::clamp(int(std::floor(center+(left-center)*clipRatio)),0,2047);
+            right=std::clamp(int(std::ceil(center+(right-center)*clipRatio))-1,left,2047);
             st.bp[0x20]=(st.bp[0x20]&~(2047u<<12))|(unsigned(left)<<12);
             st.bp[0x21]=(st.bp[0x21]&~(2047u<<12))|(unsigned(right)<<12);
         }else{
             if(mode==ios_scene::Mode::Movie)continue;
-            if(corrected[c.state][canvas]>=0){c.state=uint32_t(corrected[c.state][canvas]);continue;}
+            if(!anchored && corrected[c.state][canvas]>=0){c.state=uint32_t(corrected[c.state][canvas]);continue;}
             if(st.proj[0]==0)continue;
             float cameraAspect=std::fabs(st.proj[2]/st.proj[0]);
             if(cameraAspect<1.1f || cameraAspect>2.5f)continue;
             ratio=cameraAspect/aspect;
         }
         st.proj[0]*=ratio;st.proj[1]*=ratio;
-        corrected[c.state][canvas]=int32_t(b.states.size());c.state=uint32_t(b.states.size());b.states.push_back(st);
+        if(anchored)st.proj[1]+=((16.f/9)/aspect-ratio)*glyph[i].anchor;
+        if(!anchored)corrected[c.state][canvas]=int32_t(b.states.size());c.state=uint32_t(b.states.size());b.states.push_back(st);
     }
 }
 
