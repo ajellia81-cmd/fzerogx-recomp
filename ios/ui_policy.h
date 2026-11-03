@@ -3,6 +3,12 @@
 #include <array>
 
 namespace ios_ui {
+// Fixed-canvas UI (including free-standing captions) must not depend on a
+// particular glyph atlas or panel hash. Interview art uses the uncompensated
+// 4:3 canvas; ordinary racing HUD geometry is already compensated for 16:9.
+inline float canvas_aspect(unsigned modules,bool modal){
+    return modal || (modules & ios_guest::Interview)?4.f/3:16.f/9;
+}
 inline unsigned sampled_maps(const gx::PixelState& s){
     unsigned mask=0,stages=((s.bp[0]>>10)&15)+1;
     for(unsigned i=0;i<stages;++i){unsigned order=s.bp[0x28+i/2]>>((i&1)*12);if(order&0x40)mask|=1u<<(order&7);}
@@ -47,7 +53,8 @@ std::vector<uint8_t> modal_draws(const gx::Batch& b,const std::vector<uint8_t>& 
         const auto& s=b.states[c.state];
         if(s.proj[6]==0 || !ios_scene::full_view(s))continue;
         bool any=false,valid=true;
-        for(unsigned m=0;m<8;++m)if(s.tex_id[m]){
+        const unsigned used=sampled_maps(s);
+        for(unsigned m=0;m<8;++m)if((used&(1u<<m)) && s.tex_id[m]){
             any=true;
             unsigned r=0x88+(m&3)+(m>=4?0x20:0),t=s.bp[r];
             unsigned w=(t&1023)+1,h=((t>>10)&1023)+1,f=(t>>20)&15;

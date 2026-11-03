@@ -87,6 +87,7 @@ void guest_frame(uint32_t frame) {
         if(!std::strcmp(m.name,"fze.replay.rel"))modes|=ios_guest::Replay;
         if(!std::strcmp(m.name,"fze.story.rel"))modes|=ios_guest::Story;
         if(!std::strcmp(m.name,"fze.winning.rel"))modes|=ios_guest::Winning;
+        if(!std::strcmp(m.name,"fze.interview.rel"))modes|=ios_guest::Interview;
         if(!std::strcmp(m.name,"fze.movie.rel") || !std::strcmp(m.name,"fze.movie_module.rel"))modes|=ios_guest::Movie;
         if(!std::strcmp(m.name,"fze.option.rel"))modes|=ios_guest::Option;
     }

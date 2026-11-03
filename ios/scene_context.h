@@ -5,10 +5,11 @@ namespace ios_context {
 // This project does not otherwise use draw tags. Send a compact presentation
 // context through the existing ordered FIFO tag path; never sample future guest
 // atomics while displaying an older queued batch.
-enum Kind : unsigned { Unknown,Title,Menu,Replay,Story,Winning,Movie,Settings37,Settings38,Course39,Grid40,Race41,Race42,End43 };
+enum Kind : unsigned { Unknown,Title,Menu,Replay,Story,Winning,Movie,Settings37,Settings38,Course39,Grid40,Race41,Race42,End43,Interview };
 struct Snapshot {unsigned modules=0;int phase=-1;bool live=false,stamped=false;};
 inline uint8_t encode(unsigned modules,int phase,bool live){
     unsigned k=modules&ios_guest::Movie?Movie:
+        modules&ios_guest::Interview?Interview:
         modules&(ios_guest::Selection|ios_guest::Option)?Menu:
         modules&ios_guest::Title?Title:modules&ios_guest::Replay?Replay:
         modules&ios_guest::Story?Story:modules&ios_guest::Winning?Winning:
@@ -25,6 +26,7 @@ inline Snapshot decode(uint8_t tag){
         case Story:s.modules=ios_guest::Story;s.phase=41;break;
         case Winning:s.modules=ios_guest::Winning;s.phase=43;break;
         case Movie:s.modules=ios_guest::Movie;break;
+        case Interview:s.modules=ios_guest::Interview;break;
         default:if((tag&31)>=Settings37 && (tag&31)<=End43)s.phase=37+int((tag&31)-Settings37);break;
     }
     return s;

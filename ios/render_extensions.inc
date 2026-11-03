@@ -76,7 +76,12 @@ void ios_widen(Batch& b,int width,int height){
         auto& c=b.cmds[i];
         if(c.type!=CmdType::Draw || skip[i] || c.state>=original)continue;
         PixelState st=b.states[c.state];
-        unsigned canvas=modal[i]?1:0;
+        // Use this draw's FIFO-stamped context, not newer guest atomics or
+        // whichever scene happened to be last in a mixed transition batch.
+        auto context=ios_context::decode(st.tag);
+        unsigned modules=context.stamped?context.modules:unsigned(g_ios_frame_scene>>32);
+        float uiAspect=ios_ui::canvas_aspect(modules,modal[i]!=0);
+        unsigned canvas=uiAspect<1.5f?1:0;
         if(std::fabs(st.viewport[0])*2<600)continue;
         float ratio=1;
         if(st.proj[6]!=0){
@@ -90,7 +95,7 @@ void ios_widen(Batch& b,int width,int height){
             if(corrected[c.state][canvas]>=0){c.state=uint32_t(corrected[c.state][canvas]);continue;}
             // The game's widescreen option already compensates 2D geometry.
             // Inferring its canvas from the ortho matrix double-corrected it.
-            ratio=(canvas?4.f/3:16.f/9)/aspect;
+            ratio=uiAspect/aspect;
             if(std::fabs(ratio-1.f)<.000001f)continue;
             // Move the UI's clipping rectangle with its projection. Otherwise
             // the old scissor cuts corrected portraits/panels into black strips.

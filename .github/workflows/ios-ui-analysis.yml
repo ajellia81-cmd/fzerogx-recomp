@@ -1,0 +1,35 @@
+name: Inspect all game UI call paths (encrypted owner review)
+on:
+  push:
+    branches: [main]
+    paths: [ios/ui-analysis-request.txt]
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: macos-15-intel
+    timeout-minutes: 30
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - name: Receive owner-provided disc privately
+        env:
+          ICLOUD_SOURCE_ID: ${{ secrets.ICLOUD_SOURCE_ID }}
+        run: python3 ios/fetch_private_disc.py
+      - name: Generate existing supported modules privately
+        run: |
+          mkdir -p build-private-logs
+          cmake -S . -B build-host -G Ninja -DGCN_BENCH_ONLY=ON -DCMAKE_BUILD_TYPE=Release -DGAME_ISO="$PWD/rom/game.iso" > build-private-logs/configure.txt 2>&1
+          python3 ios/package_ui_analysis.py build-host private-ui-analysis.tar.gz
+      - name: Encrypt private code inspection before upload
+        run: openssl cms -encrypt -binary -aes256 -in private-ui-analysis.tar.gz -out private-ui-analysis.enc -outform DER ios/delivery-public.pem
+      - uses: actions/upload-artifact@v4
+        with:
+          name: owner-encrypted-ui-analysis
+          path: private-ui-analysis.enc
+          if-no-files-found: error
+          retention-days: 1

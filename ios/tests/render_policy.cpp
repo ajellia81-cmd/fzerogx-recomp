@@ -106,5 +106,42 @@ int main(){
   float canvas=i>=2 && i<=5?4.f/3:16.f/9;
   assert(fabs(b->states[b->cmds[i].state].proj[0]-s.proj[0]*canvas/(2868.f/1320))<1e-7);
  }
+ // Ignore retained, unsampled maps when identifying a modal run; a map
+ // actually sampled by another stage must still terminate that run.
+ b->states={glyph,panel,glyph};b->cmds.assign(3,d);
+ for(unsigned i=0;i<3;++i){b->cmds[i].state=i;b->states[i].tex_id[7]=777;b->states[i].bp[0xAB]=777;}
+ auto sampled=ios_ui::modal_draws(*b,{},lookup);assert(sampled[0]&&sampled[1]&&sampled[2]);
+ b->states[1].bp[0]=1u<<10;b->states[1].bp[0x28]|=(0x40u|7u)<<12;
+ sampled=ios_ui::modal_draws(*b,{},lookup);assert(!sampled[0]&&!sampled[1]&&!sampled[2]);
+ // The interview context survives FIFO encode/decode even if old selection
+ // and winning modules remain linked during a transition. Movies win priority.
+ auto code=ios_context::encode(ios_guest::Interview|ios_guest::Selection|ios_guest::Winning,43,false);
+ auto interview=ios_context::decode(code);assert(interview.stamped&&interview.modules==ios_guest::Interview);
+ assert(ios_context::decode(ios_context::encode(ios_guest::Movie|ios_guest::Interview,43,false)).modules==ios_guest::Movie);
+ assert(ios_scene::classify(*b,false,ios_guest::Interview,0)==ios_scene::Mode::World);
+ // Exercise every presentation context, both canvas families and several
+ // target ratios. A square from uncompensated interview coordinates and a
+ // pre-compensated HUD square must each remain square on the physical display.
+ for(unsigned module:{0u,unsigned(ios_guest::Title),unsigned(ios_guest::Selection),unsigned(ios_guest::Replay),unsigned(ios_guest::Story),unsigned(ios_guest::Winning),unsigned(ios_guest::Movie),unsigned(ios_guest::Option),unsigned(ios_guest::Interview)}){
+  for(float target:{4.f/3,16.f/9,2868.f/1320,21.f/9}){
+   for(bool popup:{false,true}){
+    float canvas=ios_ui::canvas_aspect(module,popup);
+    bool fixed=popup||(module&ios_guest::Interview);
+    assert(fabs(canvas-(fixed?4.f/3:16.f/9))<1e-6);
+    float sourceWidth=fixed?100.f:75.f;
+    float physicalAspect=(sourceWidth*(2.f/640)*canvas/target*target)/(100.f*(2.f/480));
+    assert(fabs(physicalAspect-1)<1e-6);
+   }
+  }
+ }
+ // Standalone interview captions, labels and panels receive one consistent
+ // correction regardless of material. A shared PixelState in a mixed batch
+ // still caches the independent HUD / interview canvas correctly.
+ b->states={s,s,s};b->cmds.assign(3,d);for(int i=0;i<3;++i)b->cmds[i].state=i;
+ b->states[0].tag=ios_context::encode(ios_guest::Interview,0,false);
+ b->states[1].tag=ios_context::encode(ios_guest::Replay,43,false);
+ b->states[2].tag=ios_context::encode(ios_guest::Interview,0,false);
+ b->new_textures.clear();gx::ios_prepare_scene(*b,false);gx::ios_widen(*b,2868,1320);
+ for(int i=0;i<3;++i){float canvas=i==1?16.f/9:4.f/3;assert(fabs(b->states[b->cmds[i].state].proj[0]-s.proj[0]*canvas/(2868.f/1320))<1e-7);}
  puts("Menu, fullscreen HUD, flat logos, modal-group/cache boundaries and I8/IA8 movie policy passed");
 }
