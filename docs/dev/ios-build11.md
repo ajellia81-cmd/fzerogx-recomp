@@ -27,3 +27,8 @@ Validation includes synthetic hold anchoring/AV countdown tests and a private re
 guest host run of the same iOS timer hook before the full ARM64 build. Host traces
 and inspection inputs are encrypted before upload. Exact physical presentation,
 app launch/gameplay and real 120Hz output require device testing.
+
+The first real-guest verification attempt (`41586818427`) failed at host linking:
+the core is an OBJECT library, so removing cpu.cpp from the executable source
+list did not remove its original object. The probe now replaces the source in
+`gcn_core` itself. No IPA was produced by that failed attempt.
