@@ -40,3 +40,22 @@ The workflow also accepts an explicit main-branch change to
 manual dispatch when the GitHub web UI does not create a run. Ordinary source
 pushes do not start the private build. The approved icon and Intel runner defaults
 are fixed for this route, and already reviewed captures are not repeated.
+
+## Completed build audit
+
+- App source: `8cf10f01c282ad4a28c0c345f88956592c715353`.
+- ARM64 runtime compile/regressions: Actions `41578129898`, success.
+- Full real-game compile/link/package: Actions `41578327714`, success (13m47s).
+- The manual dispatch appeared after a delay; duplicate push run `41578479332`
+  was cancelled. The explicit request trigger remains available for future builds.
+- No internal Clang abort/retry; the initial build log reports BUILD SUCCEEDED.
+- `FZeroGX-iOS-build10-unsigned.ipa`: 14,924,066 bytes.
+- SHA256: `3a2ff711363850d8d60c47ac46f523bcb9136e2b9866780e1be3aae9619b098d`.
+- Seven bundle files, version 10; app and ANGLE thin ARM64 iPhoneOS, no code
+  signatures, no provisioning, no disc/save/generated C/captures. Effective
+  minimum iOS 26.2 from ANGLE. All three icon resources unchanged from build 9.
+- Existing private startup captures 30/60/120/180/240 replay in software GLES
+  at 1434x660 with original 2D aspect and GL_NO_ERROR, including deliberately
+  mismatched newer Selection metadata. This is not iOS/Metal/device execution.
+- New app launch, gameplay, physical 120Hz output, foreground restoration and
+  exact logo timing/transition appearance remain device-unverified.
