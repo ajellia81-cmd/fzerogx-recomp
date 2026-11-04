@@ -50,3 +50,17 @@ GameCube image-based mappings and upstream defaults remain present. Physical
 menu latency, 2D pilot artwork size, existing-card Replay dialogs, all course
 variants and measured 120Hz output still require coverage beyond ROM-free
 fixtures. Do not describe these as completed device tests.
+
+## Completed private route audit
+
+Actions `41793565818` completed successfully: 13 routes, 296 captures (22 per
+route plus ten additional Replay/startup frames). Log inspection confirms
+Practice, GP and Time Attack all reach guest phase 39 (course introduction),
+then grid/race phases 40/41. Profile X changes the detail presentation; Y/Z in
+the sampled sequence do not establish a different image variant. This does not
+prove every pilot artwork or existing-card replay dialog was reproduced.
+
+For the inspected normal-canvas returned-logo frame, Nintendo/SEGA/AV draws all
+recover 4:3 from sampled texels and actual quad geometry. The regression fixture
+additionally verifies reentered 16:9-compensated geometry. No private asset bytes
+or generated guest code are committed.
