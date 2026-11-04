@@ -216,6 +216,40 @@ int main(){
  const auto& menuGlyph=b->states[b->cmds[0].state];
  assert(fabs(menuGlyph.proj[0]-sprite.proj[0]*.75f)<1e-7);
  assert(fabs(menuGlyph.proj[0]*112+menuGlyph.proj[1]-centerBefore)<1e-6);
+
+ // The guest texture-sorts glyph commands across multiple labels. Spatial
+ // neighbors must share an anchor even when unrelated draws intervene.
+ gx::Batch shuffled;auto ordinary=sprite;ordinary.bp[0x88]=23|(23<<10);
+ auto decoration=ordinary;decoration.bp[0x88]=(5u<<20)|99|(49<<10);
+ shuffled.states={ordinary,decoration};shuffled.verts.resize(28);
+ const float starts[]={100,118,136,260,278,296,400};
+ for(unsigned g=0;g<7;++g)for(unsigned j=0;j<4;++j){
+  auto& v=shuffled.verts[g*4+j];memset(&v,0,sizeof(v));
+  v.pos[0]=starts[g]+((j&1)?24:0);v.pos[1]=100+((j&2)?24:0);
+  v.tex[0][0]=(j&1)?1:0;v.tex[0][1]=(j&2)?1:0;v.tex[0][2]=1;
+ }
+ const unsigned order[]={0,6,4,2,3,1,5};
+ for(auto g:order){auto cmd=d;cmd.vfirst=g*4;cmd.state=g==6?1:0;shuffled.cmds.push_back(cmd);}
+ auto spatial=ios_ui::glyph_lines(shuffled,{},{});
+ for(unsigned i=0;i<7;++i){
+  unsigned g=order[i];if(g==6){assert(!spatial[i].fixed);continue;}
+  float center=ordinary.proj[0]*(g<3?130:290)+ordinary.proj[1];
+  assert(spatial[i].fixed && fabs(spatial[i].anchor-center)<1e-6);
+ }
+ gx::g_ios_scene=ios_scene::Mode::Menu;gx::ios_widen(shuffled,2868,1320);
+ for(unsigned i=0;i<7;++i){
+  unsigned g=order[i];if(g==6)continue;
+  const auto& st=shuffled.states[shuffled.cmds[i].state];
+  float original=ordinary.proj[0]*(starts[g]+12)+ordinary.proj[1];
+  float anchor=ordinary.proj[0]*(g<3?130:290)+ordinary.proj[1];
+  float actual=st.proj[0]*(starts[g]+12)+st.proj[1];
+  assert(fabs(actual-(original*.75f+anchor*.25f))<1e-6);
+ }
+ // A copy/render-pass boundary cannot combine two otherwise adjacent letters.
+ gx::Batch passes;passes.states={ordinary};passes.verts=shuffled.verts;
+ auto first=d,next=d;next.vfirst=4;gx::Cmd boundary{};boundary.type=gx::CmdType::EfbCopy;
+ passes.cmds={first,boundary,next};auto separated=ios_ui::glyph_lines(passes,{},{});
+ assert(separated[0].fixed && separated[2].fixed && separated[0].anchor!=separated[2].anchor);
  puts("Menu, fullscreen HUD, flat logos, modal-group/cache boundaries and I8/IA8 movie policy passed");
 }
 

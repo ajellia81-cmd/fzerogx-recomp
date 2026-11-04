@@ -1,6 +1,8 @@
 #pragma once
 #include "scene_classify.h"
 #include <array>
+#include <map>
+#include <cstring>
 
 namespace ios_ui {
 inline unsigned sampled_maps(const gx::PixelState& s){return ios_scene::sampled_maps(s);}
@@ -52,21 +54,51 @@ inline bool fixed_glyph(const gx::Batch& b,const gx::Cmd& c,const gx::PixelState
 struct GlyphLine {bool fixed=false;float anchor=0;};
 inline std::vector<GlyphLine> glyph_lines(const gx::Batch& b,const std::vector<uint8_t>& skip,const std::vector<uint8_t>& modal){
     std::vector<GlyphLine> result(b.cmds.size());
-    auto valid=[&](size_t i){const auto& c=b.cmds[i];return c.type==gx::CmdType::Draw && c.state<b.states.size() && !(i<skip.size()&&skip[i]) && !(i<modal.size()&&modal[i]) && fixed_glyph(b,c,b.states[c.state]);};
-    for(size_t begin=0;begin<b.cmds.size();){
-        if(!valid(begin)){++begin;continue;}
-        const auto& first=b.states[b.cmds[begin].state];float bounds[4];ios_scene::draw_bounds(b,b.cmds[begin],first,bounds);
-        const float height=bounds[3]-bounds[1],cy=(bounds[3]+bounds[1])*.5f;
-        float left=bounds[0],right=bounds[2];size_t end=begin+1;
-        for(;end<b.cmds.size()&&valid(end);++end){
-            const auto& state=b.states[b.cmds[end].state];float box[4];ios_scene::draw_bounds(b,b.cmds[end],state,box);
-            if(memcmp(first.proj,state.proj,sizeof(first.proj)) || memcmp(first.viewport,state.viewport,sizeof(first.viewport)) || first.bp[0x20]!=state.bp[0x20] || first.bp[0x21]!=state.bp[0x21])break;
-            if(fabs((box[3]-box[1])-height)>height*.1f || fabs((box[3]+box[1])*.5f-cy)>height*.25f)break;
-            if(box[0]>right+height*4 || box[2]<left-height*4)break;
-            left=std::min(left,box[0]);right=std::max(right,box[2]);
+    struct Glyph {size_t draw;float left,right,cy,height;};
+    // The guest sorts text draws by texture, so consecutive commands can be
+    // unrelated letters from different labels. Recover words spatially rather
+    // than anchoring each command-adjacent fragment independently.
+    using Signature=std::array<uint32_t,16>;
+    std::map<Signature,std::vector<Glyph>> buckets;
+    uint32_t pass=0;
+    for(size_t i=0;i<b.cmds.size();++i){
+        const auto& c=b.cmds[i];
+        if(c.type==gx::CmdType::EfbCopy || c.type==gx::CmdType::Present){++pass;continue;}
+        if(c.type!=gx::CmdType::Draw || c.state>=b.states.size() || (i<skip.size()&&skip[i]) || (i<modal.size()&&modal[i]))continue;
+        const auto& s=b.states[c.state];
+        if(!fixed_glyph(b,c,s))continue;
+        float box[4];if(!ios_scene::draw_bounds(b,c,s,box))continue;
+        Signature key{};memcpy(key.data(),s.proj,sizeof(s.proj));memcpy(key.data()+7,s.viewport,sizeof(s.viewport));
+        key[13]=s.bp[0x20];key[14]=s.bp[0x21];key[15]=pass;
+        buckets[key].push_back({i,box[0],box[2],(box[1]+box[3])*.5f,box[3]-box[1]});
+    }
+    for(auto& [key,glyphs]:buckets){
+        (void)key;
+        std::sort(glyphs.begin(),glyphs.end(),[](const Glyph& a,const Glyph& z){return a.height<z.height;});
+        for(size_t sizeStart=0;sizeStart<glyphs.size();){
+            const float height=glyphs[sizeStart].height;
+            size_t sizeEnd=sizeStart+1;
+            while(sizeEnd<glyphs.size() && glyphs[sizeEnd].height-height<=height*.1f)++sizeEnd;
+            std::sort(glyphs.begin()+sizeStart,glyphs.begin()+sizeEnd,[](const Glyph& a,const Glyph& z){return a.cy<z.cy;});
+            for(size_t rowStart=sizeStart;rowStart<sizeEnd;){
+                const float cy=glyphs[rowStart].cy;size_t rowEnd=rowStart+1;
+                while(rowEnd<sizeEnd && glyphs[rowEnd].cy-cy<=height*.25f)++rowEnd;
+                std::sort(glyphs.begin()+rowStart,glyphs.begin()+rowEnd,[](const Glyph& a,const Glyph& z){return a.left<z.left;});
+                for(size_t wordStart=rowStart;wordStart<rowEnd;){
+                    float left=glyphs[wordStart].left,right=glyphs[wordStart].right;size_t wordEnd=wordStart+1;
+                    // A short space can belong to a label; the much larger
+                    // gap between separate controls/columns must stay separate.
+                    while(wordEnd<rowEnd && glyphs[wordEnd].left<=right+height*.75f){
+                        right=std::max(right,glyphs[wordEnd].right);++wordEnd;
+                    }
+                    const float anchor=(left+right)*.5f;
+                    for(size_t i=wordStart;i<wordEnd;++i)result[glyphs[i].draw]={true,anchor};
+                    wordStart=wordEnd;
+                }
+                rowStart=rowEnd;
+            }
+            sizeStart=sizeEnd;
         }
-        for(size_t i=begin;i<end;++i)result[i]={true,(left+right)*.5f};
-        begin=end;
     }
     return result;
 }
