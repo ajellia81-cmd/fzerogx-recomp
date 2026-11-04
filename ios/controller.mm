@@ -1,5 +1,6 @@
 #include "controller.h"
 #import <GameController/GameController.h>
+#import <Foundation/Foundation.h>
 #include <algorithm>
 #include <cmath>
 
@@ -26,7 +27,7 @@ IOSControllerState ios_controller_snapshot() {
     GCControllerButtonInput* buttons[] = {
         p.buttonA, p.buttonB, p.buttonX, p.buttonY,
         p.leftShoulder, p.rightShoulder, p.buttonMenu,
-        p.dpad.up, p.dpad.down, p.dpad.left, p.dpad.right
+        p.dpad.up, p.dpad.down, p.dpad.left, p.dpad.right, p.leftTrigger, p.rightTrigger
     };
     for (unsigned i = 0; i < sizeof(buttons) / sizeof(buttons[0]); ++i)
         if (buttons[i].pressed) s.buttons |= 1u << i;
@@ -34,34 +35,20 @@ IOSControllerState ios_controller_snapshot() {
     return s;
 }
 
-PadState ios_controller_pad(const IOSControllerState& s) {
-    PadState p;
-    p.connected = s.connected;
-    if (!s.connected) return p;
-    // Match the upstream gamepad layout; game-specific assignment belongs to
-    // the game's own controller settings.
-    const auto& mapping=ios_bindings::defaults;
-    for (unsigned i = 0; i < mapping.size(); ++i)
-        if (s.buttons & (1u << i)) p.buttons |= mapping[i];
-    auto axis = [](float v) -> uint8_t {
-        if (!std::isfinite(v)) return 128;
-        return static_cast<uint8_t>(std::clamp(128 + static_cast<int>(v * 100.0f), 0, 255));
-    };
-    auto trigger = [](float v) -> uint8_t {
-        if (!std::isfinite(v) || v <= 1000.0f / 32767.0f) return 0;
-        return static_cast<uint8_t>(std::clamp(static_cast<int>(v * 255), 0, 255));
-    };
-    if (std::abs(s.leftX) > 4000.0f / 32767.0f || std::abs(s.leftY) > 4000.0f / 32767.0f) {
-        p.stick_x = axis(s.leftX);
-        p.stick_y = axis(s.leftY);
-    }
-    if (std::abs(s.rightX) > 1000.0f / 32767.0f || std::abs(s.rightY) > 1000.0f / 32767.0f) {
-        p.cstick_x = axis(s.rightX);
-        p.cstick_y = axis(s.rightY);
-    }
-    p.trig_l = trigger(s.leftTrigger);
-    p.trig_r = trigger(s.rightTrigger);
-    if (s.leftTrigger > 30000.0f / 32767.0f) p.buttons |= PAD_L;
-    if (s.rightTrigger > 30000.0f / 32767.0f) p.buttons |= PAD_R;
-    return p;
+
+static ios_bindings::Map bindings=ios_bindings::defaults;
+static NSString* const bindingsKey=@"recomp.controller.v2";
+static void saveBindings(){NSMutableArray* a=[NSMutableArray array];for(auto v:bindings)[a addObject:@(v)];[NSUserDefaults.standardUserDefaults setObject:a forKey:bindingsKey];}
+void ios_controller_load_bindings(){
+    bindings=ios_bindings::defaults;
+    id a=[NSUserDefaults.standardUserDefaults objectForKey:bindingsKey];
+    if(![a isKindOfClass:NSArray.class] || [a count]!=bindings.size())return;
+    ios_bindings::Map candidate{};
+    for(unsigned i=0;i<candidate.size();++i){id n=a[i];if(![n isKindOfClass:NSNumber.class] || [n unsignedIntValue]>65535 || !ios_bindings::valid([n unsignedIntValue]))return;candidate[i]=[n unsignedIntValue];}
+    bindings=candidate;
 }
+uint16_t ios_controller_binding(unsigned source){return source<bindings.size()?bindings[source]:0;}
+void ios_controller_assign(unsigned source,uint16_t target){ios_bindings::assign(bindings,source,target);saveBindings();}
+void ios_controller_clear(uint16_t target){ios_bindings::clear(bindings,target);saveBindings();}
+void ios_controller_reset_bindings(){bindings=ios_bindings::defaults;saveBindings();}
+PadState ios_controller_pad(const IOSControllerState& s){return ios_controller_translate(s,bindings);}

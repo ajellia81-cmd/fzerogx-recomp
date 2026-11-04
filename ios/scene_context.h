@@ -11,7 +11,7 @@ inline uint8_t encode(unsigned modules,int phase,bool live){
     unsigned k=modules&ios_guest::Movie?Movie:
         modules&ios_guest::Interview?Interview:
         modules&ios_guest::MenuModules?Menu:
-        modules&ios_guest::Title?Title:modules&ios_guest::Replay?Replay:
+        modules&ios_guest::Replay?Replay:modules&ios_guest::Title?Title:
         modules&ios_guest::Story?Story:modules&ios_guest::Winning?Winning:
         phase>=37 && phase<=43?Settings37+unsigned(phase-37):Unknown;
     return uint8_t(0x80|k|(live?0x20:0));

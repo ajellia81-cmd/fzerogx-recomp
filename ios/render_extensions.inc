@@ -200,15 +200,28 @@ void ios_configure_native(const Batch& b,int width,int height){
 // Startup only: force ANGLE's lazy Metal pipelines to see real non-empty draws.
 // Private 4x4 RGBA8/depth32 targets match the real attachment formats. Never
 // touch the guest EFB, guest RAM, frame counters, or presentation history.
+struct IOSWarmRecipe {uint64_t key;uint32_t blend;};
+static constexpr IOSWarmRecipe warmRecipes[]={
+#include "menu_pipeline_states.inc"
+};
+static void ios_warm_blend(uint32_t bm,unsigned dst,bool alpha){
+    bool cw=(bm>>3)&1,aw=((bm>>4)&1)&&alpha;glColorMask(cw,cw,cw,aw);
+    if(bm&(1u<<11)){glEnable(GL_BLEND);glBlendEquationSeparate(GL_FUNC_REVERSE_SUBTRACT,dst?GL_FUNC_ADD:GL_FUNC_REVERSE_SUBTRACT);glBlendFuncSeparate(GL_ONE,GL_ONE,GL_ONE,dst?GL_ZERO:GL_ONE);}
+    else if(bm&1){glEnable(GL_BLEND);glBlendEquation(GL_FUNC_ADD);GLenum sf=kBlendSrc[(bm>>8)&7],df=kBlendDst[(bm>>5)&7];
+        if(dst){auto src1=[](GLenum f){return f==GL_SRC_ALPHA?GLenum(GL_SRC1_ALPHA):f==GL_ONE_MINUS_SRC_ALPHA?GLenum(GL_ONE_MINUS_SRC1_ALPHA):f;};glBlendFuncSeparate(src1(sf),src1(df),GL_ONE,GL_ZERO);}else glBlendFunc(sf,df);}
+    else glDisable(GL_BLEND);
+}
 bool ios_warm_pipeline_step(int* done,int* total) {
-    static std::vector<std::pair<GLuint,unsigned>> programs;
+    struct WarmProgram {GLuint program;unsigned ntex;uint64_t key;unsigned dst;bool alpha;};
+    static std::vector<WarmProgram> programs;
+    static size_t observedDraws=0;
     static size_t next=0;
     static IOSFrameTarget target;
     static GLuint vao=0,vbo=0,texture=0;
     static bool initialized=false,complete=false;
     if(!initialized){
         initialized=true;
-        for(const auto& entry:g_programs)programs.emplace_back(entry.second.prog,std::min(entry.first.num_texgens,8u));
+        for(const auto& entry:g_programs)programs.push_back({entry.second.prog,std::min(entry.first.num_texgens,8u),ShaderKeyHash{}(entry.first),entry.first.dst_alpha,bool(entry.first.efb_has_alpha)});
         if(!target.create(4,4,true))fatal("iOS pipeline warmup framebuffer incomplete");
         glGenVertexArrays(1,&vao);glBindVertexArray(vao);
         glGenBuffers(1,&vbo);glBindBuffer(GL_ARRAY_BUFFER,vbo);
@@ -227,7 +240,7 @@ bool ios_warm_pipeline_step(int* done,int* total) {
         glBindFramebuffer(GL_FRAMEBUFFER,target.fbo);glBindVertexArray(vao);
         glViewport(0,0,4,4);glDisable(GL_SCISSOR_TEST);glDisable(GL_CULL_FACE);
         glDisable(GL_DEPTH_TEST);glDepthMask(GL_FALSE);
-        const auto [program,ntex]=programs[next++];glUseProgram(program);
+        const auto [program,ntex,key,dst,alpha]=programs[next++];glUseProgram(program);
         // Match the packed vertex layout the real draw uses; Metal includes it
         // in its pipeline key. A universal eight-coordinate layout is insufficient.
         GpuVertex vertices[3];memset(vertices,0,sizeof(vertices));
@@ -255,6 +268,7 @@ bool ios_warm_pipeline_step(int* done,int* total) {
             for(auto& pair:factors){glBlendFunc(pair[0],pair[1]);glDrawArrays(GL_TRIANGLES,0,3);}
             glBlendEquation(GL_FUNC_REVERSE_SUBTRACT);glBlendFunc(GL_ONE,GL_ONE);glDrawArrays(GL_TRIANGLES,0,3);
         }
+        for(const auto& recipe:warmRecipes)if(recipe.key==key){ios_warm_blend(recipe.blend,dst,alpha);glDrawArrays(GL_TRIANGLES,0,3);++observedDraws;}
         glFinish(); // Startup only: complete the lazy pipeline work before boot.
         GLenum error=glGetError();
         if(error!=GL_NO_ERROR)fatal("iOS pipeline warmup GL error %x",unsigned(error));
@@ -268,12 +282,14 @@ bool ios_warm_pipeline_step(int* done,int* total) {
         glBindVertexArray(g_vao);glBindBuffer(GL_ARRAY_BUFFER,g_vbo);
         glBlendEquation(GL_FUNC_ADD);glDisable(GL_BLEND);glColorMask(1,1,1,1);glDepthMask(GL_TRUE);
         gl_state_invalidate();uniforms_invalidate();
-        fprintf(stderr,"iOS warmup: %zu programs, %zu pipeline draws completed before guest boot (coverage is not exhaustive)\n",programs.size(),programs.size()*12);
+        fprintf(stderr,"iOS warmup: %zu programs, %zu pipeline draws completed before guest boot (coverage is not exhaustive)\n",programs.size(),programs.size()*12+observedDraws);
     }
     if(done)*done=int(next);if(total)*total=int(programs.size());return complete;
 }
 
 bool ios_render_motion(Batch& b,bool smooth,void (*show)(void*),void* context) {
+    const auto frameStart=std::chrono::steady_clock::now();
+    double swapMs=0,midMs=0;auto timedShow=[&]{auto at=std::chrono::steady_clock::now();show(context);swapMs+=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-at).count();};
     static ios_motion::History history;
     // Reset at actual guest mode changes, not a fluctuating geometry heuristic.
     static uint64_t previousScene=UINT64_MAX;
@@ -343,7 +359,9 @@ bool ios_render_motion(Batch& b,bool smooth,void (*show)(void*),void* context) {
             g_efb_fbo=frame.fbo;g_efb_color=frame.color;g_efb_depth=frame.depth;
             g_ios_transient=true;
             frame_observe(b,nullptr);panel_hide(b);
-            if(execute_batch(b,true)) { show(context);++intermediate;++g_ios_intermediate_frames;draws+=moving; }
+            auto midStart=std::chrono::steady_clock::now();
+            bool midPresented=execute_batch(b,true);midMs=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-midStart).count();
+            if(midPresented) { timedShow();++intermediate;++g_ios_intermediate_frames;draws+=moving; }
             g_ios_transient=false;
         }
         if(!ready)reason=6;
@@ -364,9 +382,13 @@ bool ios_render_motion(Batch& b,bool smooth,void (*show)(void*),void* context) {
     if(smooth) history.remember(b);
     else history.clear();
     g_ios_motion_reason.store(reason,std::memory_order_relaxed);
+    auto nativeStart=std::chrono::steady_clock::now();
     bool presented=render_execute(b);
+    double nativeMs=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-nativeStart).count();
     g_ios_prepared=false;
-    if(presented && show) { show(context); if(g_ios_frame_sega)ios_logo::note_presentation(host_ns()); ++outputs; ++g_ios_native_frames; }
+    if(presented && show) { timedShow(); if(g_ios_frame_sega)ios_logo::note_presentation(host_ns()); ++outputs; ++g_ios_native_frames; }
+    double frameMs=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-frameStart).count();
+    if(frameMs>25)fprintf(stderr,"iOS slow phases: prepare/history=%.1fms intermediate=%.1fms native=%.1fms swap/wait=%.1fms\n",std::max(0.,frameMs-midMs-nativeMs-swapMs),midMs,nativeMs,swapMs);
     ++ticks;
     double seconds=std::chrono::duration<double>(std::chrono::steady_clock::now()-since).count();
     if(seconds>=5) {

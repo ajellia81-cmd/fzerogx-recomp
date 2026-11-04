@@ -35,6 +35,8 @@ replace('if (have.insert(k).second) L.shipped.push_back(k);', '''for (unsigned a
                     }
                 }
                 if(have.insert(k).second)L.shipped.push_back(k);''')
+# Log only missing renderer keys, never texture bytes or guest code.
+replace('if (it != g_programs.end()) return &it->second;', 'if (it != g_programs.end()) return &it->second;\n    if(!g_pending.count(k))fprintf(stderr,"iOS missing shader configuration: %016llx\\n",(unsigned long long)ShaderKeyHash{}(k));')
 # At 120 Hz a 20 ms frame is already a visible hitch. Keep diagnostic detail
 # without enabling per-draw logging or changing desktop diagnostics.
 replace('if (ms > 50.0)', 'if (ms > 20.0)')

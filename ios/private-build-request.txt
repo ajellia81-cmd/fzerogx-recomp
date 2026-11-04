@@ -1,1 +1,1 @@
-Build15: separate preview/data-management menus from fullscreen worlds; inspect real replay/profile/customize/shop routes; restore upstream controller defaults and remove frontend remapping.
+Build16: audit all 15 REL display owners; fix transient Replay and stale 2D phase classification; warm privately observed menu shader/blend configurations; restore GameCube image-based controller assignment with analog triggers; add slow-frame phase diagnostics.

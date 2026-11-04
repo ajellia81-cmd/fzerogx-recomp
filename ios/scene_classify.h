@@ -135,9 +135,14 @@ inline Mode classify(const gx::Batch& b,bool liveRace=false,unsigned modules=0,i
     if(modules & ios_guest::Interview)return Mode::World;
     if(liveRace)return Mode::World;
     if(modules & ios_guest::MenuModules)return Mode::Menu;
-    if(modules & (ios_guest::Title|ios_guest::Replay))return Mode::World;
+    // Replay REL owns the card browser, including its transient dialogs.
+    // Actual course playback keeps liveRace precedence above.
+    if(modules & ios_guest::Replay)return Mode::Menu;
+    if(modules & ios_guest::Title)return Mode::World;
     if(phase==37 || phase==38)return Mode::Menu;
-    if(phase>=39 && phase<=43)return Mode::World;
+    // A retained race phase is not evidence of a world in an orthographic
+    // card/dialog frame (main keeps this value after leaving a race).
+    if(phase>=39 && phase<=43)return perspective?Mode::World:Mode::Menu;
     if(world)return Mode::World;
     return perspective?Mode::Menu:Mode::Flat;
 }

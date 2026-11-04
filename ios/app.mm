@@ -65,6 +65,8 @@ static bool metal_context(CAMetalLayer* layer, EGLDisplay* display, EGLSurface* 
     return gl_load_with(proc) >= GCN_GL_VERSION_MIN;
 }
 
+#include "gc_button_icons.inc"
+
 @interface GameView : UIView
 @end
 @implementation GameView
@@ -85,6 +87,9 @@ static bool metal_context(CAMetalLayer* layer, EGLDisplay* display, EGLSurface* 
 @property(nonatomic) BOOL appActive;
 @property(nonatomic) BOOL menuOpen;
 @property(nonatomic) NSInteger menuIndex;
+@property(nonatomic) NSInteger menuPage;
+@property(nonatomic) NSInteger bindingTarget;
+@property(nonatomic,strong) UIScrollView* recompScroll;
 @property(nonatomic) uint32_t previousButtons;
 @property(nonatomic,strong) UIView* recompPanel;
 @property(nonatomic,strong) UIStackView* recompStack;
@@ -104,7 +109,7 @@ static __weak GameController* currentController;
 - (UIInterfaceOrientationMask)supportedInterfaceOrientations { return UIInterfaceOrientationMaskLandscape; }
 - (void)viewDidLoad {
     [super viewDidLoad];
-    [NSUserDefaults.standardUserDefaults removeObjectForKey:@"recomp.controller.v1"];
+    ios_controller_load_bindings();
     currentController=self;
     self.appActive=YES;
     [NSUserDefaults.standardUserDefaults registerDefaults:@{@"recomp.smooth":@(UIScreen.mainScreen.maximumFramesPerSecond>=120),@"recomp.fps":@YES}];

@@ -7,6 +7,11 @@ import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[2]
+# Fail if a supported display-owning module is added without classification review.
+import re
+known=set(re.findall(r'"(fze\.[a-z_]+)\.rel"', (root/"ios/guest_state.h").read_text()))
+metadata={p.stem for p in (root/"analysis/rels").glob("*.txt") if ".splits" not in p.name}
+assert known==metadata, ("Unreviewed REL inventory",known^metadata)
 with tempfile.TemporaryDirectory(prefix="fzgx-render-policy-") as tmp:
     tmp = Path(tmp)
     subprocess.run([sys.executable, str(root / "ios/prepare_renderer.py"),

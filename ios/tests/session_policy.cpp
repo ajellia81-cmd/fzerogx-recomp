@@ -1,7 +1,7 @@
 // ROM-free tests for suspend/resume and controller defaults.
 #include "lifecycle.h"
 #include "logo_timing.h"
-#include "controller_bindings.h"
+#include "controller.h"
 #include <cassert>
 #include <atomic>
 #include <future>
@@ -24,6 +24,14 @@ int main(){
  constexpr auto map=ios_bindings::defaults;
  static_assert(map[0]==PAD_A && map[1]==PAD_X && map[2]==PAD_B && map[3]==PAD_Y);
  static_assert(map[4]==0 && map[5]==PAD_Z && map[6]==PAD_START);
+
+ auto custom=ios_bindings::defaults;IOSControllerState input{};input.connected=true;input.leftTrigger=.5f;
+ auto pad=ios_controller_translate(input,custom);assert(pad.trig_l>120 && pad.trig_l<130 && !pad.buttons);
+ ios_bindings::assign(custom,11,PAD_A);pad=ios_controller_translate(input,custom);assert(!pad.trig_l && !pad.buttons);
+ input.leftTrigger=1;pad=ios_controller_translate(input,custom);assert(pad.buttons==PAD_A && !pad.trig_l && custom[0]==0);
+ ios_bindings::assign(custom,0,PAD_R);input.leftTrigger=0;input.buttons=1;pad=ios_controller_translate(input,custom);assert(pad.trig_r==255 && pad.buttons==PAD_R);
+ ios_bindings::clear(custom,PAD_R);pad=ios_controller_translate(input,custom);assert(!pad.buttons && !pad.trig_r);
+ assert(!ios_bindings::valid(PAD_A|PAD_B));input.connected=false;pad=ios_controller_translate(input,custom);assert(!pad.connected && !pad.buttons);
 
  ios_lifecycle::Gate gate;gate.reset_clock_baseline();gate.renderer_started();
  gate.pause();gate.pause();

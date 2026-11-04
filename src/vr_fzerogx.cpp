@@ -82,18 +82,7 @@ void guest_frame(uint32_t frame) {
         const auto& m=g_recomp_rels[k];bool linked=false;
         for(unsigned s=0;s<m.count;++s)linked|=g_rel_base[k*REL_MAX_SECTIONS+m.sections[s].index]!=0;
         if(!linked)continue;
-        if(!std::strcmp(m.name,"fze.title.rel"))modes|=ios_guest::Title;
-        if(!std::strcmp(m.name,"fze.sel.rel"))modes|=ios_guest::Selection;
-        if(!std::strcmp(m.name,"fze.replay.rel"))modes|=ios_guest::Replay;
-        if(!std::strcmp(m.name,"fze.story.rel"))modes|=ios_guest::Story;
-        if(!std::strcmp(m.name,"fze.winning.rel"))modes|=ios_guest::Winning;
-        if(!std::strcmp(m.name,"fze.interview.rel"))modes|=ios_guest::Interview;
-        if(!std::strcmp(m.name,"fze.movie.rel") || !std::strcmp(m.name,"fze.movie_module.rel"))modes|=ios_guest::Movie;
-        if(!std::strcmp(m.name,"fze.option.rel"))modes|=ios_guest::Option;
-        if(!std::strcmp(m.name,"fze.profile.rel"))modes|=ios_guest::Profile;
-        if(!std::strcmp(m.name,"fze.customize.rel"))modes|=ios_guest::Customize;
-        if(!std::strcmp(m.name,"fze.pilotpoint.rel"))modes|=ios_guest::Shop;
-        if(!std::strcmp(m.name,"fze.car_colchg.rel"))modes|=ios_guest::Paint;
+        modes|=ios_guest::module_mask(m.name);
     }
     ios_guest::modules.store(modes,std::memory_order_relaxed);
     ios_guest::phase.store(race.linked?race.state:-1,std::memory_order_relaxed);

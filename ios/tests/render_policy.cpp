@@ -12,7 +12,22 @@ int main(){
  for(int i=0;i<4;++i){auto&v=b->verts[i];v.pos[0]=320+((i&1)?37.5f:-37.5f);v.pos[1]=240+((i&2)?50.f:-50.f);}
  ios_guest::modules=ios_guest::Selection;gx::ios_prepare_scene(*b,false);gx::ios_widen(*b,2868,1320);
  auto&t=b->states[b->cmds[0].state];assert(t.proj[0]==s.proj[0]&&t.bp[0x20]==s.bp[0x20]&&t.bp[0x21]==s.bp[0x21]);float box[4];ios_scene::draw_bounds(*b,b->cmds[0],t,box);assert(fabs((box[2]-box[0])*16.f/9-(box[3]-box[1]))<1e-5);
- b->states={s};b->cmds={d};ios_guest::modules=ios_guest::Replay;gx::ios_prepare_scene(*b,false);gx::ios_widen(*b,2868,1320);ios_scene::draw_bounds(*b,b->cmds[0],b->states[b->cmds[0].state],box);assert(fabs((box[2]-box[0])*2868/1320-(box[3]-box[1]))<1e-5);
+ b->states={s};b->cmds={d};ios_guest::modules=ios_guest::Interview;gx::ios_prepare_scene(*b,false);gx::ios_widen(*b,2868,1320);ios_scene::draw_bounds(*b,b->cmds[0],b->states[b->cmds[0].state],box);assert(fabs((box[2]-box[0])*2868/1320-(box[3]-box[1]))<1e-5);
+ // Every menu owner must remain a menu without headers, including transient
+ // card views and perspective preview geometry, despite retained race phases.
+ for(unsigned module:{ios_guest::Selection,ios_guest::Option,ios_guest::Profile,ios_guest::Customize,ios_guest::Shop,ios_guest::Paint,ios_guest::Replay}){
+  for(int phase:{-1,0,37,38,39,40,41,42,43})for(bool preview:{false,true}){
+   b->states={s};b->cmds={d};b->states[0].proj[6]=preview?0:1;
+   unsigned encoded=module==ios_guest::Replay?module|ios_guest::Title:module;
+   b->states[0].tag=ios_context::encode(encoded,phase,false);
+   auto context=ios_context::read(*b);assert(ios_scene::classify(*b,context.live,context.modules,context.phase)==ios_scene::Mode::Menu);
+  }
+ }
+ b->states={s};b->cmds={d};
+ // An old course/race/finish phase cannot turn a wholly 2D view into World.
+ for(int phase:{39,40,41,42,43})for(unsigned module:{0u,unsigned(ios_guest::Story),unsigned(ios_guest::Winning)}){
+  b->states={s};b->cmds={d};assert(ios_scene::classify(*b,false,module,phase)==ios_scene::Mode::Menu);
+ }
  // Presentation context must belong to the queued batch, not newer guest state.
  for(unsigned module:{unsigned(ios_guest::Title),unsigned(ios_guest::Selection),unsigned(ios_guest::Movie)}){
   b->states={s};b->cmds={d};b->states[0].tag=ios_context::encode(module,41,false);
@@ -73,7 +88,7 @@ int main(){
   assert(ios_scene::classify(*b,true,module,41)==ios_scene::Mode::Menu);
   assert(ios_scene::classify(*b,true,module|ios_guest::Movie,41)==ios_scene::Mode::Movie);
   b->states[1].tex_is_efb[0]=true;
-  if(!(module&ios_guest::MenuModules))assert(ios_scene::classify(*b,false,module,41)!=ios_scene::Mode::Menu);
+  if(!(module&(ios_guest::MenuModules|ios_guest::Replay)))assert(ios_scene::classify(*b,false,module,-1)!=ios_scene::Mode::Menu);
   b->states[1].tex_is_efb[0]=false;
  }
  // Menu-specific modules retain their entire composition even when a large
@@ -110,7 +125,7 @@ int main(){
  std::vector<uint8_t> offscreen(8,1);rejected=ios_ui::modal_draws(*b,offscreen,lookup);
  assert(std::none_of(rejected.begin(),rejected.end(),[](auto x){return x;}));
  b->new_textures.clear();for(auto id:{102u,104u}){auto tex=std::make_shared<gx::TexData>();tex->id=id;tex->hash=lookup(id);b->new_textures.push_back(tex);}
- ios_guest::modules=ios_guest::Replay;gx::ios_prepare_scene(*b,false);gx::ios_widen(*b,2868,1320);
+ ios_guest::modules=ios_guest::Interview;gx::ios_prepare_scene(*b,false);gx::ios_widen(*b,2868,1320);
  for(int i:{0,1,2,3,4,5,7}){
   float canvas=i>=2 && i<=5?4.f/3:16.f/9;
   assert(fabs(b->states[b->cmds[i].state].proj[0]-s.proj[0]*canvas/(2868.f/1320))<1e-7);
@@ -154,7 +169,7 @@ int main(){
  // Independent fixed and compensated primitives share the SAME PixelState.
  b->states={sprite};b->cmds.assign(3,d);b->cmds[1].vfirst=4;b->cmds[2].state=1;b->verts.resize(8);
  for(int i=0;i<8;++i){auto& v=b->verts[i];memset(&v,0,sizeof(v));v.pos[0]=100+((i&1)?(i<4?24:18):0);v.pos[1]=100+((i&2)?24:0);v.tex[0][0]=(i&1)?1:0;v.tex[0][1]=(i&2)?1:0;v.tex[0][2]=1;}
- for(unsigned module:{0u,unsigned(ios_guest::Title),unsigned(ios_guest::Replay),unsigned(ios_guest::Story),unsigned(ios_guest::Winning),unsigned(ios_guest::Interview)}){
+ for(unsigned module:{0u,unsigned(ios_guest::Title),unsigned(ios_guest::Story),unsigned(ios_guest::Winning),unsigned(ios_guest::Interview)}){
   gx::PixelState worldSprite=sprite;worldSprite.proj[6]=0;worldSprite.proj[0]=1;worldSprite.proj[2]=4.f/3;
   b->states={sprite,worldSprite};b->cmds[0].state=b->cmds[1].state=0;b->cmds[2].state=1;
   for(auto& st:b->states)st.tag=ios_context::encode(module,41,false);

@@ -102,6 +102,12 @@ jobs:
       - name: Inspect menu compositing regressions (private headless captures)
         if: ${{ !inputs.probe_only }}
         run: python3 ios/probe_menu_routes.py
+      - name: Collect observed shader and blend configurations before boot
+        if: ${{ !inputs.probe_only }}
+        run: |
+          c++ -std=c++20 -O1 -DGCN_GL_ES -DGCN_GL_ES30 -ffunction-sections -fdata-sections -Iios -Igcn-recomp/runtime -Igcn-recomp/runtime/gx/glad_es/include ios/tools/capture_pipeline_metadata.cpp gcn-recomp/runtime/gx/shadergen.cpp -Wl,-dead_strip -o build-host/collect-pipeline-metadata
+          build-host/collect-pipeline-metadata src/shader_keys.bin build-host/menu-shader-keys.bin ios/menu_pipeline_states.inc build-probe-menu-replay build-probe-menu-profile build-probe-menu-customize build-probe-menu-shop > build-private-logs/pipeline-metadata.txt 2>&1
+          cp build-host/menu-shader-keys.bin src/shader_keys.bin
       - name: Encrypt menu review before device compilation
         if: ${{ !inputs.probe_only }}
         run: |
@@ -147,8 +153,8 @@ jobs:
         run: |
           APP=$(find build-ios -path '*/Release-iphoneos/FZeroGX.app' -type d -print -quit)
           test -n "$APP"
-          python3 ios/package_unsigned.py "$APP" FZeroGX-iOS-build15-unsigned.ipa
-          openssl cms -encrypt -binary -aes256 -in FZeroGX-iOS-build15-unsigned.ipa -out FZeroGX-private.ipa.enc -outform DER ios/delivery-public.pem
+          python3 ios/package_unsigned.py "$APP" FZeroGX-iOS-build16-unsigned.ipa
+          openssl cms -encrypt -binary -aes256 -in FZeroGX-iOS-build16-unsigned.ipa -out FZeroGX-private.ipa.enc -outform DER ios/delivery-public.pem
       - name: Encrypt diagnostics for private review
         if: always()
         shell: bash
