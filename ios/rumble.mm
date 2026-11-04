@@ -27,8 +27,8 @@ void retire(){
     @catch(NSException* exception){fprintf(stderr,"haptics: engine teardown exception %s\n",exception.name.UTF8String);}
 }
 void finish(uint64_t ticket){if(generation.load()==ticket)pending=false;}
-void apply_motor(uint64_t ticket){
-    if(!current(ticket)||!ready||!alive||!player)return;
+void apply_motor(uint64_t ticket,bool menuPause=false){
+    if(generation.load()!=ticket || (!menuPause && !permitted.load()) || !ready || !alive || !player)return;
     bool on=desired.load();if(on==playing)return;
     @try{
         NSError* error=nil;
@@ -76,6 +76,13 @@ void prepare(GCDeviceHaptics* provider,uint64_t ticket){
         retire();finish(ticket);
     }
 }
+}
+void ios_rumble_pause_menu(){
+    // Keep a prepared engine across an in-app menu. Stop asynchronously so
+    // CoreHaptics never holds up UIKit while the menu becomes visible.
+    permitted=false;desired=false;testUntil=0;
+    uint64_t ticket=generation.load();
+    dispatch_async(queue(),^{apply_motor(ticket,true);});
 }
 void ios_rumble_suspend(){
     // Main-thread API. Drain before audio-session deactivation, not afterwards.

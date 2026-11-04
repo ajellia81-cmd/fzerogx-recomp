@@ -3,7 +3,7 @@
 - (void)syncPause {
     bool pause=self.menuOpen || !self.appActive;
     if(pause){
-        ios_rumble_suspend();
+        if(self.appActive)ios_rumble_pause_menu();else ios_rumble_suspend();
         ios_lifecycle::gate().pause();
         if(self.started)irq_request();
         // Backgrounding must drain before UIKit suspends us. An in-app menu
