@@ -2,6 +2,8 @@
 #include <cassert>
 #include <cmath>
 #include "render_ios.cpp"
+// Standalone fixtures do not link the runtime batch-storage pool.
+gx::Batch::~Batch()=default;
 void fatal(const char*,...){std::abort();}
 int main(){
  gx::ShaderKey cacheKey{};cacheKey.dst_alpha=2;gx::g_dual_source=false;gx::ios_shader_key(cacheKey);assert(cacheKey.dst_alpha==0);
