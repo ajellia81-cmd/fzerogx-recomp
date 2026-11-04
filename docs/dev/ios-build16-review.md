@@ -64,3 +64,37 @@ flat logos, fixed glyphs, movie canvases, lifecycle and analog remapping.
 GLES startup warmup is smoke tested separately. GitHub Actions remains the
 source of iOS ARM64 compile/link/package validation; this is distinct from
 physical app launch, gameplay and measured display refresh.
+
+## Completed build and limits (2026-11-04)
+
+- Functional source: `dcc6df30c0f73088e6feb04c932b20fdf40a135d`.
+- Full Actions run: [41763672937](https://github.com/ajellia81-cmd/fzerogx-recomp/actions/runs/41763672937), success.
+- ARM64 launcher/runtime, renderer regression and detached-thread checks:
+  [41763672938](https://github.com/ajellia81-cmd/fzerogx-recomp/actions/runs/41763672938), success.
+- Real guest logo policy: PASS, SEGA hold established; AV 120 updates / 12 fade updates.
+- Final private capture policy checks: 66 frames, all menu-owner assertions pass.
+  Title includes flat logo, menu and world frames; preview/card/shop frames remain Menu.
+- Captured metadata: 217 base keys + 15 additional dual-source/fallback keys;
+  81 observed blend recipes. Metadata is generated privately on the runner before compilation.
+- GLES fallback smoke: 191 normalized programs, 2,342 warmup draws, no GL error,
+  original framebuffer restored.
+- GLES dual-source smoke: 232 programs, 2,865 warmup draws, no GL error,
+  original framebuffer restored. This is Mesa GLES, not physical iOS/Metal.
+- Offline inspection of representative Replay file list, Profile detail, Garage
+  query and Shop merchandise frames: no black preview rectangles; zero non-black
+  pixels outside the centered 16:9 menu canvas. Shop merchandise is rendered by
+  Customize; linking `pilotpoint` is not required to recognize that screen.
+- Exact existing-card Replay access/progress/no-data views are covered by the
+  owner/transient regression policy, but were not visually reproduced from the
+  owner's existing memory card. Saved race replay, all story/interview variants,
+  hardware menu operation and physical refresh remain unverified for this IPA.
+- No device evidence yet establishes elimination of every stutter. New phase
+  diagnostics remain available for stalls without shader compilation.
+
+Package: `FZeroGX-iOS-build16-unsigned.ipa`, 14,936,341 bytes.
+SHA-256: `174c3c33aec9d40473e961fe5e992195222ec66caeacf116d1827032dd968e12`.
+Seven bundle files; app and ANGLE are unsigned thin ARM64 / iPhoneOS Mach-O.
+No disc/save/generated source/private key/capture/provisioning is included.
+Effective minimum iOS remains 26.2 due to ANGLE (app itself declares 17.0).
+Compilation/link/package success is separate from app launch, gameplay and
+measured 120Hz presentation, which require physical-device verification.
