@@ -65,6 +65,10 @@ for pilot in range(30):
     routes[f"pilot-index-{pilot:02}"]=events
 
 selected=os.environ.get("FZGX_MENU_ROUTES")
+if not selected:
+    request=root/"ios/private-build-request.txt"
+    if request.exists():
+        selected=next((line[len("routes="):] for line in request.read_text().splitlines() if line.startswith("routes=")),None)
 if selected:
     names=selected.split(",")
     unknown=set(names)-routes.keys()

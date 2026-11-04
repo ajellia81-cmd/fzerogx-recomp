@@ -67,10 +67,16 @@ void ios_widen(Batch& b,int width,int height){
     g_ios_canvas_source=ios_canvas::source_aspect(b,skip,g_ios_canvas_source);
     const float source=g_ios_canvas_source,ratio=source/target;
     const auto frame=ios_canvas::frame(b);
+    std::vector<uint8_t> groupSkip=skip;
+    if(mode==ios_scene::Mode::World)for(size_t i=0;i<b.cmds.size();++i){const auto& c=b.cmds[i];if(c.type!=CmdType::Draw || c.state>=b.states.size())continue;const auto& st=b.states[c.state];
+        if(ios_canvas::solid_cover(b,c,st) || ios_canvas::screen_effect(b,c,st) || ios_canvas::edge(b,c,st)!=ios_canvas::Edge::None ||
+           (st.proj[6] && ios_canvas::feedback(st,[](uint32_t id){return is_fullscreen_tex(id) && !g_ios_native_copies.count(id); })))groupSkip[i]=1;
+    }
+    auto split=mode==ios_scene::Mode::World?ios_split::layout(b,groupSkip):ios_split::Layout{};
     const size_t original=b.states.size();
     // Material state can be shared by a full-frame effect and a small UI
     // element. Cache by the actual presentation path, never just by state id.
-    std::vector<std::array<int32_t,3>> corrected(original,{-1,-1,-1});
+    std::vector<std::array<int32_t,6>> corrected(original);for(auto& cache:corrected)cache.fill(-1);
     for(size_t i=0;i<b.cmds.size();++i){
         auto& c=b.cmds[i];
         if(c.type!=CmdType::Draw || !c.count || !c.vcount || c.state>=original || skip[i])continue;
@@ -90,11 +96,24 @@ void ios_widen(Batch& b,int width,int height){
         const auto edge=ios_canvas::edge(b,c,st);
         if(edge==ios_canvas::Edge::Horizontal)continue;
         bool side=edge==ios_canvas::Edge::Left || edge==ios_canvas::Edge::Right;
-        unsigned path=st.proj[6]?0:1;
+        int cell=split.active() && i<split.owner.size()?split.owner[i]:-1;
+        unsigned path=cell>=0?2u+unsigned(cell):st.proj[6]?0:1;
+        const float anchor=split.anchor(i,frame.width*.5f);
         if(!side && corrected[c.state][path]>=0){c.state=uint32_t(corrected[c.state][path]);continue;}
         if(side){
             float box[4];if(!ios_scene::draw_bounds(b,c,st,box))continue;
             ios_canvas::side(st,box,edge,ratio,frame);
+        }else if(!st.proj[6] && split.active() && !st.view_space){
+            if(st.proj[0]==0 || std::fabs(st.viewport[0])<1e-5f || std::fabs(st.viewport[1])<1e-5f)continue;
+            float camera=std::fabs(st.proj[2]/st.proj[0]);
+            float cellAspect=target*(std::fabs(st.viewport[0])*2/frame.width)/(std::fabs(st.viewport[1])*2/frame.height);
+            float cameraRatio=camera/cellAspect;
+            if(!std::isfinite(cameraRatio) || cameraRatio<=0)continue;
+            float center=st.viewport[3]-int(st.bp[0x59]&1023)*2;
+            st.proj[0]*=cameraRatio;
+            st.proj[1]=st.proj[1]*cameraRatio+(1-cameraRatio)*(center-anchor)/st.viewport[0];
+        }else if(!st.proj[6] && split.active() && st.view_space){
+            ios_canvas::compose_at(st,ratio,frame,anchor);
         }else if(!st.proj[6] && ios_scene::full_view(st)){
             // Expand real camera FOV rather than stretching its image. This
             // is equivalent to the 2D affine transform inside the native frame,
@@ -108,7 +127,7 @@ void ios_widen(Batch& b,int width,int height){
             // Includes every orthographic format, untextured panel geometry,
             // atlas digits, fonts, emblems, portraits and sub-view previews.
             // The viewport AND scissor move by the same global affine map.
-            ios_canvas::compose(st,ratio,frame);
+            if(split.active())ios_canvas::compose_at(st,ratio,frame,anchor);else ios_canvas::compose(st,ratio,frame);
         }
         if(!side)corrected[c.state][path]=int32_t(b.states.size());
         c.state=uint32_t(b.states.size());b.states.push_back(st);

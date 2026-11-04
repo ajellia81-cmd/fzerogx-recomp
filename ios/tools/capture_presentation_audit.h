@@ -11,10 +11,10 @@ inline int captures(int argc,char**argv){
   gx::Batch b;b.cmds=read<gx::Cmd>(in);b.verts=read<gx::GpuVertex>(in);b.packed=read<uint8_t>(in);b.indices=read<uint32_t>(in);b.states=read<gx::PixelState>(in);b.mtxs=read<float>(in);
   uint64_t n=0;in.read((char*)&n,8);assert(in && n<100000);
   for(uint64_t i=0;i<n;++i){uint32_t meta[4];uint64_t hash;in.read((char*)meta,sizeof meta);in.read((char*)&hash,8);assert(in);auto t=std::make_shared<gx::TexData>();t->id=meta[0];t->width=meta[1];t->height=meta[2];t->hash=hash;b.new_textures.push_back(t);for(unsigned l=0;l<meta[3];++l){uint64_t pixels=0;in.read((char*)&pixels,8);assert(in && pixels<100000000);in.seekg(pixels*4,std::ios::cur);assert(in);}}
-  for(auto& s:b.states)s.tag=ios_context::encode(h[6],int32_t(h[7]),false);
+  for(auto& s:b.states)s.tag=ios_context::encode(h[6],int32_t(h[7]),bool(s.tag&0x20));
   const auto commands=b.cmds;const auto states=b.states;const auto verts=b.verts;const auto packed=b.packed;const auto matrices=b.mtxs;
   gx::g_fullscreen_tex.clear();gx::g_ios_native_copies.clear();gx::g_ios_canvas_source=4.f/3;
-  auto mode=ios_scene::classify(b,false,h[6],int32_t(h[7]));
+  auto context=ios_context::read(b);auto mode=ios_scene::classify(b,context.live,h[6],int32_t(h[7]));
   if(ios_ui::startup_art(b,[&](uint32_t id){for(auto& t:b.new_textures)if(t->id==id)return t->hash;return uint64_t(0);}))mode=ios_scene::Mode::Flat;
   gx::g_ios_scene=mode;std::vector<uint8_t> skip;gx::mark_offscreen_passes(b,skip);ios_canvas::native_passes(b,skip,gx::g_ios_native_copies);
   gx::ios_widen(b,2868,1320);

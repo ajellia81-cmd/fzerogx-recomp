@@ -19,6 +19,15 @@ gx::Cmd quad(gx::Batch& b,gx::PixelState s,float x,float y,float w,float h){
  for(unsigned i=0;i<4;++i){gx::GpuVertex v;memset(&v,0,sizeof v);v.pos[0]=x+((i&1)?w:0);v.pos[1]=y+((i&2)?h:0);v.tex[0][0]=(i&1)?1:0;v.tex[0][1]=(i&2)?1:0;v.tex[0][2]=1;v.col[0][3]=255;b.verts.push_back(v);}
  b.cmds.push_back(c);return c;
 }
+unsigned world_cell(gx::Batch& b,float x,float y,float w,float h){
+ auto c=state();c.proj[6]=0;c.proj[0]=1;c.proj[1]=0;c.proj[2]=(4.f/3)*(w/640)/(h/480);c.proj[3]=0;
+ c.viewport[0]=w*.5f;c.viewport[1]=-h*.5f;c.viewport[3]=684+x+w*.5f;c.viewport[4]=684+y+h*.5f;
+ c.bp[0x20]=unsigned(684+y)|(unsigned(684+x)<<12);c.bp[0x21]=unsigned(684+y+h-1)|(unsigned(684+x+w-1)<<12);
+ unsigned draw=b.cmds.size();auto cmd=quad(b,c,-1,-1,2,2);for(unsigned i=0;i<12;++i)b.verts.push_back(b.verts[cmd.vfirst+i%4]);
+ for(unsigned i=0;i<16;++i)b.verts[cmd.vfirst+i].pos[2]=-5;
+ b.cmds[draw].vcount=16;b.cmds[draw].count=24;return draw;
+}
+
 float screen(const gx::PixelState& s,float x){return s.viewport[0]*(s.proj[0]*x+s.proj[1])+s.viewport[3]-int(s.bp[0x59]&1023)*2;}
 float sx(const gx::Batch& b,unsigned i,float x){return screen(b.states[b.cmds[i].state],x);}
 void widen(gx::Batch& b,ios_scene::Mode mode,float target=16.f/9){gx::g_ios_canvas_source=4.f/3;gx::g_ios_scene=mode;gx::ios_widen(b,int(target*1440+.5f),1440);}
@@ -124,6 +133,36 @@ int main(int argc,char**argv){
  gx::Batch post;quad(post,camera,1,1,2,2);post.cmds.push_back(pc);quad(post,pr,0,0,640,480);quad(post,pr,120,0,640,480);post.cmds.push_back(xfb);post.cmds.push_back(present);
  widen(post,ios_scene::Mode::Menu);assert(post.cmds[0].state!=0);assert(post.cmds[2].state==1);
  assert(near(post.states[post.cmds[3].state].viewport[0],320));assert(near(sx(post,3,440),410));
+ // Real VS input uses two narrow world viewports but a shared full-screen
+ // HUD state. Expand each camera; center each connected HUD group in its own
+ // player field. A cross-field panel/word must remain one global composition.
+ gx::Batch two;auto cam0=world_cell(two,0,0,320,480);auto cam1=world_cell(two,320,0,320,480);
+ unsigned left=two.cmds.size();quad(two,font,148,100,24,24);unsigned shared=two.cmds[left].state;
+ unsigned right=two.cmds.size();quad(two,font,468,100,24,24);two.cmds[right].state=shared;
+ unsigned panelDraw=two.cmds.size();quad(two,flat,240,200,160,60);
+ unsigned text0=two.cmds.size();quad(two,font,294,210,24,24);two.cmds[text0].state=shared;
+ unsigned text1=two.cmds.size();quad(two,font,318,210,24,24);two.cmds[text1].state=shared;
+ auto fields=ios_split::layout(two,{});assert(fields.active() && fields.cells.size()==2);
+ assert(fields.owner[left]!=fields.owner[right] && fields.owner[panelDraw]==-1 && fields.owner[text0]==-1 && fields.owner[text1]==-1);
+ widen(two,ios_scene::Mode::World,21.f/9);
+ assert(near(two.states[two.cmds[cam0].state].viewport[0],160) && near(two.states[two.cmds[cam1].state].viewport[0],160));
+ assert(near(two.states[two.cmds[cam0].state].proj[0],4.f/7));
+ assert(near(sx(two,left,160),160) && near(sx(two,right,480),480));
+ assert(two.cmds[left].state!=two.cmds[right].state && two.cmds[left].state!=two.cmds[text0].state);
+ assert(near(sx(two,text0,306),320+(306-320)*4.f/7));
+ // Three/four-player quarter layouts use the same rule, without moving a
+ // player's native HUD toward the center of the entire display.
+ for(unsigned players:{3u,4u}){
+  gx::Batch quarters;std::vector<unsigned> hud;
+  for(unsigned i=0;i<players;++i){float x=(i&1)*320,y=(i>>1)*240;world_cell(quarters,x,y,320,240);}
+  for(unsigned i=0;i<players;++i){hud.push_back(quarters.cmds.size());quad(quarters,font,(i&1)*320+148,(i>>1)*240+100,24,24);}
+  auto q=ios_split::layout(quarters,{});assert(q.cells.size()==players);widen(quarters,ios_scene::Mode::World,21.f/9);
+  for(unsigned i=0;i<players;++i){assert(near(sx(quarters,hud[i],(i&1)*320+160),(i&1)*320+160));}
+ }
+ // A real full-screen world camera prevents two incidental small previews
+ // from being misidentified as a multiplayer partition.
+ gx::Batch ordinary;world_cell(ordinary,0,0,640,480);world_cell(ordinary,0,0,320,240);world_cell(ordinary,320,0,320,240);
+ assert(!ios_split::layout(ordinary,{}).active());
  // Full-colour artwork is never classified as an expendable background from
  // its size. Native artwork and neighbouring labels share one canvas, without
  // cropping baked text. The game's own oversized scenery still covers 16:9.

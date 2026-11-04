@@ -138,10 +138,12 @@ inline void clip(gx::PixelState& s,float ratio,float center){
     s.bp[0x20]=(s.bp[0x20]&~(2047u<<12))|(unsigned(l)<<12);
     s.bp[0x21]=(s.bp[0x21]&~(2047u<<12))|(unsigned(r)<<12);
 }
-inline void compose(gx::PixelState& s,float ratio,const Frame& f){
-    const float origin=f.width*.5f+int(s.bp[0x59]&1023)*2;
+inline void compose_at(gx::PixelState& s,float ratio,const Frame& f,float center){
+    (void)f;
+    const float origin=center+int(s.bp[0x59]&1023)*2;
     s.viewport[0]*=ratio;
     s.viewport[3]=origin+(s.viewport[3]-origin)*ratio;
-    clip(s,ratio,f.width*.5f);
+    clip(s,ratio,center);
 }
+inline void compose(gx::PixelState& s,float ratio,const Frame& f){compose_at(s,ratio,f,f.width*.5f);}
 }
