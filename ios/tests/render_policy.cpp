@@ -22,7 +22,8 @@ float screen(const gx::PixelState& s,float x){return s.viewport[0]*(s.proj[0]*x+
 float sx(const gx::Batch& b,unsigned i,float x){return screen(b.states[b.cmds[i].state],x);}
 void widen(gx::Batch& b,ios_scene::Mode mode,float target=16.f/9){gx::g_ios_canvas_source=4.f/3;gx::g_ios_scene=mode;gx::ios_widen(b,int(target*1440+.5f),1440);}
 }
-int main(){
+#include "tools/capture_presentation_audit.h"
+int main(int argc,char**argv){
  gx::ShaderKey k{};k.dst_alpha=2;gx::g_dual_source=false;gx::ios_shader_key(k);assert(k.dst_alpha==0);
  k.dst_alpha=2;gx::g_dual_source=true;gx::ios_shader_key(k);assert(k.dst_alpha==2);gx::g_dual_source=false;
  const auto s=state();
@@ -32,7 +33,7 @@ int main(){
   gx::Batch b;auto st=s;st.proj[6]=camera?0:1;quad(b,st,100,100,92,116);
   assert(ios_scene::classify(b,false,m|ios_guest::Title,phase)==ios_scene::Mode::Menu);
   for(auto& p:b.states)p.tag=ios_context::encode(m|ios_guest::Title,phase,false);
-  auto context=ios_context::read(b);assert(context.stamped);assert(ios_scene::classify(b,context.live,context.modules,context.phase)==ios_scene::Mode::Menu);
+  auto context=ios_context::read(b);assert(context.stamped && context.modules==m);assert(ios_scene::classify(b,context.live,context.modules,context.phase)==ios_scene::Mode::Menu);
   auto old=b.verts;auto matrix=b.states[0];widen(b,ios_scene::Mode::Menu);
   assert(!memcmp(old.data(),b.verts.data(),old.size()*sizeof(gx::GpuVertex)));
   // Menu preview and UI land on the same logical canvas.
@@ -82,6 +83,7 @@ int main(){
  // Full-frame copies already contain corrected pixels; never squeeze them a
  // second time. Real world cameras expand their frustum instead of stretching.
  gx::Batch feedback;auto fb=s;fb.tex_id[0]=42;fb.tex_is_efb[0]=true;gx::Cmd fullCopy=copy;fullCopy.copy.src_w=fullCopy.copy.dst_w=640;fullCopy.copy.src_h=fullCopy.copy.dst_h=480;feedback.cmds.push_back(fullCopy);quad(feedback,fb,0,0,640,480);
+ gx::Cmd xfb=fullCopy;xfb.copy.to_xfb=true;feedback.cmds.push_back(xfb);gx::Cmd present{};present.type=gx::CmdType::Present;present.copy.src_w=640;present.copy.src_h=480;feedback.cmds.push_back(present);
  widen(feedback,ios_scene::Mode::World);assert(feedback.cmds[1].state==0);
  gx::Batch world;auto camera=s;camera.proj[6]=0;camera.proj[0]=1;camera.proj[2]=4.f/3;quad(world,camera,1,1,2,2);widen(world,ios_scene::Mode::World,21.f/9);auto& wc=world.states[world.cmds[0].state];assert(near(wc.proj[0],4.f/7));assert(wc.viewport[0]==320);
  // Positive evidence for an already-compensated guest display prevents double
@@ -99,8 +101,13 @@ int main(){
   b.states[0].tex_id[1]=2;b.states[0].bp[0x28]=0x41;assert(!ios_ui::startup_art(b,[](uint32_t id){return id==1?0x4c8a45da63b18ea5ull:123ull;}));
  }
  gx::PixelState movie=s;movie.tex_id[1]=2;movie.bp[0x88]=(1<<20)|639|(335<<10);movie.bp[0x89]=(3<<20)|319|(167<<10);assert(ios_scene::movie_state(movie));movie.bp[0x89]=(1<<20)|319|(167<<10);assert(!ios_scene::movie_state(movie));
- // Full colour backdrops cover the wide screen without stretching the image;
- // neighbouring small artwork sharing the state remains a native UI element.
- gx::Batch bg;auto colour=s;colour.bp[0x88]=(5u<<20)|639|(479<<10);quad(bg,colour,0,0,640,480);quad(bg,colour,100,100,92,116);bg.cmds[1].state=0;widen(bg,ios_scene::Mode::Menu);assert(bg.cmds[0].state!=bg.cmds[1].state);assert(near(bg.states[bg.cmds[0].state].proj[2],s.proj[2]*4.f/3));assert(near(bg.states[bg.cmds[1].state].viewport[0],240));
+ // Full-colour artwork is never classified as an expendable background from
+ // its size. Native artwork and neighbouring labels share one canvas, without
+ // cropping baked text. The game's own oversized scenery still covers 16:9.
+ gx::Batch bg;auto colour=s;colour.bp[0x88]=(5u<<20)|639|(479<<10);quad(bg,colour,0,0,640,480);quad(bg,colour,100,100,92,116);bg.cmds[1].state=0;widen(bg,ios_scene::Mode::Menu);assert(bg.cmds[0].state==bg.cmds[1].state);assert(near(bg.states[bg.cmds[0].state].proj[2],s.proj[2]));assert(near(bg.states[bg.cmds[1].state].viewport[0],240));
+ // Perspective water/refraction that samples a full-frame copy remains a
+ // world surface: only orthographic feedback bypasses canvas correction.
+ gx::Batch water;auto wet=camera;wet.tex_id[0]=42;wet.tex_is_efb[0]=true;quad(water,wet,1,1,2,2);widen(water,ios_scene::Mode::World,21.f/9);assert(near(water.states[water.cmds[0].state].proj[0],4.f/7));
+ ios_audit::captures(argc,argv);
  puts("All display owners, shared 2D composition, aspect, clipping, preview/copy boundaries, cameras, logos and films passed");
 }

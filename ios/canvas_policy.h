@@ -30,15 +30,8 @@ inline bool full_quad(const gx::Batch& b,const gx::Cmd& c,const gx::PixelState& 
 inline bool solid_cover(const gx::Batch& b,const gx::Cmd& c,const gx::PixelState& s){
     return full_quad(b,c,s) && !ios_scene::sampled_maps(s);
 }
-inline bool background(const gx::Batch& b,const gx::Cmd& c,const gx::PixelState& s){
-    if(!full_quad(b,c,s) || ((s.bp[0]>>16)&7))return false;
-    unsigned used=ios_scene::sampled_maps(s);if(!used || (used&(used-1)))return false;
-    unsigned m=0;while(!(used&(1u<<m)))++m;
-    if(!s.tex_id[m] || s.tex_is_efb[m])return false;
-    unsigned t=s.bp[0x88+(m&3)+(m>=4?32:0)];
-    // Full-size colour backdrops behind a live composition. Glyph/number
-    // atlases, panels, video planes and the startup artwork are excluded.
-    return ((t>>20)&15)>=4 && (t&1023)>=599 && ((t>>10)&1023)>=399;
+inline bool screen_effect(const gx::Batch& b,const gx::Cmd& c,const gx::PixelState& s){
+    return full_quad(b,c,s) && ((s.bp[0]>>16)&7);
 }
 inline void clip(gx::PixelState& s,float ratio,float center){
     int offset=int(s.bp[0x59]&1023)*2;

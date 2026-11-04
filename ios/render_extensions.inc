@@ -72,16 +72,10 @@ void ios_widen(Batch& b,int width,int height){
         auto& c=b.cmds[i];
         if(c.type!=CmdType::Draw || !c.count || !c.vcount || c.state>=original || skip[i])continue;
         PixelState st=b.states[c.state];
-        if(ios_scene::movie_state(st) || samples_fullscreen_copy(st) || ios_canvas::solid_cover(b,c,st))continue;
-        bool backdrop=mode==ios_scene::Mode::Menu && ios_canvas::background(b,c,st);
-        unsigned path=st.proj[6]?backdrop?2:0:1;
+        if(ios_scene::movie_state(st) || (st.proj[6] && samples_fullscreen_copy(st)) || ios_canvas::solid_cover(b,c,st) || ios_canvas::screen_effect(b,c,st))continue;
+        unsigned path=st.proj[6]?0:1;
         if(corrected[c.state][path]>=0){c.state=uint32_t(corrected[c.state][path]);continue;}
-        if(backdrop){
-            // Cover without anisotropic stretching: only the background is
-            // vertically cropped, never text, pictures inside a panel or films.
-            const float cover=std::max(1.f,target/source);
-            st.proj[2]*=cover;st.proj[3]*=cover;
-        }else if(!st.proj[6] && ios_scene::full_view(st)){
+        if(!st.proj[6] && ios_scene::full_view(st)){
             // Expand real camera FOV rather than stretching its image. This
             // is equivalent to the 2D affine transform inside the native frame,
             // but admits world geometry beyond the old left/right edges.

@@ -27,8 +27,10 @@ with tempfile.TemporaryDirectory(prefix="fzgx-render-policy-") as tmp:
             "-Wl,-dead_strip" if sys.platform == "darwin" else "-Wl,--gc-sections",
             "-pthread", "-o", str(tmp / "check")]
     subprocess.run(cmd, check=True)
-    subprocess.run([str(tmp / "check")], check=True)
+    capture_dirs=sorted(root.glob("build-probe*/")) if os.environ.get("FZGX_CAPTURE_AUDIT") else []
+    subprocess.run([str(tmp / "check"), *map(str,capture_dirs)], check=True)
 
     session = [os.environ.get("CXX", "c++"), "-std=c++20", "-O1", "-pthread", "-I"+str(root/"ios"), "-I"+str(runtime), str(root/"ios/tests/session_policy.cpp"), "-o", str(tmp/"session")]
     subprocess.run(session, check=True)
     subprocess.run([str(tmp/"session")], check=True, timeout=15)
+
