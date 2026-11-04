@@ -43,8 +43,8 @@ stall have been eliminated.
 - ARM64 runtime/renderer/audio/controller compile, renderer and lifecycle fixtures,
   and detached-thread resource checks: Actions `41793968703`, success.
 - Full package source/request: `83302c1992f0a607954bd0c8a9b856ed856c0d58`.
-- Full delivery run: `41794101615` (in progress at this review).
-- Private capture review run: `41793565818` (in progress at this review).
+- Full delivery run: `41794101615`, success.
+- Private capture review run: `41793565818`, success.
 
 GameCube image-based mappings and upstream defaults remain present. Physical
 menu latency, 2D pilot artwork size, existing-card Replay dialogs, all course
@@ -64,3 +64,22 @@ For the inspected normal-canvas returned-logo frame, Nintendo/SEGA/AV draws all
 recover 4:3 from sampled texels and actual quad geometry. The regression fixture
 additionally verifies reentered 16:9-compensated geometry. No private asset bytes
 or generated guest code are committed.
+
+## Final delivery verification
+
+- Full package workflow `41794101615`: success.
+- Exact package-source ARM64/regression run `41794101674`: success.
+- Full-build metadata: 287 captures, 217 shipped base keys, 32 additional keys,
+  168 observed shader/blend recipes. The separate earlier route audit collected
+  296 frames; benchmark timing means these counts are not interchangeable.
+- Package: `FZeroGX-iOS-build17-unsigned.ipa`, 14,942,338 bytes.
+- SHA-256: `3a1328d138006c3821b8b665e595388609472da5e953107441a82bcdcd966274`.
+- ZIP CRCs verified. Seven bundle files; app and ANGLE are thin ARM64/iPhoneOS
+  Mach-O with no code-signature command. No disc, save, private key, source,
+  capture, log or provisioning file is present.
+- Effective minimum iOS remains 26.2 from ANGLE; app minimum is 17.0.
+- Delivery iteration is Build17; embedded app version metadata remains 0.1 (16).
+  Identify this delivery by its filename, source commit and SHA-256.
+- No physical-device latency/FPS measurement or proof of elimination of every
+  stutter is claimed. Pilot artwork size and all existing-card Replay variants
+  remain explicit device/reference coverage gaps.
