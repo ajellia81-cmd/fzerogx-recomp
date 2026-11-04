@@ -18,7 +18,8 @@ int main(){
  for(unsigned module:{ios_guest::Selection,ios_guest::Option,ios_guest::Profile,ios_guest::Customize,ios_guest::Shop,ios_guest::Paint,ios_guest::Replay}){
   for(int phase:{-1,0,37,38,39,40,41,42,43})for(bool preview:{false,true}){
    b->states={s};b->cmds={d};b->states[0].proj[6]=preview?0:1;
-   unsigned encoded=module==ios_guest::Replay?module|ios_guest::Title:module;
+   unsigned encoded=module|ios_guest::Title;
+   assert(ios_scene::classify(*b,false,encoded,phase)==ios_scene::Mode::Menu);
    b->states[0].tag=ios_context::encode(encoded,phase,false);
    auto context=ios_context::read(*b);assert(ios_scene::classify(*b,context.live,context.modules,context.phase)==ios_scene::Mode::Menu);
   }

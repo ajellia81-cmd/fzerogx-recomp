@@ -26,9 +26,9 @@ int main(int argc,char**argv){
   fprintf(stderr,"Private capture policy: %s modules=%u phase=%d mode=%u\n",file.path().filename().string().c_str(),h[6],int32_t(h[7]),unsigned(mode));
   if(h[6]&(ios_guest::MenuModules|ios_guest::Replay))assert(mode==ios_scene::Mode::Menu || mode==ios_scene::Mode::Movie);
   for(const auto& cmd:cmds)if(cmd.type==CmdType::Draw && cmd.count && cmd.vcount && cmd.state<states.size()){
-   const auto& state=states[cmd.state];auto k=make_shader_key(state);k.fg_depth=0;if(k.dst_alpha==2)k.dst_alpha=0;canonicalize_shader_key(k);
-   if(have.insert(k).second)keys.push_back(k);
-   recipes.emplace(ShaderKeyHash{}(k),state.bp[0x41]);
+   const auto& state=states[cmd.state];g_dual_source=true;auto k=make_shader_key(state);k.fg_depth=0;canonicalize_shader_key(k);
+   auto append=[&](ShaderKey key){canonicalize_shader_key(key);if(have.insert(key).second)keys.push_back(key);recipes.emplace(ShaderKeyHash{}(key),state.bp[0x41]);};
+   append(k);if(k.dst_alpha==2){k.dst_alpha=0;append(k);}
   }++frames;
  }
  std::ofstream out(argv[2],std::ios::binary);out.write((char*)header,8);for(auto& k:keys)out.write((char*)&k,sizeof k);assert(out);

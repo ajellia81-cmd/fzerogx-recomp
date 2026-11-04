@@ -19,7 +19,7 @@ This inventories source routes, not proof of every scene on a physical device.
 | winning | Menu frame, then actual geometry/phase | Orthographic-only stale finish phase no longer forces World |
 | interview | World with per-draw modal/glyph correction | Keep expanded 3D and the previous fixed-text correction |
 
-Replay must also win over a retained Title module when the queued FIFO context
+Every menu owner must also win over a retained Title module when the queued FIFO context
 is encoded. World rendering remains available for genuine course/race/replay
 playback. A saved replay playback route and every interview/story/ceremony
 variant have not been visually verified on hardware. These are explicit coverage
@@ -42,6 +42,8 @@ Customize 158ms/112ms frames with 110ms/93ms compilation. It also contains
 20–44ms frames without new shaders or pipeline states; those cannot be explained
 solely by compilation.
 
+Both dual-source blending and fallback renderer configurations are collected,
+independently of the host GPU capabilities. Startup frames accompany the Replay route.
 Private host menu captures now contribute renderer shader keys and exact blend
 recipes to startup preparation before the device build. Only renderer metadata
 is emitted; decoded textures/geometry are encrypted private diagnostics. The

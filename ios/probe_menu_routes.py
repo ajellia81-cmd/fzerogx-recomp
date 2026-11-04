@@ -20,6 +20,7 @@ for name,events in routes.items():
     directory.mkdir(exist_ok=True)
     env=os.environ.copy()
     env.update(FZGX_PRIVATE_CAPTURE="1",FZGX_MENU_PROBE="1",FZGX_CAPTURE_FRAMES="2700,2801,2810,2850,2900,3100,3300,3500,3700,4000,4001,4002,4003,4500",GCN_INPUT=boot+events)
+    if name=="replay":env["FZGX_CAPTURE_FRAMES"]="30,60,120,180,240,360,480,600,1000,1900,"+env["FZGX_CAPTURE_FRAMES"]
     with (root/"build-private-logs"/("menu-"+name+".txt")).open("w") as log:
         subprocess.run([str(root/"build-host/fzerogx_bench"),"--seconds=65","--warmup=0",str(root/"rom/game.iso")],cwd=directory,env=env,stdout=log,stderr=subprocess.STDOUT,check=True)
     print("Completed private menu route:",name,flush=True)

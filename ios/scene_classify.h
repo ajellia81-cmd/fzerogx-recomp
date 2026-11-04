@@ -131,7 +131,7 @@ inline Mode classify(const gx::Batch& b,bool liveRace=false,unsigned modules=0,i
     if(menu44 && menu60)return Mode::Menu;
     // Startup logos are orthographic-only Title frames. Linking Title does not
     // make those images a 3D world; the actual intro camera still has perspective.
-    if((modules & ios_guest::Title) && !(modules & (ios_guest::Selection|ios_guest::Option)) && !perspective)return Mode::Flat;
+    if((modules & ios_guest::Title) && !(modules & (ios_guest::MenuModules|ios_guest::Replay)) && !perspective)return Mode::Flat;
     if(modules & ios_guest::Interview)return Mode::World;
     if(liveRace)return Mode::World;
     if(modules & ios_guest::MenuModules)return Mode::Menu;
