@@ -15,6 +15,8 @@ bool ios_prepare_scene(const Batch& b,bool liveRace) {
     bool startup=ios_ui::startup_art(b,[&](uint32_t id){auto it=incoming.find(id);return it==incoming.end()?render_texture_hash(id):it->second;});
     g_ios_frame_sega=ios_ui::startup_art(b,[&](uint32_t id){auto it=incoming.find(id);return it==incoming.end()?render_texture_hash(id):it->second;},true);
     static bool logoTransition=false;
+    static float logoAspect=4.f/3;
+    if(startup)logoAspect=ios_ui::startup_canvas_aspect(b,[&](uint32_t id){auto it=incoming.find(id);return it==incoming.end()?render_texture_hash(id):it->second;},logoAspect);
     if(startup)logoTransition=true;
     else if(!ios_ui::only_transition_draws(b))logoTransition=false;
     auto mode=logoTransition?ios_scene::Mode::Flat:ios_scene::classify(b,context.live,context.modules,context.phase);
@@ -27,7 +29,7 @@ bool ios_prepare_scene(const Batch& b,bool liveRace) {
     // Preserve the encoded image's aspect and any bars inside it. Its canvas
     // can differ between the game's normal and widescreen display options.
     g_ios_fixed_aspect=mode==ios_scene::Mode::Movie?movieAspect:
-                       mode==ios_scene::Mode::Flat?4.f/3:16.f/9;
+                       mode==ios_scene::Mode::Flat?(logoTransition?logoAspect:4.f/3):16.f/9;
     return g_ios_wide_view;
 }
 const char* ios_scene_name(){
@@ -54,7 +56,7 @@ void ios_frame_totals(uint64_t* native, uint64_t* intermediate) {
 void ios_widen(Batch& b,int width,int height){
     if(width<=0 || height<=0)return;
     auto mode=g_ios_scene.load(std::memory_order_relaxed);
-    if(mode==ios_scene::Mode::Flat || mode==ios_scene::Mode::Menu)return;
+    if(mode==ios_scene::Mode::Flat)return;
     const float aspect=mode==ios_scene::Mode::World?float(width)/height:
                        mode==ios_scene::Mode::Movie?g_ios_fixed_aspect:16.f/9;
     note_fullscreen_copies(b);std::vector<uint8_t> skip;
@@ -69,7 +71,7 @@ void ios_widen(Batch& b,int width,int height){
             auto it=incoming.find(id);return it==incoming.end()?render_texture_hash(id):it->second;
         });
     }
-    auto glyph=mode==ios_scene::Mode::World?ios_ui::glyph_lines(b,skip,modal):std::vector<ios_ui::GlyphLine>(b.cmds.size());
+    auto glyph=mode!=ios_scene::Mode::Movie?ios_ui::glyph_lines(b,skip,modal):std::vector<ios_ui::GlyphLine>(b.cmds.size());
     const size_t original=b.states.size();
     // One original state can serve both HUD and a modal group. Cache each
     // canvas separately instead of letting the first draw choose for both.
@@ -81,6 +83,9 @@ void ios_widen(Batch& b,int width,int height){
         // The same scene/state can contain compensated HUD art and legacy
         // glyph draws. Classify each primitive before reusing a state.
         bool anchored=glyph[i].fixed && !modal[i];
+        // Preserve the menu's render-to-texture composition and preview
+        // cameras. Only independently identified legacy glyph runs change.
+        if(mode==ios_scene::Mode::Menu && !anchored)continue;
         unsigned canvas=modal[i] || anchored?1:0;
         float uiAspect=canvas?4.f/3:16.f/9;
         if(std::fabs(st.viewport[0])*2<600)continue;
@@ -397,3 +402,4 @@ bool ios_render_motion(Batch& b,bool smooth,void (*show)(void*),void* context) {
     }
     return presented;
 }
+

@@ -30,12 +30,21 @@ variant('runtime/cpu.cpp','cpu_ios.cpp',[
  ('return (uint64_t)std::chrono::duration_cast<std::chrono::nanoseconds>(d).count();',
   'const uint64_t elapsed=std::chrono::duration_cast<std::chrono::nanoseconds>(d).count();\n    const uint64_t held=ios_lifecycle::clock_hold_ns();\n    return elapsed>held?elapsed-held:0;')])
 variant('visionos/audio_coreaudio.mm','audio_ios.mm',[
- ('#include "runtime.h"','#include "runtime.h"\n#include "lifecycle.h"'),
+ ('#include "runtime.h"','#include "runtime.h"\n#include "lifecycle.h"\n#include <cstring>'),
+ ('static AudioComponentInstance g_unit;',
+  'static AudioComponentInstance g_unit;\nstatic std::atomic<bool> g_ios_session_suspended{false};'),
+ ('    audio_render((int16_t*)io->mBuffers[0].mData, (int)frames);',
+  '    if(ios_lifecycle::gate().paused()){\n'
+  '        for(UInt32 i=0;i<io->mNumberBuffers;++i)memset(io->mBuffers[i].mData,0,io->mBuffers[i].mDataByteSize);\n'
+  '        return noErr;\n    }\n'
+  '    audio_render((int16_t*)io->mBuffers[0].mData, (int)frames);'),
  ('static void resume_after_interruption(int tries) {',
-  'static void resume_after_interruption(int tries) {\n    if(ios_lifecycle::gate().paused() || !g_unit)return;'),
+  'static void resume_after_interruption(int tries) {\n    g_ios_session_suspended=true;\n    if(ios_lifecycle::gate().paused() || !g_unit)return;'),
+ ('        fprintf(stderr, "audio: resumed\\n");',
+  '        g_ios_session_suspended=false;\n        fprintf(stderr, "audio: resumed\\n");'),
  ('bool audio_open() {',
-  'void ios_audio_suspend(){if(g_unit)AudioOutputUnitStop(g_unit);[AVAudioSession.sharedInstance setActive:NO error:nil];}\n'
-  'void ios_audio_resume(){resume_after_interruption(0);}\n\nbool audio_open() {')])
+  'void ios_audio_suspend(){g_ios_session_suspended=true;if(g_unit)AudioOutputUnitStop(g_unit);[AVAudioSession.sharedInstance setActive:NO error:nil];}\n'
+  'void ios_audio_resume(){if(g_ios_session_suspended)resume_after_interruption(0);}\n\nbool audio_open() {')])
 
 # Original timing policy only; game instructions/data are not reproduced.
 p=out/'cpu_ios.cpp'
@@ -83,3 +92,4 @@ extern "C" void fzgx_ios_logo_delay(CPU* c){
     if(after!=before)ST16(state+574,after);
 }
 ''')
+

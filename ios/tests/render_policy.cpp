@@ -196,5 +196,24 @@ int main(){
  // new World-font correction, irrespective of their dimensions.
  b->states={sprite};b->cmds[0].state=b->cmds[1].state=0;gx::g_ios_scene=ios_scene::Mode::Movie;gx::g_ios_fixed_aspect=16.f/9;gx::ios_widen(*b,2868,1320);
  assert(b->states[b->cmds[0].state].proj[0]==sprite.proj[0]);
+ // Reentered startup artwork may use either guest display option. Measure
+ // sampled texels rather than inheriting the previous logo's source canvas.
+ gx::Batch logoBatch;auto logoState=s;logoState.num_texgens=1;logoState.bp[0x88]=(5u<<20)|99|(49<<10);
+ logoBatch.states={logoState};logoBatch.cmds={d};logoBatch.verts.resize(4);
+ for(float compensation:{1.f,.75f}){
+  for(int i=0;i<4;++i){auto& v=logoBatch.verts[i];memset(&v,0,sizeof(v));v.pos[0]=320+((i&1)?50:-50)*compensation;v.pos[1]=240+((i&2)?25:-25);v.tex[0][0]=(i&1)?1:0;v.tex[0][1]=(i&2)?1:0;v.tex[0][2]=1;}
+  auto hash=[](uint32_t){return 0x4c8a45da63b18ea5ull;};
+  assert(fabs(ios_ui::startup_canvas_aspect(logoBatch,hash)-4.f/3/compensation)<1e-5);
+  assert(ios_ui::startup_canvas_aspect(logoBatch,[](uint32_t){return 123ull;},1.5f)==1.5f);
+ }
+ // The legacy glyph path also occurs in ordinary menus. Keep its run center
+ // while leaving preview cameras and bitmap/panel pieces unchanged.
+ b->states={sprite};b->cmds={d};b->verts.resize(4);quad(24,24);
+ auto centerBefore=ios_ui::glyph_lines(*b,{},{}).front().anchor;
+ gx::g_ios_scene=ios_scene::Mode::Menu;gx::ios_widen(*b,2868,1320);
+ const auto& menuGlyph=b->states[b->cmds[0].state];
+ assert(fabs(menuGlyph.proj[0]-sprite.proj[0]*.75f)<1e-7);
+ assert(fabs(menuGlyph.proj[0]*112+menuGlyph.proj[1]-centerBefore)<1e-6);
  puts("Menu, fullscreen HUD, flat logos, modal-group/cache boundaries and I8/IA8 movie policy passed");
 }
+

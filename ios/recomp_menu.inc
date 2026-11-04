@@ -6,8 +6,12 @@
         ios_rumble_suspend();
         ios_lifecycle::gate().pause();
         if(self.started)irq_request();
-        ios_lifecycle::gate().wait_for_renderer();
-        if(self.started)ios_audio_suspend();
+        // Backgrounding must drain before UIKit suspends us. An in-app menu
+        // keeps the surface alive and can appear while the renderer parks.
+        if(!self.appActive){
+            ios_lifecycle::gate().wait_for_renderer();
+            if(self.started)ios_audio_suspend();
+        }
         [self.touchControls resetInput];
         PadState neutral{};neutral.connected=ios_controller_snapshot().connected;pad_set_state(0,neutral);
     }else if(ios_lifecycle::gate().resume()){
@@ -76,3 +80,4 @@
     else if(pressed&2u){if(self.menuPage){self.menuPage=0;self.menuIndex=2;[self showRecompPage];}else [self toggleRecomp];}
     [self highlightMenu];
 }
+

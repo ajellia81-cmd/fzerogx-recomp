@@ -71,6 +71,32 @@ inline std::vector<GlyphLine> glyph_lines(const gx::Batch& b,const std::vector<u
     return result;
 }
 inline bool logo_hash(uint64_t h){return h==0xffef214b102f891cull || h==0x9bf11ed63fad3dc8ull || h==0x4c8a45da63b18ea5ull || h==0xc98c5bd376ab7632ull;}
+// Logos can be submitted again after the display option changes. Derive their
+// canvas from the sampled texels and actual quad instead of assuming the boot
+// geometry survives a return from the menu. General UI atlases are excluded.
+template<class HashLookup> float startup_canvas_aspect(const gx::Batch& b,HashLookup hash,float fallback=4.f/3){
+    float best=0,result=fallback;
+    for(const auto& c:b.cmds){
+        if(c.type!=gx::CmdType::Draw || !c.count || c.vcount!=4 || c.state>=b.states.size() || size_t(c.vfirst)+4>b.verts.size())continue;
+        const auto& s=b.states[c.state];float box[4];
+        if(s.proj[6]==0 || !ios_scene::full_view(s) || !ios_scene::draw_bounds(b,c,s,box))continue;
+        float dx=box[2]-box[0],dy=box[3]-box[1];if(dx<1e-6f || dy<1e-6f)continue;
+        unsigned used=sampled_maps(s),coords=0;
+        for(unsigned j=0;j<((s.bp[0]>>10)&15)+1;++j){unsigned order=s.bp[0x28+j/2]>>((j&1)*12);if(order&0x40)coords|=1u<<((order>>3)&7);}
+        if(!coords || (coords&(coords-1)) || (coords>>std::min<unsigned>(s.num_texgens,8u)))continue;
+        unsigned at=0;while(!(coords&(1u<<at)))++at;
+        float u0=INFINITY,u1=-INFINITY,v0=INFINITY,v1=-INFINITY;bool valid=true;
+        for(unsigned j=0;j<4;++j){const auto& uv=b.verts[c.vfirst+j].tex[at];float q=uv[2];if(!std::isfinite(q)||fabs(q)<1e-7f){valid=false;break;}float u=uv[0]/q,v=uv[1]/q;valid&=std::isfinite(u)&&std::isfinite(v);u0=std::min(u0,u);u1=std::max(u1,u);v0=std::min(v0,v);v1=std::max(v1,v);}
+        if(!valid || u1-u0<1e-6f || v1-v0<1e-6f)continue;
+        for(unsigned m=0;m<8;++m)if((used&(1u<<m)) && s.tex_id[m] && !s.tex_is_efb[m] && logo_hash(hash(s.tex_id[m]))){
+            unsigned t=s.bp[0x88+(m&3)+(m>=4?0x20:0)];
+            float candidate=(u1-u0)*((t&1023)+1)/((v1-v0)*(((t>>10)&1023)+1))*dy/dx;
+            float canvas=fabs(candidate-4.f/3)<.025f?4.f/3:fabs(candidate-16.f/9)<.025f?16.f/9:0;
+            if(canvas && dx*dy>best){best=dx*dy;result=canvas;}
+        }
+    }
+    return result;
+}
 template<class HashLookup> bool startup_art(const gx::Batch& b,HashLookup hash,bool segaOnly=false){
     // Identify the actual logo draw, not every retained binding or unrelated
     // pass in its batch. Transitions can submit both logos and fade geometry.
@@ -131,3 +157,4 @@ std::vector<uint8_t> modal_draws(const gx::Batch& b,const std::vector<uint8_t>& 
     return result;
 }
 }
+

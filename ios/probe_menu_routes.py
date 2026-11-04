@@ -19,6 +19,9 @@ routes={
     "story":"2200:DOWN:5,2400:RIGHT:5,2600:A:5,2800:A:5",
     "replay":"2200:DOWN:5,2400:RIGHT:5,2600:RIGHT:5,2800:A:5",
     "profile":"2200:DOWN:5,2400:DOWN:5,2600:RIGHT:5,2800:RIGHT:5,3000:A:5,3400:A:5",
+    "profile-x":"2200:DOWN:5,2400:DOWN:5,2600:RIGHT:5,2800:RIGHT:5,3000:A:5,3400:A:5,4000:X:5",
+    "profile-y":"2200:DOWN:5,2400:DOWN:5,2600:RIGHT:5,2800:RIGHT:5,3000:A:5,3400:A:5,4000:Y:5",
+    "profile-z":"2200:DOWN:5,2400:DOWN:5,2600:RIGHT:5,2800:RIGHT:5,3000:A:5,3400:A:5,4000:Z:5",
     "customize":"2200:DOWN:5,2400:DOWN:5,2600:A:5,3000:A:5",
     "shop":"2200:DOWN:5,2400:DOWN:5,2600:A:5,3000:RIGHT:5,3200:RIGHT:5,3400:A:5,3800:A:5",
 }
@@ -35,3 +38,4 @@ def run_route(item):
 
 with ThreadPoolExecutor(max_workers=2) as pool:
     list(pool.map(run_route,routes.items()))
+
