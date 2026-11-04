@@ -1,1 +1,1 @@
-Build17: recheck all course-entry modes and returning startup artwork; compare profile details after ordinary X/Y/Z inputs; inspect legacy menu glyphs without changing render-to-texture preview composition.
+Build18 investigation: explicitly reproduce TIME ATTACK Records, sort and pilot toggles; capture the first profile illustration before it becomes a 3D model. Route completion must not be reported as proof of the intended screen; inspect captures first. Do not alter owner saves.

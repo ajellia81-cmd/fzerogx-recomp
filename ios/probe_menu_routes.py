@@ -14,6 +14,10 @@ routes={
     "practice":"2200:DOWN:5,2400:A:5,2600:A:5,2800:A:5,3000:A:5,3200:A:5,3400:A:5,3600:A:5,3800:A:1200",
     "timeattack":"2200:RIGHT:5,2400:RIGHT:5,2600:A:5,2800:A:5,3000:A:5,3200:A:5,3400:A:5,3600:A:5,3800:A:1200",
     "gp":"2200:A:5,2400:A:5,2600:A:5,2800:A:5,3000:A:5,3200:A:5,3400:A:5,3700:A:5,3800:A:1600",
+    "records":"2200:RIGHT:5,2400:RIGHT:5,2600:A:5,2800:DOWN:5,3000:A:5,3200:A:5,3400:A:5",
+    "records-right":"2200:RIGHT:5,2400:RIGHT:5,2600:A:5,2800:RIGHT:5,3000:A:5,3200:A:5,3400:A:5",
+    "records-sort":"2200:RIGHT:5,2400:RIGHT:5,2600:A:5,2800:DOWN:5,3000:A:5,3200:A:5,3400:A:5,4000:X:5",
+    "records-pilot":"2200:RIGHT:5,2400:RIGHT:5,2600:A:5,2800:DOWN:5,3000:A:5,3200:A:5,3400:A:5,4000:Z:5",
     "returnlogo":"2200:B:5",
     "options":"2200:DOWN:5,2400:DOWN:5,2600:RIGHT:5,2800:A:5",
     "story":"2200:DOWN:5,2400:RIGHT:5,2600:A:5,2800:A:5",
@@ -25,12 +29,24 @@ routes={
     "customize":"2200:DOWN:5,2400:DOWN:5,2600:A:5,3000:A:5",
     "shop":"2200:DOWN:5,2400:DOWN:5,2600:A:5,3000:RIGHT:5,3200:RIGHT:5,3400:A:5,3800:A:5",
 }
+selected=os.environ.get("FZGX_MENU_ROUTES")
+if selected:
+    names=selected.split(",")
+    unknown=set(names)-routes.keys()
+    if unknown:raise SystemExit(f"Unknown private menu routes: {sorted(unknown)}")
+    routes={name:routes[name] for name in names}
+
 def run_route(item):
     name,events=item
     directory=root/("build-probe-menu-"+name)
     directory.mkdir(exist_ok=True)
     env=os.environ.copy()
     env.update(FZGX_PRIVATE_CAPTURE="1",FZGX_MENU_PROBE="1",FZGX_CAPTURE_FRAMES="2300,2500,2700,2801,2810,2850,2900,3100,3300,3500,3700,3900,4000,4001,4002,4003,4200,4500,4800,5000,5200,5400",GCN_INPUT=boot+events)
+    if name=="profile":
+        early=",".join(map(str,[3020,3040,3050,3060,3065,3070,3080,3090,3100,3110,3120,3130,3140,3150,3160,3180,3200,3220,3240]))
+        env["FZGX_CAPTURE_FRAMES"]=early+","+env["FZGX_CAPTURE_FRAMES"]
+    if name.startswith("records"):
+        env["FZGX_CAPTURE_FRAMES"]="2900,3100,3300,3500,3700,3900,4000,4001,4002,4003,4020,4050,4100,4200,4500,4800,5000,5200,5400"
     if name=="replay":env["FZGX_CAPTURE_FRAMES"]="30,60,120,180,240,360,480,600,1000,1900,"+env["FZGX_CAPTURE_FRAMES"]
     with (root/"build-private-logs"/("menu-"+name+".txt")).open("w") as log:
         subprocess.run([str(root/"build-host/fzerogx_bench"),"--seconds=65","--warmup=0",str(root/"rom/game.iso")],cwd=directory,env=env,stdout=log,stderr=subprocess.STDOUT,check=True)
