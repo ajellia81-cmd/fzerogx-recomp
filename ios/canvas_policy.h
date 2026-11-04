@@ -1,6 +1,8 @@
 #pragma once
 #include "ui_policy.h"
 #include <cmath>
+#include <unordered_set>
+#include <unordered_map>
 namespace ios_canvas {
 // All pieces of the guest's composition use ONE coordinate transform. Never
 // infer a separate anchor from texture dimensions, draw adjacency or a quad's
@@ -37,6 +39,57 @@ inline bool solid_cover(const gx::Batch& b,const gx::Cmd& c,const gx::PixelState
 }
 inline bool screen_effect(const gx::Batch& b,const gx::Cmd& c,const gx::PixelState& s){
     return full_quad(b,c,s) && ((s.bp[0]>>16)&7);
+}
+inline bool screen_copy(const gx::Batch& b,const gx::Cmd& c,const gx::PixelState& s,uint32_t id){
+    if(!full_quad(b,c,s))return false;
+    float box[4];if(!ios_scene::draw_bounds(b,c,s,box))return false;
+    if(std::fabs(box[0]+1)>.01f || std::fabs(box[1]+1)>.01f || std::fabs(box[2]-1)>.01f || std::fabs(box[3]-1)>.01f)return false;
+    for(unsigned j=0;j<((s.bp[0]>>10)&15)+1;++j){
+        unsigned o=s.bp[0x28+j/2]>>((j&1)*12),m=o&7,at=(o>>3)&7;
+        if(!(o&64) || s.tex_id[m]!=id || at>=s.num_texgens)continue;
+        float u0=INFINITY,u1=-INFINITY,v0=INFINITY,v1=-INFINITY;
+        for(unsigned k=0;k<4;++k){const auto& uv=b.verts[c.vfirst+k].tex[at];if(std::fabs(uv[2])<1e-7f)return false;float u=uv[0]/uv[2],v=uv[1]/uv[2];u0=std::min(u0,u);u1=std::max(u1,u);v0=std::min(v0,v);v1=std::max(v1,v);}
+        return std::fabs(u0)<.01f && std::fabs(v0)<.01f && std::fabs(u1-1)<.01f && std::fabs(v1-1)<.01f;
+    }
+    return false;
+}
+inline void native_passes(const gx::Batch& b,std::vector<uint8_t>& skip,std::unordered_set<uint32_t>& native){
+    for(auto id:b.dead_textures)native.erase(id);
+    const auto f=frame(b);
+    std::unordered_map<uint32_t,bool> writers,seen,screen;
+    for(const auto& c:b.cmds)if(c.type==gx::CmdType::EfbCopy && !c.copy.to_xfb && c.copy.tex_id && c.copy.dst_w>=f.width && c.copy.dst_h>=f.height)writers[c.copy.tex_id]=c.copy.clear;
+    for(const auto& c:b.cmds)if(c.type==gx::CmdType::Draw && c.count && c.state<b.states.size()){
+        const auto& s=b.states[c.state];
+        for(unsigned m=0,used=ios_scene::sampled_maps(s);m<8;++m)if((used&(1u<<m)) && s.tex_is_efb[m] && writers.count(s.tex_id[m])){
+            auto id=s.tex_id[m];seen[id]=true;screen[id]=screen[id] || screen_copy(b,c,s,id);
+        }
+    }
+    for(auto [id,clear]:writers){
+        if(!clear || screen[id])native.erase(id);
+        else if(seen[id])native.insert(id);
+    }
+    size_t start=0;
+    for(size_t i=0;i<b.cmds.size();++i){const auto& c=b.cmds[i];if(c.type!=gx::CmdType::EfbCopy)continue;
+        // A full-sized independent preview is still an offscreen pass. Its
+        // target dimensions do not make it the final screen/postprocess.
+        if(c.copy.clear && !c.copy.to_xfb && native.count(c.copy.tex_id))for(size_t j=start;j<=i;++j)skip[j]=1;
+        if(c.copy.clear || c.copy.to_xfb)start=i+1;
+    }
+}
+inline bool feedback_placement(const gx::Batch& b,const gx::Cmd& c,gx::PixelState& s,float ratio,const Frame& f){
+    if(c.vcount!=4 || size_t(c.vfirst)+4>b.verts.size())return false;
+    for(unsigned j=0;j<((s.bp[0]>>10)&15)+1;++j){unsigned o=s.bp[0x28+j/2]>>((j&1)*12),m=o&7,at=(o>>3)&7;
+        if(!(o&64) || !s.tex_is_efb[m] || at>=s.num_texgens)continue;
+        float u0=0,x0=0,du=0,dx=0;bool first=true,found=false;
+        for(unsigned k=0;k<4;++k){const auto& v=b.verts[c.vfirst+k];float q=v.tex[at][2];if(std::fabs(q)<1e-7f)return false;
+            float u=v.tex[at][0]/q,x=s.viewport[0]*(s.proj[0]*v.pos[0]+s.proj[1])+s.viewport[3]-int(s.bp[0x59]&1023)*2;
+            if(first){u0=u;x0=x;first=false;}else if(std::fabs(u-u0)>1e-6f){du=u-u0;dx=x-x0;found=true;break;}
+        }
+        if(!found)return false;
+        const float center=x0+(.5f-u0)*dx/du;
+        s.viewport[3]+=(ratio-1)*(center-f.width*.5f);
+        return true;
+    }return false;
 }
 enum class Edge {None,Horizontal,Left,Right};
 inline Edge edge(const gx::Batch& b,const gx::Cmd& c,const gx::PixelState& s){

@@ -6,6 +6,7 @@ static std::atomic<ios_scene::Mode> g_ios_scene{ios_scene::Mode::Menu};
 static std::atomic<int> g_ios_motion_reason{0};
 static uint64_t g_ios_frame_scene=0;
 static float g_ios_canvas_source=4.f/3;
+static std::unordered_set<uint32_t> g_ios_native_copies;
 static bool g_ios_frame_sega=false;
 bool ios_prepare_scene(const Batch& b,bool liveRace) {
     auto context=ios_context::read(b);
@@ -62,6 +63,7 @@ void ios_widen(Batch& b,int width,int height){
     if(mode==ios_scene::Mode::Flat || mode==ios_scene::Mode::Movie)return;
     const float target=mode==ios_scene::Mode::World?float(width)/height:16.f/9;
     note_fullscreen_copies(b);std::vector<uint8_t> skip;mark_offscreen_passes(b,skip);
+    ios_canvas::native_passes(b,skip,g_ios_native_copies);
     g_ios_canvas_source=ios_canvas::source_aspect(b,skip,g_ios_canvas_source);
     const float source=g_ios_canvas_source,ratio=source/target;
     const auto frame=ios_canvas::frame(b);
@@ -73,7 +75,18 @@ void ios_widen(Batch& b,int width,int height){
         auto& c=b.cmds[i];
         if(c.type!=CmdType::Draw || !c.count || !c.vcount || c.state>=original || skip[i])continue;
         PixelState st=b.states[c.state];
-        if(ios_scene::movie_state(st) || (st.proj[6] && ios_canvas::feedback(st,[](uint32_t id){return is_fullscreen_tex(id);})) || ios_canvas::solid_cover(b,c,st) || ios_canvas::screen_effect(b,c,st))continue;
+        if(ios_scene::movie_state(st) || ios_canvas::solid_cover(b,c,st) || ios_canvas::screen_effect(b,c,st))continue;
+        bool feedback=st.proj[6] && ios_canvas::feedback(st,[](uint32_t id){return is_fullscreen_tex(id) && !g_ios_native_copies.count(id);});
+        if(feedback){
+            bool screen=false;for(unsigned m=0,used=ios_scene::sampled_maps(st);m<8;++m)if((used&(1u<<m)) && st.tex_is_efb[m] && is_fullscreen_tex(st.tex_id[m]))screen|=ios_canvas::screen_copy(b,c,st,st.tex_id[m]);
+            if(screen)continue;
+            // A translated image of an already-corrected frame keeps its
+            // scale; only its placement is conjugated by the canvas map.
+            if(ios_canvas::feedback_placement(b,c,st,ratio,frame)){
+                c.state=uint32_t(b.states.size());b.states.push_back(st);
+            }
+            continue;
+        }
         const auto edge=ios_canvas::edge(b,c,st);
         if(edge==ios_canvas::Edge::Horizontal)continue;
         bool side=edge==ios_canvas::Edge::Left || edge==ios_canvas::Edge::Right;
@@ -142,9 +155,9 @@ struct IOSFrameTarget {
     }
 };
 
-// Menu frames keep their complete guest command stream unchanged. Their
-// perspective layers are composed through a full-size EFB texture; widening
-// those layers or moving their clears to another FBO exposes black rectangles.
+// Independent menu previews retain native render targets, including full-size
+// targets. Final composition and screen feedback are classified by their actual
+// readers, not by target dimensions. Copy/clear commands remain untouched.
 
 // Match the visible source rect to the device drawable at 1:1 pixel density.
 // The extra EFB rows remain allocated for the console's render-to-texture work.

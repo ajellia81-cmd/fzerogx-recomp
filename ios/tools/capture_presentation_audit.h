@@ -13,17 +13,17 @@ inline int captures(int argc,char**argv){
   for(uint64_t i=0;i<n;++i){uint32_t meta[4];uint64_t hash;in.read((char*)meta,sizeof meta);in.read((char*)&hash,8);assert(in);auto t=std::make_shared<gx::TexData>();t->id=meta[0];t->width=meta[1];t->height=meta[2];t->hash=hash;b.new_textures.push_back(t);for(unsigned l=0;l<meta[3];++l){uint64_t pixels=0;in.read((char*)&pixels,8);assert(in && pixels<100000000);in.seekg(pixels*4,std::ios::cur);assert(in);}}
   for(auto& s:b.states)s.tag=ios_context::encode(h[6],int32_t(h[7]),false);
   const auto commands=b.cmds;const auto states=b.states;const auto verts=b.verts;const auto packed=b.packed;const auto matrices=b.mtxs;
-  gx::g_fullscreen_tex.clear();gx::g_ios_canvas_source=4.f/3;
+  gx::g_fullscreen_tex.clear();gx::g_ios_native_copies.clear();gx::g_ios_canvas_source=4.f/3;
   auto mode=ios_scene::classify(b,false,h[6],int32_t(h[7]));
   if(ios_ui::startup_art(b,[&](uint32_t id){for(auto& t:b.new_textures)if(t->id==id)return t->hash;return uint64_t(0);}))mode=ios_scene::Mode::Flat;
-  gx::g_ios_scene=mode;std::vector<uint8_t> skip;gx::mark_offscreen_passes(b,skip);
+  gx::g_ios_scene=mode;std::vector<uint8_t> skip;gx::mark_offscreen_passes(b,skip);ios_canvas::native_passes(b,skip,gx::g_ios_native_copies);
   gx::ios_widen(b,2868,1320);
   assert(b.cmds.size()==commands.size());assert(b.verts.size()==verts.size());assert(!memcmp(b.verts.data(),verts.data(),verts.size()*sizeof(gx::GpuVertex)));assert(b.packed==packed && b.mtxs==matrices);
   for(size_t i=0;i<b.cmds.size();++i){const auto& c=b.cmds[i];const auto& old=commands[i];
    if(c.type!=gx::CmdType::Draw){assert(!memcmp(&c,&old,sizeof c));continue;}
    assert(c.count==old.count && c.vfirst==old.vfirst && c.vcount==old.vcount && c.state<b.states.size());if(!c.count || old.state>=states.size())continue;
    ++draws;const auto& before=states[old.state];const auto& after=b.states[c.state];
-   bool protectedPath=skip[i] || mode==ios_scene::Mode::Flat || mode==ios_scene::Mode::Movie || ios_scene::movie_state(before) || (before.proj[6] && ios_canvas::feedback(before,[](uint32_t id){return gx::is_fullscreen_tex(id);})) || ios_canvas::solid_cover(b,old,before) || ios_canvas::screen_effect(b,old,before) || ios_canvas::edge(b,old,before)==ios_canvas::Edge::Horizontal;
+   bool protectedPath=skip[i] || mode==ios_scene::Mode::Flat || mode==ios_scene::Mode::Movie || ios_scene::movie_state(before) || (before.proj[6] && ios_canvas::feedback(before,[&](uint32_t id){return gx::is_fullscreen_tex(id) && !gx::g_ios_native_copies.count(id) && ios_canvas::screen_copy(b,old,before,id);})) || ios_canvas::solid_cover(b,old,before) || ios_canvas::screen_effect(b,old,before) || ios_canvas::edge(b,old,before)==ios_canvas::Edge::Horizontal;
    if(protectedPath){assert(!memcmp(&before,&after,sizeof before));++protectedDraws;}
    if(before.proj[6]){
     ++ortho;changed+=c.state!=old.state;

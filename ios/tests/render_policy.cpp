@@ -112,6 +112,18 @@ int main(int argc,char**argv){
  widen(matte,ios_scene::Mode::Menu);assert(matte.cmds[0].state==0);
  assert(near(sx(matte,1,0),0) && near(sx(matte,1,40),110));
  assert(near(sx(matte,2,600),530) && near(sx(matte,2,640),640));
+ // A full-sized EFB target can be an independent preview. Keep its producer
+ // native, then transform the consumer AND its clip with the surrounding UI.
+ gx::Batch previewFull;quad(previewFull,camera,1,1,2,2);auto pc=fullCopy;pc.copy.tex_id=77;previewFull.cmds.push_back(pc);
+ auto pr=s;pr.tex_id[0]=77;pr.tex_is_efb[0]=true;quad(previewFull,pr,120,0,640,480);previewFull.cmds.push_back(xfb);previewFull.cmds.push_back(present);
+ widen(previewFull,ios_scene::Mode::Menu);assert(previewFull.cmds[0].state==0);assert(previewFull.cmds[2].state!=1);
+ assert(near(previewFull.states[previewFull.cmds[2].state].viewport[0],240));assert(near(sx(previewFull,2,440),410));
+ assert(!memcmp(&previewFull.cmds[1],&pc,sizeof pc));
+ // If the same target is also the final screen, its producer is corrected
+ // once. Translated consumers conjugate placement, preserving picture scale.
+ gx::Batch post;quad(post,camera,1,1,2,2);post.cmds.push_back(pc);quad(post,pr,0,0,640,480);quad(post,pr,120,0,640,480);post.cmds.push_back(xfb);post.cmds.push_back(present);
+ widen(post,ios_scene::Mode::Menu);assert(post.cmds[0].state!=0);assert(post.cmds[2].state==1);
+ assert(near(post.states[post.cmds[3].state].viewport[0],320));assert(near(sx(post,3,440),410));
  // Full-colour artwork is never classified as an expendable background from
  // its size. Native artwork and neighbouring labels share one canvas, without
  // cropping baked text. The game's own oversized scenery still covers 16:9.
