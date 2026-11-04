@@ -4,8 +4,11 @@ from pathlib import Path
 import tarfile
 
 paths = sorted(Path("build-private-logs").glob("*.txt"))
-for directory in ("build-probe", "build-probe-race", "build-probe-story", "build-probe-menu-replay", "build-probe-menu-profile", "build-probe-menu-customize", "build-probe-menu-shop"):
+for directory in ("build-probe", "build-probe-race", "build-probe-story"):
     paths += sorted(Path(directory).glob("frame-*.capture"))
+for directory in sorted(Path(".").glob("build-probe-menu-*")):
+    paths += sorted(directory.glob("frame-*.capture"))
+
 with tarfile.open("private-logs.tar.gz", "w:gz") as archive:
     for path in paths:
         if path.is_file():

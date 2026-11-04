@@ -1,1 +1,1 @@
-Verify Build15 pilot detail, garage question and actual shop entry; first navigation passed parent menus but entered Garage instead of Shop.
+Build17: inspect Practice/GP/Time Attack course entries, story, returning title logos, options, Replay, profile, garage and shop using ordinary inputs.
