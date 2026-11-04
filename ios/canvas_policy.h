@@ -38,6 +38,33 @@ inline bool solid_cover(const gx::Batch& b,const gx::Cmd& c,const gx::PixelState
 inline bool screen_effect(const gx::Batch& b,const gx::Cmd& c,const gx::PixelState& s){
     return full_quad(b,c,s) && ((s.bp[0]>>16)&7);
 }
+enum class Edge {None,Horizontal,Left,Right};
+inline Edge edge(const gx::Batch& b,const gx::Cmd& c,const gx::PixelState& s){
+    if(!s.proj[6] || c.vcount!=4 || !ios_scene::full_view(s) || ios_scene::sampled_maps(s) || size_t(c.vfirst)+4>b.verts.size())return Edge::None;
+    for(unsigned j=0;j<4;++j){const auto* col=b.verts[c.vfirst+j].col[0];if(col[0]||col[1]||col[2])return Edge::None;}
+    float box[4];if(!ios_scene::draw_bounds(b,c,s,box))return Edge::None;
+    // Solid edge mattes express coverage, not a picture's aspect. A native
+    // canvas transform must not expose seams outside cinematic bars/masks.
+    if(box[0]<=-.995f && box[2]>=.995f && box[3]-box[1]<.5f && (box[1]<=-.995f || box[3]>=.995f))return Edge::Horizontal;
+    if(box[1]<=-.995f && box[3]>=.995f && box[2]-box[0]<.5f){
+        if(box[0]<=-.995f)return Edge::Left;
+        if(box[2]>=.995f)return Edge::Right;
+    }
+    return Edge::None;
+}
+inline void side(gx::PixelState& s,const float box[4],Edge edge,float ratio,const Frame& f){
+    if(s.viewport[0]<=0 || box[2]-box[0]<1e-6f)return;
+    const float offset=int(s.bp[0x59]&1023)*2;
+    float left=s.viewport[0]*box[0]+s.viewport[3]-offset;
+    float right=s.viewport[0]*box[2]+s.viewport[3]-offset;
+    left=edge==Edge::Left?0:f.width*.5f+(left-f.width*.5f)*ratio;
+    right=edge==Edge::Right?f.width:f.width*.5f+(right-f.width*.5f)*ratio;
+    float x0=(left+offset-s.viewport[3])/s.viewport[0],x1=(right+offset-s.viewport[3])/s.viewport[0];
+    float scale=(x1-x0)/(box[2]-box[0]),bias=x0-scale*box[0];
+    s.proj[0]*=scale;s.proj[1]=s.proj[1]*scale+bias;
+    unsigned l=unsigned(std::clamp(int(offset),0,2047)),r=unsigned(std::clamp(int(offset+f.width)-1,int(l),2047));
+    s.bp[0x20]=(s.bp[0x20]&~(2047u<<12))|(l<<12);s.bp[0x21]=(s.bp[0x21]&~(2047u<<12))|(r<<12);
+}
 inline void clip(gx::PixelState& s,float ratio,float center){
     int offset=int(s.bp[0x59]&1023)*2;
     float origin=center+offset;

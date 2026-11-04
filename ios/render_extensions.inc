@@ -21,6 +21,7 @@ bool ios_prepare_scene(const Batch& b,bool liveRace) {
     if(startup)logoTransition=true;
     else if(!ios_ui::only_transition_draws(b))logoTransition=false;
     auto mode=logoTransition?ios_scene::Mode::Flat:ios_scene::classify(b,context.live,context.modules,context.phase);
+    if(mode==ios_scene::Mode::Flat && !logoTransition)g_ios_canvas_source=ios_canvas::source_aspect(b,{},g_ios_canvas_source);
     g_ios_frame_scene|=uint64_t(mode)<<60;
     g_ios_scene.store(mode,std::memory_order_relaxed);
     g_ios_wide_view=mode==ios_scene::Mode::World;
@@ -30,7 +31,7 @@ bool ios_prepare_scene(const Batch& b,bool liveRace) {
     // Preserve the encoded image's aspect and any bars inside it. Its canvas
     // can differ between the game's normal and widescreen display options.
     g_ios_fixed_aspect=mode==ios_scene::Mode::Movie?movieAspect:
-                       mode==ios_scene::Mode::Flat?(logoTransition?logoAspect:4.f/3):16.f/9;
+                       mode==ios_scene::Mode::Flat?(logoTransition?logoAspect:g_ios_canvas_source):16.f/9;
     return g_ios_wide_view;
 }
 const char* ios_scene_name(){
@@ -73,9 +74,15 @@ void ios_widen(Batch& b,int width,int height){
         if(c.type!=CmdType::Draw || !c.count || !c.vcount || c.state>=original || skip[i])continue;
         PixelState st=b.states[c.state];
         if(ios_scene::movie_state(st) || (st.proj[6] && ios_canvas::feedback(st,[](uint32_t id){return is_fullscreen_tex(id);})) || ios_canvas::solid_cover(b,c,st) || ios_canvas::screen_effect(b,c,st))continue;
+        const auto edge=ios_canvas::edge(b,c,st);
+        if(edge==ios_canvas::Edge::Horizontal)continue;
+        bool side=edge==ios_canvas::Edge::Left || edge==ios_canvas::Edge::Right;
         unsigned path=st.proj[6]?0:1;
-        if(corrected[c.state][path]>=0){c.state=uint32_t(corrected[c.state][path]);continue;}
-        if(!st.proj[6] && ios_scene::full_view(st)){
+        if(!side && corrected[c.state][path]>=0){c.state=uint32_t(corrected[c.state][path]);continue;}
+        if(side){
+            float box[4];if(!ios_scene::draw_bounds(b,c,st,box))continue;
+            ios_canvas::side(st,box,edge,ratio,frame);
+        }else if(!st.proj[6] && ios_scene::full_view(st)){
             // Expand real camera FOV rather than stretching its image. This
             // is equivalent to the 2D affine transform inside the native frame,
             // but admits world geometry beyond the old left/right edges.
@@ -90,7 +97,7 @@ void ios_widen(Batch& b,int width,int height){
             // The viewport AND scissor move by the same global affine map.
             ios_canvas::compose(st,ratio,frame);
         }
-        corrected[c.state][path]=int32_t(b.states.size());
+        if(!side)corrected[c.state][path]=int32_t(b.states.size());
         c.state=uint32_t(b.states.size());b.states.push_back(st);
     }
 }

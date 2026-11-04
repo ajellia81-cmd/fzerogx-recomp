@@ -1,1 +1,1 @@
-Build18: game-wide shared 2D composition, actual sampled movie/copy bindings, matching viewport/scissor, 72 private input routes and captured presentation audit.
+Build18 retry: compile private capture headers in fail-fast checks; game-wide coherent 2D canvas and edge coverage; 72 route audit.

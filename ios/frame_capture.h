@@ -28,7 +28,8 @@ inline void observe(const gx::Batch& b,unsigned frame,unsigned modules,int phase
     fwrite(header,sizeof header,1,f);
     vector(f,b.cmds);vector(f,b.verts);vector(f,b.packed);vector(f,b.indices);vector(f,b.states);vector(f,b.mtxs);
     uint64_t n=live.size();fwrite(&n,8,1,f);
-    const bool pixels=!getenv("FZGX_CAPTURE_METADATA") || frame==4500 || frame==5400;\n    for(auto& [id,t]:live){uint32_t h[]={id,t->width,t->height,pixels?uint32_t(t->levels.size()):0u};fwrite(h,sizeof h,1,f);fwrite(&t->hash,8,1,f);if(pixels)for(auto& l:t->levels)vector(f,l);}
+    const bool pixels=!getenv("FZGX_CAPTURE_METADATA") || frame==4500 || frame==5400;
+    for(auto& [id,t]:live){uint32_t h[]={id,t->width,t->height,pixels?uint32_t(t->levels.size()):0u};fwrite(h,sizeof h,1,f);fwrite(&t->hash,8,1,f);if(pixels)for(auto& l:t->levels)vector(f,l);}
     fclose(f);fprintf(stderr,"Private renderer capture: frame=%u modules=%u phase=%d textures=%zu\n",frame,modules,phase,live.size());
 }
 }

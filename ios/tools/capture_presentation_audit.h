@@ -23,12 +23,12 @@ inline int captures(int argc,char**argv){
    if(c.type!=gx::CmdType::Draw){assert(!memcmp(&c,&old,sizeof c));continue;}
    assert(c.count==old.count && c.vfirst==old.vfirst && c.vcount==old.vcount && c.state<b.states.size());if(!c.count || old.state>=states.size())continue;
    ++draws;const auto& before=states[old.state];const auto& after=b.states[c.state];
-   bool protectedPath=skip[i] || mode==ios_scene::Mode::Flat || mode==ios_scene::Mode::Movie || ios_scene::movie_state(before) || (before.proj[6] && ios_canvas::feedback(before,[](uint32_t id){return gx::is_fullscreen_tex(id);})) || ios_canvas::solid_cover(b,old,before) || ios_canvas::screen_effect(b,old,before);
+   bool protectedPath=skip[i] || mode==ios_scene::Mode::Flat || mode==ios_scene::Mode::Movie || ios_scene::movie_state(before) || (before.proj[6] && ios_canvas::feedback(before,[](uint32_t id){return gx::is_fullscreen_tex(id);})) || ios_canvas::solid_cover(b,old,before) || ios_canvas::screen_effect(b,old,before) || ios_canvas::edge(b,old,before)==ios_canvas::Edge::Horizontal;
    if(protectedPath){assert(!memcmp(&before,&after,sizeof before));++protectedDraws;}
    if(before.proj[6]){
     ++ortho;changed+=c.state!=old.state;
     for(unsigned m=0,used=ios_scene::sampled_maps(before);m<8;++m)if((used&(1u<<m)) && before.tex_id[m]){unsigned t=before.bp[0x88+(m&3)+(m>=4?32:0)];++formats[(t>>20)&15];}
-    if(!protectedPath){
+    if(!protectedPath && ios_canvas::edge(b,old,before)==ios_canvas::Edge::None){
      // A native UI element may move only through the shared viewport map:
      // never through individually edited geometry/UVs or per-word anchors.
      assert(!memcmp(before.proj,after.proj,sizeof before.proj));

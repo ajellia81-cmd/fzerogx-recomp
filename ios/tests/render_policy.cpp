@@ -3,6 +3,7 @@
 #include <cmath>
 #include <cstring>
 #include "render_ios.cpp"
+#include "frame_capture.h"
 gx::Batch::~Batch()=default;
 void fatal(const char*,...){std::abort();}
 namespace {
@@ -105,6 +106,12 @@ int main(int argc,char**argv){
  // bypass its compensation. Only TEV inputs used by this draw count.
  movie.bp[0x89]=(3<<20)|319|(167<<10);movie.bp[0]=0;movie.bp[0x28]=0x40;assert(!ios_scene::movie_state(movie));
  gx::Batch stale;auto staleState=s;staleState.tex_id[7]=42;staleState.tex_is_efb[7]=true;quad(stale,staleState,100,100,92,116);widen(stale,ios_scene::Mode::Menu);assert(stale.cmds[0].state!=0);
+ // Cinematic edge masks cover the drawable rather than becoming short bars
+ // inside the native UI canvas; their inner boundary stays joined to that UI.
+ gx::Batch matte;quad(matte,flat,0,0,640,40);quad(matte,flat,0,0,40,480);quad(matte,flat,600,0,40,480);
+ widen(matte,ios_scene::Mode::Menu);assert(matte.cmds[0].state==0);
+ assert(near(sx(matte,1,0),0) && near(sx(matte,1,40),110));
+ assert(near(sx(matte,2,600),530) && near(sx(matte,2,640),640));
  // Full-colour artwork is never classified as an expendable background from
  // its size. Native artwork and neighbouring labels share one canvas, without
  // cropping baked text. The game's own oversized scenery still covers 16:9.
