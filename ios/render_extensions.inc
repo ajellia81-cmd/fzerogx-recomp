@@ -5,6 +5,7 @@ static std::atomic<uint64_t> g_ios_native_frames{0}, g_ios_intermediate_frames{0
 static std::atomic<ios_scene::Mode> g_ios_scene{ios_scene::Mode::Menu};
 static std::atomic<int> g_ios_motion_reason{0};
 static uint64_t g_ios_frame_scene=0;
+static float g_ios_canvas_source=4.f/3;
 static bool g_ios_frame_sega=false;
 bool ios_prepare_scene(const Batch& b,bool liveRace) {
     auto context=ios_context::read(b);
@@ -56,73 +57,47 @@ void ios_frame_totals(uint64_t* native, uint64_t* intermediate) {
 void ios_widen(Batch& b,int width,int height){
     if(width<=0 || height<=0)return;
     auto mode=g_ios_scene.load(std::memory_order_relaxed);
-    if(mode==ios_scene::Mode::Flat)return;
-    const float aspect=mode==ios_scene::Mode::World?float(width)/height:
-                       mode==ios_scene::Mode::Movie?g_ios_fixed_aspect:16.f/9;
-    note_fullscreen_copies(b);std::vector<uint8_t> skip;
-    mark_offscreen_passes(b,skip);
-    std::vector<uint8_t> modal(b.cmds.size());
-    if(mode==ios_scene::Mode::World){
-        // New textures have not been uploaded yet. Prefer this batch's metadata
-        // over a GPU-cache entry with a reused id; otherwise use the live cache.
-        std::unordered_map<uint32_t,uint64_t> incoming;
-        for(const auto& t:b.new_textures)incoming[t->id]=t->hash;
-        modal=ios_ui::modal_draws(b,skip,[&](uint32_t id){
-            auto it=incoming.find(id);return it==incoming.end()?render_texture_hash(id):it->second;
-        });
-    }
-    auto glyph=mode!=ios_scene::Mode::Movie?ios_ui::glyph_lines(b,skip,modal):std::vector<ios_ui::GlyphLine>(b.cmds.size());
+    // These entire presentations already use their source aspect at output.
+    if(mode==ios_scene::Mode::Flat || mode==ios_scene::Mode::Movie)return;
+    const float target=mode==ios_scene::Mode::World?float(width)/height:16.f/9;
+    note_fullscreen_copies(b);std::vector<uint8_t> skip;mark_offscreen_passes(b,skip);
+    g_ios_canvas_source=ios_canvas::source_aspect(b,skip,g_ios_canvas_source);
+    const float source=g_ios_canvas_source,ratio=source/target;
+    const auto frame=ios_canvas::frame(b);
     const size_t original=b.states.size();
-    // One original state can serve both HUD and a modal group. Cache each
-    // canvas separately instead of letting the first draw choose for both.
-    std::vector<std::array<int32_t,2>> corrected(original,{-1,-1});
+    // Material state can be shared by a full-frame effect and a small UI
+    // element. Cache by the actual presentation path, never just by state id.
+    std::vector<std::array<int32_t,3>> corrected(original,{-1,-1,-1});
     for(size_t i=0;i<b.cmds.size();++i){
         auto& c=b.cmds[i];
-        if(c.type!=CmdType::Draw || skip[i] || c.state>=original)continue;
+        if(c.type!=CmdType::Draw || !c.count || !c.vcount || c.state>=original || skip[i])continue;
         PixelState st=b.states[c.state];
-        // The same scene/state can contain compensated HUD art and legacy
-        // glyph draws. Classify each primitive before reusing a state.
-        bool anchored=glyph[i].fixed && !modal[i];
-        // Preserve the menu's render-to-texture composition and preview
-        // cameras. Only independently identified legacy glyph runs change.
-        if(mode==ios_scene::Mode::Menu && !anchored)continue;
-        unsigned canvas=modal[i] || anchored?1:0;
-        float uiAspect=canvas?4.f/3:16.f/9;
-        if(std::fabs(st.viewport[0])*2<600)continue;
-        float ratio=1;
-        if(st.proj[6]!=0){
-            if(samples_fullscreen_copy(st))continue;
-            float box[4];bool bounds=ios_scene::draw_bounds(b,c,st,box);
-            if(ios_scene::movie_state(st))continue;
-            // Solid full-frame fades must cover the whole drawable. Textured
-            // overlays use the HUD or explicitly identified modal canvas.
-            bool textured=false;for(auto id:st.tex_id)textured|=id!=0;
-            if(!textured && bounds && box[0]<=-.99f && box[1]<=-.99f && box[2]>=.99f && box[3]>=.99f)continue;
-            if(!anchored && corrected[c.state][canvas]>=0){c.state=uint32_t(corrected[c.state][canvas]);continue;}
-            // The game's widescreen option already compensates 2D geometry.
-            // Inferring its canvas from the ortho matrix double-corrected it.
-            ratio=uiAspect/aspect;
-            if(std::fabs(ratio-1.f)<.000001f && (!anchored || std::fabs(((16.f/9)/aspect-ratio)*glyph[i].anchor)<.000001f))continue;
-            // Move the UI's clipping rectangle with its projection. Otherwise
-            // the old scissor cuts corrected portraits/panels into black strips.
-            float center=st.viewport[3];
-            float clipRatio=anchored?(16.f/9)/aspect:ratio;
-            int left=int((st.bp[0x20]>>12)&2047),right=int((st.bp[0x21]>>12)&2047)+1;
-            left=std::clamp(int(std::floor(center+(left-center)*clipRatio)),0,2047);
-            right=std::clamp(int(std::ceil(center+(right-center)*clipRatio))-1,left,2047);
-            st.bp[0x20]=(st.bp[0x20]&~(2047u<<12))|(unsigned(left)<<12);
-            st.bp[0x21]=(st.bp[0x21]&~(2047u<<12))|(unsigned(right)<<12);
-        }else{
-            if(mode==ios_scene::Mode::Movie)continue;
-            if(!anchored && corrected[c.state][canvas]>=0){c.state=uint32_t(corrected[c.state][canvas]);continue;}
+        if(ios_scene::movie_state(st) || samples_fullscreen_copy(st) || ios_canvas::solid_cover(b,c,st))continue;
+        bool backdrop=mode==ios_scene::Mode::Menu && ios_canvas::background(b,c,st);
+        unsigned path=st.proj[6]?backdrop?2:0:1;
+        if(corrected[c.state][path]>=0){c.state=uint32_t(corrected[c.state][path]);continue;}
+        if(backdrop){
+            // Cover without anisotropic stretching: only the background is
+            // vertically cropped, never text, pictures inside a panel or films.
+            const float cover=std::max(1.f,target/source);
+            st.proj[2]*=cover;st.proj[3]*=cover;
+        }else if(!st.proj[6] && ios_scene::full_view(st)){
+            // Expand real camera FOV rather than stretching its image. This
+            // is equivalent to the 2D affine transform inside the native frame,
+            // but admits world geometry beyond the old left/right edges.
             if(st.proj[0]==0)continue;
-            float cameraAspect=std::fabs(st.proj[2]/st.proj[0]);
-            if(cameraAspect<1.1f || cameraAspect>2.5f)continue;
-            ratio=cameraAspect/aspect;
+            const float camera=std::fabs(st.proj[2]/st.proj[0]);
+            if(!std::isfinite(camera) || camera<1.1f || camera>2.5f)continue;
+            const float cameraRatio=camera/target;
+            st.proj[0]*=cameraRatio;st.proj[1]*=cameraRatio;
+        }else{
+            // Includes every orthographic format, untextured panel geometry,
+            // atlas digits, fonts, emblems, portraits and sub-view previews.
+            // The viewport AND scissor move by the same global affine map.
+            ios_canvas::compose(st,ratio,frame);
         }
-        st.proj[0]*=ratio;st.proj[1]*=ratio;
-        if(anchored)st.proj[1]+=((16.f/9)/aspect-ratio)*glyph[i].anchor;
-        if(!anchored)corrected[c.state][canvas]=int32_t(b.states.size());c.state=uint32_t(b.states.size());b.states.push_back(st);
+        corrected[c.state][path]=int32_t(b.states.size());
+        c.state=uint32_t(b.states.size());b.states.push_back(st);
     }
 }
 
@@ -402,4 +377,5 @@ bool ios_render_motion(Batch& b,bool smooth,void (*show)(void*),void* context) {
     }
     return presented;
 }
+
 
