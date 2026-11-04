@@ -1,1 +1,1 @@
-Build18 retry: compile private capture headers in fail-fast checks; game-wide coherent 2D canvas and edge coverage; 72 route audit.
+Build18 final: reader-aware independent preview passes, shared whole-game 2D canvas, masks/clip coherence and 72-route native capture audit.

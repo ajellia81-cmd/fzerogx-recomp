@@ -41,17 +41,28 @@ inline bool screen_effect(const gx::Batch& b,const gx::Cmd& c,const gx::PixelSta
     return full_quad(b,c,s) && ((s.bp[0]>>16)&7);
 }
 inline bool screen_copy(const gx::Batch& b,const gx::Cmd& c,const gx::PixelState& s,uint32_t id){
-    if(!full_quad(b,c,s))return false;
+    if(!s.proj[6] || !ios_scene::full_view(s) || c.vcount<4 || size_t(c.vfirst)+c.vcount>b.verts.size())return false;
     float box[4];if(!ios_scene::draw_bounds(b,c,s,box))return false;
-    if(std::fabs(box[0]+1)>.01f || std::fabs(box[1]+1)>.01f || std::fabs(box[2]-1)>.01f || std::fabs(box[3]-1)>.01f)return false;
+    if(box[0]>-.995f || box[1]>-.995f || box[2]<.995f || box[3]<.995f || std::fabs(box[0]+box[2])>.02f || std::fabs(box[1]+box[3])>.02f)return false;
+    if((s.bp[0]>>16)&7)return true; // full-screen indirect feedback/warp
     for(unsigned j=0;j<((s.bp[0]>>10)&15)+1;++j){
         unsigned o=s.bp[0x28+j/2]>>((j&1)*12),m=o&7,at=(o>>3)&7;
         if(!(o&64) || s.tex_id[m]!=id || at>=s.num_texgens)continue;
-        float u0=INFINITY,u1=-INFINITY,v0=INFINITY,v1=-INFINITY;
-        for(unsigned k=0;k<4;++k){const auto& uv=b.verts[c.vfirst+k].tex[at];if(std::fabs(uv[2])<1e-7f)return false;float u=uv[0]/uv[2],v=uv[1]/uv[2];u0=std::min(u0,u);u1=std::max(u1,u);v0=std::min(v0,v);v1=std::max(v1,v);}
-        return std::fabs(u0)<.01f && std::fabs(v0)<.01f && std::fabs(u1-1)<.01f && std::fabs(v1-1)<.01f;
-    }
-    return false;
+        float u0=INFINITY,u1=-INFINITY,v0=INFINITY,v1=-INFINITY,q0=0;
+        for(unsigned k=0;k<c.vcount;++k){const auto& uv=b.verts[c.vfirst+k].tex[at];if(std::fabs(uv[2])<1e-7f)return false;if(k && std::fabs(uv[2]-q0)>1e-5f)return false;q0=uv[2];float u=uv[0]/uv[2],v=uv[1]/uv[2];u0=std::min(u0,u);u1=std::max(u1,u);v0=std::min(v0,v);v1=std::max(v1,v);}
+        if(u1-u0<1e-6f || v1-v0<1e-6f || std::fabs(u0+u1-1)>.01f)return false;
+        bool xForward=true,xReverse=true,yForward=true,yReverse=true;
+        for(unsigned k=0;k<c.vcount;++k){const auto& v=b.verts[c.vfirst+k];float u=(v.tex[at][0]/v.tex[at][2]-u0)/(u1-u0),t=(v.tex[at][1]/v.tex[at][2]-v0)/(v1-v0);
+            float x=s.proj[0]*v.pos[0]+s.proj[1],y=s.proj[2]*v.pos[1]+s.proj[3];
+            xForward &= std::fabs(x-(box[0]+u*(box[2]-box[0])))<.005f;
+            xReverse &= std::fabs(x-(box[2]-u*(box[2]-box[0])))<.005f;
+            yForward &= std::fabs(y-(box[1]+t*(box[3]-box[1])))<.005f;
+            yReverse &= std::fabs(y-(box[3]-t*(box[3]-box[1])))<.005f;
+        }
+        // Centered axis-aligned zoom/flip commutes with the canvas transform;
+        // rotated/sheared cards and independently placed previews do not.
+        return (xForward||xReverse) && (yForward||yReverse);
+    }return false;
 }
 inline void native_passes(const gx::Batch& b,std::vector<uint8_t>& skip,std::unordered_set<uint32_t>& native){
     for(auto id:b.dead_textures)native.erase(id);
