@@ -64,10 +64,21 @@ void ios_widen(Batch& b,int width,int height){
     const float target=mode==ios_scene::Mode::World?float(width)/height:16.f/9;
     note_fullscreen_copies(b);std::vector<uint8_t> skip;mark_offscreen_passes(b,skip);
     ios_canvas::native_passes(b,skip,g_ios_native_copies);
-    g_ios_canvas_source=ios_canvas::source_aspect(b,skip,g_ios_canvas_source);
-    const float source=g_ios_canvas_source,ratio=source/target;
+    std::vector<uint8_t> modal;
+    if(mode==ios_scene::Mode::World){
+        std::unordered_map<uint32_t,uint64_t> incoming;
+        for(const auto& texture:b.new_textures)incoming[texture->id]=texture->hash;
+        modal=ios_ui::modal_draws(b,skip,[&](uint32_t id){
+            auto it=incoming.find(id);
+            return it==incoming.end()?render_texture_hash(id):it->second;
+        });
+    }
+    // The race HUD and the guest pause menu can use different source canvases.
+    auto hudSkip=skip;
+    for(size_t i=0;i<modal.size();++i)hudSkip[i]|=modal[i];
+    g_ios_canvas_source=ios_canvas::source_aspect(b,hudSkip,g_ios_canvas_source);
     const auto frame=ios_canvas::frame(b);
-    std::vector<uint8_t> groupSkip=skip;
+    std::vector<uint8_t> groupSkip=hudSkip;
     if(mode==ios_scene::Mode::World)for(size_t i=0;i<b.cmds.size();++i){const auto& c=b.cmds[i];if(c.type!=CmdType::Draw || c.state>=b.states.size())continue;const auto& st=b.states[c.state];
         if(ios_canvas::solid_cover(b,c,st) || ios_canvas::screen_effect(b,c,st) || ios_canvas::edge(b,c,st)!=ios_canvas::Edge::None ||
            (st.proj[6] && ios_canvas::feedback(st,[](uint32_t id){return is_fullscreen_tex(id) && !g_ios_native_copies.count(id); })))groupSkip[i]=1;
@@ -76,10 +87,12 @@ void ios_widen(Batch& b,int width,int height){
     const size_t original=b.states.size();
     // Material state can be shared by a full-frame effect and a small UI
     // element. Cache by the actual presentation path, never just by state id.
-    std::vector<std::array<int32_t,6>> corrected(original);for(auto& cache:corrected)cache.fill(-1);
+    std::vector<std::array<int32_t,7>> corrected(original);for(auto& cache:corrected)cache.fill(-1);
     for(size_t i=0;i<b.cmds.size();++i){
         auto& c=b.cmds[i];
         if(c.type!=CmdType::Draw || !c.count || !c.vcount || c.state>=original || skip[i])continue;
+        const bool isModal=i<modal.size() && modal[i];
+        const float ratio=(isModal?4.f/3:g_ios_canvas_source)/target;
         PixelState st=b.states[c.state];
         if(ios_scene::movie_state(st) || ios_canvas::solid_cover(b,c,st) || ios_canvas::screen_effect(b,c,st))continue;
         bool feedback=st.proj[6] && ios_canvas::feedback(st,[](uint32_t id){return is_fullscreen_tex(id) && !g_ios_native_copies.count(id);});
@@ -97,7 +110,7 @@ void ios_widen(Batch& b,int width,int height){
         if(edge==ios_canvas::Edge::Horizontal)continue;
         bool side=edge==ios_canvas::Edge::Left || edge==ios_canvas::Edge::Right;
         int cell=split.active() && i<split.owner.size()?split.owner[i]:-1;
-        unsigned path=cell>=0?2u+unsigned(cell):st.proj[6]?0:1;
+        unsigned path=isModal?6u:cell>=0?2u+unsigned(cell):st.proj[6]?0:1;
         const float anchor=split.anchor(i,frame.width*.5f);
         if(!side && corrected[c.state][path]>=0){c.state=uint32_t(corrected[c.state][path]);continue;}
         if(side){
@@ -127,7 +140,7 @@ void ios_widen(Batch& b,int width,int height){
             // Includes every orthographic format, untextured panel geometry,
             // atlas digits, fonts, emblems, portraits and sub-view previews.
             // The viewport AND scissor move by the same global affine map.
-            if(split.active())ios_canvas::compose_at(st,ratio,frame,anchor);else ios_canvas::compose(st,ratio,frame);
+            if(split.active() && !isModal)ios_canvas::compose_at(st,ratio,frame,anchor);else ios_canvas::compose(st,ratio,frame);
         }
         if(!side)corrected[c.state][path]=int32_t(b.states.size());
         c.state=uint32_t(b.states.size());b.states.push_back(st);
