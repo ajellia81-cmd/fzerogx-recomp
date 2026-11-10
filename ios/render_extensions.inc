@@ -6,6 +6,7 @@ static std::atomic<ios_scene::Mode> g_ios_scene{ios_scene::Mode::Menu};
 static std::atomic<int> g_ios_motion_reason{0};
 static uint64_t g_ios_frame_scene=0;
 static float g_ios_canvas_source=4.f/3;
+static bool g_ios_world_wide_canvas=false;
 static std::unordered_set<uint32_t> g_ios_native_copies;
 static bool g_ios_frame_sega=false;
 bool ios_prepare_scene(const Batch& b,bool liveRace) {
@@ -24,6 +25,7 @@ bool ios_prepare_scene(const Batch& b,bool liveRace) {
     auto mode=logoTransition?ios_scene::Mode::Flat:ios_scene::classify(b,context.live,context.modules,context.phase);
     if(mode==ios_scene::Mode::Flat && !logoTransition)g_ios_canvas_source=ios_canvas::source_aspect(b,{},g_ios_canvas_source);
     g_ios_frame_scene|=uint64_t(mode)<<60;
+    if(mode!=ios_scene::Mode::World)g_ios_world_wide_canvas=false;
     g_ios_scene.store(mode,std::memory_order_relaxed);
     g_ios_wide_view=mode==ios_scene::Mode::World;
     static float movieAspect=4.f/3;
@@ -76,7 +78,16 @@ void ios_widen(Batch& b,int width,int height){
     // The race HUD and the guest pause menu can use different source canvases.
     auto hudSkip=skip;
     for(size_t i=0;i<modal.size();++i)hudSkip[i]|=modal[i];
-    g_ios_canvas_source=ios_canvas::source_aspect(b,hudSkip,g_ios_canvas_source);
+    const float detected=ios_canvas::source_aspect(b,hudSkip,g_ios_canvas_source);
+    // In a continuous world presentation, a newly drawn 4:3 overlay
+    // must not shrink an already established wide race HUD.
+    if(mode==ios_scene::Mode::World){
+        g_ios_world_wide_canvas|=detected==16.f/9;
+        g_ios_canvas_source=g_ios_world_wide_canvas?16.f/9:detected;
+    }else{
+        g_ios_world_wide_canvas=false;
+        g_ios_canvas_source=detected;
+    }
     const auto frame=ios_canvas::frame(b);
     std::vector<uint8_t> groupSkip=hudSkip;
     if(mode==ios_scene::Mode::World)for(size_t i=0;i<b.cmds.size();++i){const auto& c=b.cmds[i];if(c.type!=CmdType::Draw || c.state>=b.states.size())continue;const auto& st=b.states[c.state];
