@@ -1,2 +1,1 @@
-Build21: restore pre-Build19 motion eligibility while retaining mesh correspondence checks.
-routes=versus-2,records,profile,options,practice-pause,story-play
+Audit all existing game routes for presentation transitions, including pause and resume.

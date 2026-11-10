@@ -43,7 +43,7 @@ routes["records-page"]=routes["records"]+",4000:RIGHT:5,4300:DOWN:5,4600:DOWN:5,
 start="2200:RIGHT:5,2400:A:5,2600:A:5,2800:A:5,3000:A:5,3200:A:5,3400:A:5,3600:A:5,3800:A:1800"
 for players in (2,3,4):routes[f"versus-{players}"]=start
 for mode in ("practice","timeattack","gp"):
-    routes[mode+"-pause"]=routes[mode]+",5000:START:5"
+    routes[mode+"-pause"]=routes[mode]+",5000:START:5,6200:START:5"
     routes[mode+"-retire"]=routes[mode]+",5000:START:5,5300:DOWN:5,5500:DOWN:5,5700:A:5,6000:LEFT:5,6200:A:5,6700:A:5"
 # Alternative cup/course selection, machine settings and course-intro variants.
 for n in range(1,5):
@@ -92,7 +92,7 @@ def run_route(item):
         env["FZGX_CAPTURE_FRAMES"]="2900,3100,3300,3500,3700,3900,4000,4001,4002,4003,4020,4050,4100,4200,4500,4800,5000,5200,5400"
     if name=="replay":env["FZGX_CAPTURE_FRAMES"]="30,60,120,180,240,360,480,600,1000,1900,"+env["FZGX_CAPTURE_FRAMES"]
     if name.endswith("-pause") or name.endswith("-retire") or name=="story-play":
-        env["FZGX_CAPTURE_FRAMES"]="4800,5000,5020,5100,5300,5500,5700,5900,6100,6300,6500,6800,7000,7200,7400"
+        env["FZGX_CAPTURE_FRAMES"]="4800,4999,5000,5001,5002,5020,5100,5300,5500,5700,5900,6100,6199,6200,6201,6202,6300,6500,6800,7000,7200,7400"
         env["FZGX_PROBE_END_FRAME"]="7500"
     with (root/"build-private-logs"/("menu-"+name+".txt")).open("w") as log:
         subprocess.run([str(root/"build-host/fzerogx_bench"),"--seconds=140","--warmup=0",str(root/"rom/game.iso")],cwd=directory,env=env,stdout=log,stderr=subprocess.STDOUT,check=True)

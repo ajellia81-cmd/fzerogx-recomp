@@ -100,6 +100,20 @@ int main(int argc,char**argv){
  // correction and persists on text-free frames. Deliberately scaled glyphs do
  // not vote for either display canvas.
  gx::Batch wide;quad(wide,font,100,100,18,24);assert(ios_canvas::source_aspect(wide,{})==16.f/9);widen(wide,ios_scene::Mode::Menu);assert(wide.states[wide.cmds[0].state].viewport[0]==320);
+ // Opening a native 4:3 pause panel cannot change an already compensated HUD.
+ gx::Batch paused;quad(paused,font,100,100,18,24);
+ auto pausePanel=panel;pausePanel.bp[0x88]=(5u<<20)|51|(103<<10);
+ auto modalTexture=std::make_shared<gx::TexData>();
+ modalTexture->id=2;modalTexture->hash=ios_ui::panel_hash;
+ paused.new_textures.push_back(modalTexture);
+ quad(paused,s,80,120,92,116);
+ quad(paused,pausePanel,200,140,240,200);
+ quad(paused,font,310,220,24,24);
+ widen(paused,ios_scene::Mode::World);
+ assert(gx::g_ios_canvas_source==16.f/9);
+ assert(near(paused.states[paused.cmds[1].state].viewport[0],320));
+ assert(near(paused.states[paused.cmds[2].state].viewport[0],240));
+ assert(near(paused.states[paused.cmds[3].state].viewport[0],240));
  gx::Batch noText;quad(noText,s,100,100,92,116);assert(ios_canvas::source_aspect(noText,{},16.f/9)==16.f/9);
  gx::Batch stretched;quad(stretched,font,100,100,48,24);assert(ios_ui::glyph_canvas(stretched,stretched.cmds[0],stretched.states[0])==0);
  // Startup and movies keep their ORIGINAL presentation, including re-entry,
