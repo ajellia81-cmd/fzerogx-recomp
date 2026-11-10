@@ -6,6 +6,10 @@ from urllib.parse import quote, urlsplit
 from urllib.request import Request, urlopen
 
 
+class InputError(Exception):
+    pass
+
+
 def fetch(share_id, target, required_size=None):
     request = Request(
         "https://ckdatabasews.icloud.com/database/1/com.apple.cloudkit/production/public/records/resolve",
@@ -18,10 +22,10 @@ def fetch(share_id, target, required_size=None):
     url = value["downloadURL"].replace("${f}", quote(target.name))
     parsed = urlsplit(url)
     if parsed.scheme != "https" or not parsed.hostname.endswith(".icloud-content.com"):
-        raise RuntimeError("Unexpected download host")
+        raise InputError("Unexpected download host")
     expected = int(value["size"])
     if required_size is not None and expected != required_size:
-        raise RuntimeError("Unexpected memory card size")
+        raise InputError(f"Memory card size {expected} differs from {required_size}")
     target.parent.mkdir(exist_ok=True)
     temporary = target.with_suffix(".partial")
     total = 0
@@ -30,7 +34,7 @@ def fetch(share_id, target, required_size=None):
             out.write(block)
             total += len(block)
     if total != expected:
-        raise RuntimeError("Incomplete disc download")
+        raise InputError("Incomplete disc download")
     temporary.rename(target)
     print(f"Private build input received: {target.name} ({total} bytes)")
 
@@ -45,6 +49,9 @@ def main():
 if __name__ == "__main__":
     try:
         main()
+    except InputError as error:
+        print(f"Private build input rejected: {error}")
+        raise SystemExit(1)
     except Exception as error:
         # URL-bearing exceptions must not expose a signed link in public logs.
         print(f"Private build input download failed ({type(error).__name__})")
