@@ -1,1 +1,1 @@
-Build17: inspect source-canvas selection, widescreen flag branches, record/ranking widgets, reentered title logos, profile portrait/model scaling and Practice transition presentation.
+Inspect all guest menu state transitions, record selection and save/load modal call paths.
