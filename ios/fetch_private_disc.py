@@ -6,8 +6,7 @@ from urllib.parse import quote, urlsplit
 from urllib.request import Request, urlopen
 
 
-def main():
-    share_id = os.environ["ICLOUD_SOURCE_ID"]
+def fetch(share_id, target, required_size=None):
     request = Request(
         "https://ckdatabasews.icloud.com/database/1/com.apple.cloudkit/production/public/records/resolve",
         data=json.dumps({"shortGUIDs": [{"value": share_id}]}).encode(),
@@ -16,12 +15,13 @@ def main():
     with urlopen(request, timeout=60) as response:
         result = json.load(response)["results"][0]
     value = result["rootRecord"]["fields"]["fileContent"]["value"]
-    url = value["downloadURL"].replace("${f}", quote("game.iso"))
+    url = value["downloadURL"].replace("${f}", quote(target.name))
     parsed = urlsplit(url)
     if parsed.scheme != "https" or not parsed.hostname.endswith(".icloud-content.com"):
         raise RuntimeError("Unexpected download host")
     expected = int(value["size"])
-    target = Path("rom/game.iso")
+    if required_size is not None and expected != required_size:
+        raise RuntimeError("Unexpected memory card size")
     target.parent.mkdir(exist_ok=True)
     temporary = target.with_suffix(".partial")
     total = 0
@@ -32,7 +32,14 @@ def main():
     if total != expected:
         raise RuntimeError("Incomplete disc download")
     temporary.rename(target)
-    print(f"User-supplied disc received: {total} bytes")
+    print(f"Private build input received: {target.name} ({total} bytes)")
+
+
+def main():
+    fetch(os.environ["ICLOUD_SOURCE_ID"], Path("rom/game.iso"))
+    save_id = os.environ.get("ICLOUD_SAVE_ID")
+    if save_id:
+        fetch(save_id, Path("rom/memcard_a.raw"), required_size=524288)
 
 
 if __name__ == "__main__":
@@ -40,5 +47,5 @@ if __name__ == "__main__":
         main()
     except Exception as error:
         # URL-bearing exceptions must not expose a signed link in public logs.
-        print(f"Private disc download failed ({type(error).__name__})")
+        print(f"Private build input download failed ({type(error).__name__})")
         raise SystemExit(1)
