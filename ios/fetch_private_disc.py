@@ -1,5 +1,7 @@
 """Fetch the owner's shared build input without putting its access URL in logs."""
+import base64
 import json
+import lzma
 import os
 from pathlib import Path
 from urllib.parse import quote, urlsplit
@@ -41,9 +43,16 @@ def fetch(share_id, target, required_size=None):
 
 def main():
     fetch(os.environ["ICLOUD_SOURCE_ID"], Path("rom/game.iso"))
-    save_id = os.environ.get("ICLOUD_SAVE_ID")
-    if save_id:
-        fetch(save_id, Path("rom/memcard_a.raw"), required_size=524288)
+    first = os.environ.get("FZGX_SAVE_A")
+    second = os.environ.get("FZGX_SAVE_B")
+    if first or second:
+        if not first or not second:
+            raise InputError("Both memory card secret parts are required")
+        card = lzma.decompress(base64.b64decode(first + second, validate=True))
+        if len(card) != 524288:
+            raise InputError("Unexpected memory card size")
+        Path("rom/memcard_a.raw").write_bytes(card)
+        print("Private memory card received (524288 bytes)")
 
 
 if __name__ == "__main__":
