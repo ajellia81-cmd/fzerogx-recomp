@@ -1,1 +1,1 @@
-Audit all existing game routes for presentation transitions, including pause and resume.
+Build22: audit all registered routes using the owner's unlocked save and package the pause HUD fix.
