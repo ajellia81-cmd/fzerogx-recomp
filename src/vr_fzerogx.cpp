@@ -34,6 +34,20 @@
 #include <cstring>
 #endif
 
+#if defined(FZGX_IOS_FRONTEND) || defined(FZGX_IOS_INPUT_PROBE)
+static thread_local uint8_t ios_ordered_draw_tag=0;
+extern "C" unsigned fzgx_native_canvas_begin(){
+    const unsigned previous=ios_ordered_draw_tag;
+    ios_ordered_draw_tag|=0x40;
+    gx::set_draw_tag(ios_ordered_draw_tag);
+    return previous;
+}
+extern "C" void fzgx_native_canvas_end(unsigned previous){
+    ios_ordered_draw_tag=uint8_t(previous);
+    gx::set_draw_tag(ios_ordered_draw_tag);
+}
+#endif
+
 namespace {
 
 // The latest answer, for the render thread: decided on the guest thread from one
@@ -109,7 +123,8 @@ void guest_frame(uint32_t frame) {
                 race.state, race.player_race, race.paused);
     g_stereo.store(live, std::memory_order_relaxed);
 #if defined(FZGX_IOS_FRONTEND) || defined(FZGX_IOS_INPUT_PROBE)
-    gx::set_draw_tag(ios_context::encode(modes,race.linked?race.state:-1,live));
+    ios_ordered_draw_tag=ios_context::encode(modes,race.linked?race.state:-1,live);
+    gx::set_draw_tag(ios_ordered_draw_tag);
 #endif
 
     // Bring the game's camera to what was asked, in a live race only.

@@ -127,6 +127,17 @@ int main(int argc,char**argv){
  gx::ios_widen(unrecognised,2560,1440);
  assert(gx::g_ios_canvas_source==16.f/9);
  assert(near(unrecognised.states[unrecognised.cmds[0].state].viewport[0],320));
+ // A native card scope includes unrelated icon formats between text draws.
+ for(auto mode:{ios_scene::Mode::World,ios_scene::Mode::Menu}){
+  gx::Batch card;quad(card,font,80,40,18,24);
+  auto native=font;native.tag=0xc0;quad(card,native,160,180,24,24);
+  auto icon=s;icon.tag=0xc0;icon.bp[0x88]=(5u<<20)|63|(63<<10);
+  quad(card,icon,300,300,40,40);
+  quad(card,native,350,300,24,24);
+  widen(card,mode);
+  assert(near(card.states[card.cmds[0].state].viewport[0],320));
+  for(unsigned i=1;i<4;++i)assert(near(card.states[card.cmds[i].state].viewport[0],240));
+ }
  gx::Batch noText;quad(noText,s,100,100,92,116);assert(ios_canvas::source_aspect(noText,{},16.f/9)==16.f/9);
  gx::Batch stretched;quad(stretched,font,100,100,48,24);assert(ios_ui::glyph_canvas(stretched,stretched.cmds[0],stretched.states[0])==0);
  // Startup and movies keep their ORIGINAL presentation, including re-entry,

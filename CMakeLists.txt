@@ -15,6 +15,7 @@ endif()
 add_subdirectory(gcn-recomp)
 gcn_enable_languages()
 
+option(FZGX_IOS_INPUT_PROBE "Validate iOS scene/motion inputs in the host harness" OFF)
 option(FZGX_IOS_LOGO_PROBE "Run the iOS logo timing policy in the private host harness" OFF)
 set(FZGX_TABLES "${CMAKE_SOURCE_DIR}/recomp")
 if(CMAKE_SYSTEM_NAME STREQUAL "iOS" OR FZGX_IOS_LOGO_PROBE)
@@ -53,11 +54,18 @@ gcn_add_game(
   # The Vision Pro app, on a visionOS build: see build-visionos.sh.
   VISIONOS_BUNDLE_ID com.ethannicholas.fzerogx)
 
+# Tag the game's common memory-card draw scope in iOS and private probes.
+if((CMAKE_SYSTEM_NAME STREQUAL "iOS" OR FZGX_IOS_INPUT_PROBE) AND GCN_HAVE_GAME_ISO)
+  find_package(Python3 REQUIRED COMPONENTS Interpreter)
+  execute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/ios/prepare_canvas_scopes.py"
+    "${CMAKE_BINARY_DIR}/gen" COMMAND_ERROR_IS_FATAL ANY)
+  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/ios/prepare_canvas_scopes.py")
+endif()
+
 if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
   include(ios/game.cmake)
 endif()
 
-option(FZGX_IOS_INPUT_PROBE "Validate iOS scene/motion inputs in the host harness" OFF)
 if(FZGX_IOS_INPUT_PROBE AND NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
   find_package(Python3 REQUIRED COMPONENTS Interpreter)
   execute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/ios/prepare_probe.py"

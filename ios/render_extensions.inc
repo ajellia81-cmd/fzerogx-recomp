@@ -75,6 +75,15 @@ void ios_widen(Batch& b,int width,int height){
             return it==incoming.end()?render_texture_hash(id):it->second;
         });
     }
+    modal.resize(b.cmds.size());
+    // The original memory-card draw function owns its entire UI, including
+    // variable-width text, embedded buttons, progress bars and borders.
+    for(size_t i=0;i<b.cmds.size();++i){
+        const auto& command=b.cmds[i];
+        if(command.type==CmdType::Draw && command.state<b.states.size() &&
+           b.states[command.state].proj[6] && (b.states[command.state].tag&0x40))
+            modal[i]=1;
+    }
     // The race HUD and the guest pause menu can use different source canvases.
     auto hudSkip=skip;
     for(size_t i=0;i<modal.size();++i)hudSkip[i]|=modal[i];
