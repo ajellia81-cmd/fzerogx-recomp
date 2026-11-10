@@ -1,1 +1,1 @@
-Trace shared memory card text and UI callbacks through private REL relocation metadata.
+Inspect shared storage-dialog references using the REL import table.

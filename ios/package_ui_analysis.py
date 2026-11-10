@@ -25,7 +25,7 @@ with tarfile.open(output,'w:gz') as t:
             if not offset or not size:continue
             for match in re.finditer(rb"[ -~]{5,}\x00",data[offset:offset+size]):
                 strings.append({"section":section,"offset":match.start(),"text":match.group()[:-1].decode("ascii")})
-        imports,import_size=struct.unpack_from(">II",data,36)
+        imports,import_size=struct.unpack_from(">II",data,40)
         relocations=[]
         for at in range(imports,imports+import_size,8):
             module,position=struct.unpack_from(">II",data,at)
