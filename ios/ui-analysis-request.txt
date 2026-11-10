@@ -1,1 +1,1 @@
-Inspect all guest menu state transitions, record selection and save/load modal call paths.
+Trace storage message text references in all generated guest modules privately.
