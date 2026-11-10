@@ -23,7 +23,7 @@ with tarfile.open(output,'w:gz') as t:
             offset,size=struct.unpack_from(">II",data,table+8*section)
             offset &= ~3
             if not offset or not size:continue
-            for match in re.finditer(rb"[ -~]{5,}\\x00",data[offset:offset+size]):
+            for match in re.finditer(rb"[ -~]{5,}\x00",data[offset:offset+size]):
                 strings.append({"section":section,"offset":match.start(),"text":match.group()[:-1].decode("ascii")})
         raw=json.dumps(strings).encode()
         entry=tarfile.TarInfo("strings/"+rel.name+".json")

@@ -1,1 +1,1 @@
-Trace storage message text references in all generated guest modules privately.
+Extract null-terminated UI strings with section addresses for call tracing.
