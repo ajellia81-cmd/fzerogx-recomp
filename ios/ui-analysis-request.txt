@@ -1,1 +1,1 @@
-Extract null-terminated UI strings with section addresses for call tracing.
+Trace shared memory card text and UI callbacks through private REL relocation metadata.
