@@ -48,8 +48,7 @@ jobs:
       - name: Receive user-supplied disc (never cached or uploaded)
         env:
           ICLOUD_SOURCE_ID: ${{ secrets.ICLOUD_SOURCE_ID }}
-          FZGX_SAVE_A: ${{ secrets.FZGX_SAVE_A }}
-          FZGX_SAVE_B: ${{ secrets.FZGX_SAVE_B }}
+          ICLOUD_SAVE_ID: ${{ secrets.ICLOUD_SAVE_ID }}
         run: python3 ios/fetch_private_disc.py
       - name: Validate supported disc and executable hash
         run: python3 gcn-recomp/recomp/extract_dol.py rom/game.iso build-private-logs/main.dol GFZE01 421c88106697d3275a3fc26fb7a01bf6d816b271 > build-private-logs/disc.txt 2>&1
