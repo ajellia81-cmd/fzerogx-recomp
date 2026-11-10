@@ -145,6 +145,8 @@ inline Mode classify(const gx::Batch& b,bool liveRace=false,unsigned modules=0,i
     // card/dialog frame (main keeps this value after leaving a race).
     if(phase>=39 && phase<=43)return perspective?Mode::World:Mode::Menu;
     if(world)return Mode::World;
-    return perspective?Mode::Menu:Mode::Flat;
+    // Static screens owned by main, such as Records, retain the menu canvas.
+    // Native-aspect startup art and movies are handled explicitly above.
+    return Mode::Menu;
 }
 }

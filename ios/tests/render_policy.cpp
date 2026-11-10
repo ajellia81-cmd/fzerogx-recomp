@@ -37,6 +37,13 @@ int main(int argc,char**argv){
  gx::ShaderKey k{};k.dst_alpha=2;gx::g_dual_source=false;gx::ios_shader_key(k);assert(k.dst_alpha==0);
  k.dst_alpha=2;gx::g_dual_source=true;gx::ios_shader_key(k);assert(k.dst_alpha==2);gx::g_dual_source=false;
  const auto s=state();
+ // Records can outlive Selection and contain only orthographic draws.
+ // Neither an absent owner nor a stale non-race phase may switch to 4:3 output.
+ for(int phase:{-1,0,1,36,37,38,39,40,41,42,43}){
+  gx::Batch records;quad(records,s,100,100,92,116);
+  assert(ios_scene::classify(records,false,0,phase)==ios_scene::Mode::Menu);
+ }
+
  // Exhaustive inventory of display-owning modules; stale race state must not
  // turn menu artwork into World or films into a menu.
  for(unsigned m:{ios_guest::Selection,ios_guest::Option,ios_guest::Profile,ios_guest::Customize,ios_guest::Shop,ios_guest::Paint,ios_guest::Replay})for(int phase:{-1,0,37,38,39,40,41,42,43})for(bool camera:{false,true}){

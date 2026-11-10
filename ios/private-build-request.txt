@@ -1,1 +1,2 @@
-Build23: audit all registered presentation routes in numeric frame order and verify stable race HUD aspect.
+Build24: verify main-owned orthographic Records screens preserve menu presentation.
+routes=records,records-right,records-sort,records-pilot,records-clear,records-page,replay,practice-pause,gp-pause
