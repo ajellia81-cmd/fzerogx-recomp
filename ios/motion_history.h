@@ -56,6 +56,10 @@ struct History {
         for(size_t i=0;i<previous.cmds.size();++i){const auto& c=previous.cmds[i];if(c.type==gx::CmdType::Draw && c.state<previous.states.size() && can_interpolate(previous.states[c.state]) && c.vcount && size_t(c.vfirst)+c.vcount<=previous.verts.size())byKey[draw_key(previous,c)].push_back(i);}
     }
     float distance(const gx::Batch& b,const gx::Cmd& c,const gx::Cmd& a)const{
+        const auto& state=b.states[c.state];
+        const auto& oldState=previous.states[a.state];
+        if(std::memcmp(state.proj,oldState.proj,sizeof(state.proj)) ||
+           std::memcmp(state.viewport,oldState.viewport,sizeof(state.viewport)))return INFINITY;
         if(c.count!=a.count || size_t(c.first)+c.count>b.indices.size() || size_t(a.first)+a.count>previous.indices.size())return INFINITY;
         for(uint32_t j=0;j<c.count;++j)if(previous.indices[a.first+j]-a.vfirst!=b.indices[c.first+j]-c.vfirst)return INFINITY;
         const float* cm=size_t(c.mtx)*12+12<=b.mtxs.size()?&b.mtxs[size_t(c.mtx)*12]:nullptr;
@@ -67,14 +71,31 @@ struct History {
             for(int r=0;r<3;++r){double dot=0,x=0,y=0;for(int k=0;k<3;++k){dot+=double(cm[r*4+k])*am[r*4+k];x+=double(cm[r*4+k])*cm[r*4+k];y+=double(am[r*4+k])*am[r*4+k];}if(x*y<1e-12)return INFINITY;alignment+=dot/std::sqrt(x*y);}
             if(alignment/3<.75)return INFINITY;
         }
-        unsigned samples=std::min(c.vcount,8u);double center[3]{},oldCenter[3]{};
-        for(uint32_t j=0;j<c.vcount;++j)if(b.verts[c.vfirst+j].src_idx!=previous.verts[a.vfirst+j].src_idx)return INFINITY;
-        for(unsigned j=0;j<samples;++j){
-            unsigned n=(uint64_t(j)*(c.vcount-1))/std::max(samples-1,1u);
-            const auto& v=b.verts[c.vfirst+n];const auto& old=previous.verts[a.vfirst+n];
-            for(int k=0;k<3;++k){if(!std::isfinite(v.pos[k])||!std::isfinite(old.pos[k]))return INFINITY;center[k]+=v.pos[k]/samples;oldCenter[k]+=old.pos[k]/samples;}
-            if(ci.valid){double x[3],y[3];ci.local(v.pos,x);ai.local(old.pos,y);for(int k=0;k<3;++k)if(std::fabs(x[k]-y[k])>std::min(v.src_idx==UINT32_MAX?.02:INFINITY,.001*(1+std::max(std::fabs(x[k]),std::fabs(y[k])))))return INFINITY;}
-            else if(std::memcmp(v.tex,old.tex,gx::draw_ntex(b.states[c.state])*12))return INFINITY;
+        double center[3]{},oldCenter[3]{};
+        const double weight=1.0/c.vcount;
+        const size_t texBytes=gx::draw_ntex(state)*sizeof(b.verts[c.vfirst].tex[0]);
+        // Matching only a few sample vertices can pair different clipped or
+        // streamed meshes, then move vertices whose correspondence was never checked.
+        for(uint32_t j=0;j<c.vcount;++j){
+            const auto& v=b.verts[c.vfirst+j];
+            const auto& old=previous.verts[a.vfirst+j];
+            if(v.src_idx!=old.src_idx)return INFINITY;
+            for(int k=0;k<3;++k){
+                if(!std::isfinite(v.pos[k])||!std::isfinite(old.pos[k]))return INFINITY;
+                center[k]+=v.pos[k]*weight;
+                oldCenter[k]+=old.pos[k]*weight;
+            }
+            if(ci.valid){
+                double x[3],y[3];
+                ci.local(v.pos,x);
+                ai.local(old.pos,y);
+                for(int k=0;k<3;++k){
+                    const double tolerance=.001*(1+std::max(std::fabs(x[k]),std::fabs(y[k])));
+                    if(!std::isfinite(x[k])||!std::isfinite(y[k]) ||
+                       std::fabs(x[k]-y[k])>std::min(v.src_idx==UINT32_MAX?.02:INFINITY,tolerance))
+                        return INFINITY;
+                }
+            }else if(std::memcmp(v.tex,old.tex,texBytes))return INFINITY;
         }
         double score=0,scale=std::max(1.,std::max(std::fabs(center[2]),std::fabs(oldCenter[2])));
         for(int k=0;k<3;++k)score+=std::pow((center[k]-oldCenter[k])/scale,2);

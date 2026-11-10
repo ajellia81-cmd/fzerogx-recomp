@@ -1,2 +1,2 @@
-Build19: keep framebuffer-dependent effects at native tick geometry.
+Build20: validate every vertex correspondence before interpolating a draw.
 routes=versus-2,records,profile,options,practice-pause,story-play
