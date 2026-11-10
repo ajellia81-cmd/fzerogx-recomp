@@ -1,1 +1,2 @@
-Build18 final: reader-aware independent preview passes, shared whole-game 2D canvas, masks/clip coherence and 72-route native capture audit.
+Build18: package verified split-screen correction after the 72-route audit.
+routes=versus-2,records,profile,options,practice-pause,story-play
