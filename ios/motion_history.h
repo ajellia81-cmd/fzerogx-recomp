@@ -35,15 +35,6 @@ struct Inverse {
     }
     void local(const float* p,double* out)const{for(int r=0;r<3;++r){out[r]=0;for(int k=0;k<3;++k)out[r]+=a[r*3+k]*(p[k]-t[k]);}}
 };
-// Composite and translucent draws depend on coverage and framebuffer
-// contents from the native tick. Keep their vertices at that tick.
-inline bool can_interpolate(const gx::PixelState& s){
-    const uint32_t blend=s.bp[0x41], depth=s.bp[0x40];
-    if(s.proj[6]!=0 || s.view_space || (blend&0x803) || (depth&0x11)!=0x11)return false;
-    for(unsigned unit=0;unit<8;++unit)
-        if(s.tex_id[unit] && s.tex_is_efb[unit])return false;
-    return true;
-}
 struct History {
     gx::Batch previous;
     std::unordered_map<uint64_t,std::vector<size_t>> byKey;
@@ -53,7 +44,7 @@ struct History {
     void remember(const gx::Batch& b){
         previous.cmds=b.cmds;previous.states=b.states;previous.verts=b.verts;previous.indices=b.indices;previous.mtxs=b.mtxs;
         byKey.clear();
-        for(size_t i=0;i<previous.cmds.size();++i){const auto& c=previous.cmds[i];if(c.type==gx::CmdType::Draw && c.state<previous.states.size() && can_interpolate(previous.states[c.state]) && c.vcount && size_t(c.vfirst)+c.vcount<=previous.verts.size())byKey[draw_key(previous,c)].push_back(i);}
+        for(size_t i=0;i<previous.cmds.size();++i){const auto& c=previous.cmds[i];if(c.type==gx::CmdType::Draw && c.state<previous.states.size() && previous.states[c.state].proj[6]==0 && c.vcount && size_t(c.vfirst)+c.vcount<=previous.verts.size())byKey[draw_key(previous,c)].push_back(i);}
     }
     float distance(const gx::Batch& b,const gx::Cmd& c,const gx::Cmd& a)const{
         const auto& state=b.states[c.state];
@@ -104,7 +95,7 @@ struct History {
     size_t midpoint(gx::Batch& b)const{
         size_t changed=0;std::vector<uint8_t> used(previous.cmds.size());
         for(auto& c:b.cmds){
-            if(c.type!=gx::CmdType::Draw || !c.vcount || c.state>=b.states.size() || !can_interpolate(b.states[c.state]) || size_t(c.vfirst)+c.vcount>b.verts.size())continue;
+            if(c.type!=gx::CmdType::Draw || !c.vcount || c.state>=b.states.size() || b.states[c.state].proj[6]!=0 || b.states[c.state].view_space || size_t(c.vfirst)+c.vcount>b.verts.size())continue;
             auto bucket=byKey.find(draw_key(b,c));if(bucket==byKey.end())continue;
             size_t best=SIZE_MAX;float first=INFINITY,second=INFINITY;
             for(size_t index:bucket->second){if(used[index])continue;float d=distance(b,c,previous.cmds[index]);if(d<first){second=first;first=d;best=index;}else second=std::min(second,d);}
