@@ -1,2 +1,2 @@
-Build24: verify main-owned orthographic Records screens preserve menu presentation.
-routes=records,records-right,records-sort,records-pilot,records-clear,records-page,replay,practice-pause,gp-pause
+Build25: integrate Records classification and explicit common memory-card canvas scope.
+routes=boot-card,records,records-right,records-sort,records-pilot,records-clear,records-page,replay,replay-card,options-memory,practice-pause,gp-pause,story-play

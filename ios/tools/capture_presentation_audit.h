@@ -5,7 +5,7 @@
 namespace ios_audit {
 template<class T> std::vector<T> read(std::ifstream& in){uint64_t n=0;in.read((char*)&n,8);assert(in && n<100000000);std::vector<T> v(n);in.read((char*)v.data(),sizeof(T)*n);assert(in);return v;}
 inline int captures(int argc,char**argv){
- unsigned frames=0;unsigned long long draws=0,ortho=0,changed=0,protectedDraws=0;std::map<unsigned,unsigned> owners,formats;
+ unsigned nativeCanvas=0;unsigned frames=0;unsigned long long draws=0,ortho=0,changed=0,protectedDraws=0;std::map<unsigned,unsigned> owners,formats;
  for(int arg=1;arg<argc;++arg){
   std::vector<std::filesystem::path> files;
   for(const auto& entry:std::filesystem::recursive_directory_iterator(argv[arg]))
@@ -40,7 +40,7 @@ inline int captures(int argc,char**argv){
   for(size_t i=0;i<b.cmds.size();++i){const auto& c=b.cmds[i];const auto& old=commands[i];
    if(c.type!=gx::CmdType::Draw){assert(!memcmp(&c,&old,sizeof c));continue;}
    assert(c.count==old.count && c.vfirst==old.vfirst && c.vcount==old.vcount && c.state<b.states.size());if(!c.count || old.state>=states.size())continue;
-   ++draws;const auto& before=states[old.state];const auto& after=b.states[c.state];
+   ++draws;const auto& before=states[old.state];nativeCanvas+=bool(before.tag&0x40);const auto& after=b.states[c.state];
    bool protectedPath=skip[i] || mode==ios_scene::Mode::Flat || mode==ios_scene::Mode::Movie || ios_scene::movie_state(before) || (before.proj[6] && ios_canvas::feedback(before,[&](uint32_t id){return gx::is_fullscreen_tex(id) && !gx::g_ios_native_copies.count(id) && ios_canvas::screen_copy(b,old,before,id);})) || ios_canvas::solid_cover(b,old,before) || ios_canvas::screen_effect(b,old,before) || ios_canvas::edge(b,old,before)==ios_canvas::Edge::Horizontal;
    if(protectedPath){assert(!memcmp(&before,&after,sizeof before));++protectedDraws;}
    if(before.proj[6]){
@@ -71,6 +71,7 @@ inline int captures(int argc,char**argv){
   }
  }
  fprintf(stderr,"Presentation audit: frames=%u draws=%llu orthographic=%llu corrected_ortho=%llu protected=%llu\n",frames,draws,ortho,changed,protectedDraws);
+ fprintf(stderr,"Native card canvas draws=%u\\n",nativeCanvas);
  for(auto [m,n]:owners)fprintf(stderr,"Presentation owner mask=%u frames=%u\n",m,n);
  for(auto [f,n]:formats)fprintf(stderr,"Presentation sampled format=%u draws=%u\n",f,n);
  return 0;

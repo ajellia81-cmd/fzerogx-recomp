@@ -53,6 +53,7 @@ for n in range(1,5):
     events+=",3800:A:5,4000:A:5,4200:A:1800"
     routes[f"timeattack-course-{n}"]=events
 routes["story-play"]=routes["story"]+",3400:START:5,3800:A:5,4200:A:5,4600:A:5,5000:START:5,5400:A:5,6000:A:1200"
+routes["boot-card"]=""
 routes["replay-card"]=routes["replay"]+",3400:A:5,3800:DOWN:5,4200:A:5,4600:B:5"
 for i in range(4):
     extra=",".join(f"{3200+j*100}:RIGHT:5" for j in range(i))
@@ -87,6 +88,8 @@ def run_route(item):
         shutil.copyfile(seed, saves / 'memcard_a.raw')
     env=os.environ.copy()
     env.update(FZGX_PRIVATE_CAPTURE="1",FZGX_MENU_PROBE="1",FZGX_CAPTURE_METADATA="1",FZGX_PROBE_END_FRAME="6500",FZGX_CAPTURE_FRAMES="2300,2500,2700,2801,2810,2850,2900,3100,3300,3500,3700,3900,4000,4001,4002,4003,4200,4500,4800,5000,5200,5400",GCN_INPUT=boot+events)
+    if name=="boot-card":
+        env["FZGX_CAPTURE_FRAMES"]=",".join(map(str,range(30,2001,30)))
     if name=="profile":
         early=",".join(map(str,[3020,3040,3050,3060,3065,3070,3080,3090,3100,3110,3120,3130,3140,3150,3160,3180,3200,3220,3240]))
         env["FZGX_CAPTURE_FRAMES"]=early+","+env["FZGX_CAPTURE_FRAMES"]
