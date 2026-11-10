@@ -30,7 +30,7 @@ unsigned world_cell(gx::Batch& b,float x,float y,float w,float h){
 
 float screen(const gx::PixelState& s,float x){return s.viewport[0]*(s.proj[0]*x+s.proj[1])+s.viewport[3]-int(s.bp[0x59]&1023)*2;}
 float sx(const gx::Batch& b,unsigned i,float x){return screen(b.states[b.cmds[i].state],x);}
-void widen(gx::Batch& b,ios_scene::Mode mode,float target=16.f/9){gx::g_ios_canvas_source=4.f/3;gx::g_ios_scene=mode;gx::ios_widen(b,int(target*1440+.5f),1440);}
+void widen(gx::Batch& b,ios_scene::Mode mode,float target=16.f/9){gx::g_ios_canvas_source=4.f/3;gx::g_ios_world_wide_canvas=false;gx::g_ios_scene=mode;gx::ios_widen(b,int(target*1440+.5f),1440);}
 }
 #include "tools/capture_presentation_audit.h"
 int main(int argc,char**argv){
@@ -114,6 +114,12 @@ int main(int argc,char**argv){
  assert(near(paused.states[paused.cmds[1].state].viewport[0],320));
  assert(near(paused.states[paused.cmds[2].state].viewport[0],240));
  assert(near(paused.states[paused.cmds[3].state].viewport[0],240));
+ // An unrecognised 4:3 overlay cannot replace the established race canvas.
+ gx::Batch unrecognised;quad(unrecognised,s,80,120,92,116);
+ quad(unrecognised,font,310,220,24,24);
+ gx::ios_widen(unrecognised,2560,1440);
+ assert(gx::g_ios_canvas_source==16.f/9);
+ assert(near(unrecognised.states[unrecognised.cmds[0].state].viewport[0],320));
  gx::Batch noText;quad(noText,s,100,100,92,116);assert(ios_canvas::source_aspect(noText,{},16.f/9)==16.f/9);
  gx::Batch stretched;quad(stretched,font,100,100,48,24);assert(ios_ui::glyph_canvas(stretched,stretched.cmds[0],stretched.states[0])==0);
  // Startup and movies keep their ORIGINAL presentation, including re-entry,

@@ -10,8 +10,14 @@ inline int captures(int argc,char**argv){
   std::vector<std::filesystem::path> files;
   for(const auto& entry:std::filesystem::recursive_directory_iterator(argv[arg]))
    if(entry.path().extension()==".capture")files.push_back(entry.path());
-  std::sort(files.begin(),files.end());
+  auto frameNumber=[](const std::filesystem::path& file){
+   return std::stoull(file.stem().string().substr(6));
+  };
+  std::sort(files.begin(),files.end(),[&](const auto& lhs,const auto& rhs){
+   return frameNumber(lhs)<frameNumber(rhs);
+  });
   gx::g_ios_canvas_source=4.f/3;
+  gx::g_ios_world_wide_canvas=false;
   bool havePrevious=false;
   ios_scene::Mode previousMode=ios_scene::Mode::Menu;
   unsigned previousOwner=0;
@@ -27,6 +33,7 @@ inline int captures(int argc,char**argv){
   gx::g_fullscreen_tex.clear();gx::g_ios_native_copies.clear();
   auto context=ios_context::read(b);auto mode=ios_scene::classify(b,context.live,h[6],int32_t(h[7]));
   if(ios_ui::startup_art(b,[&](uint32_t id){for(auto& t:b.new_textures)if(t->id==id)return t->hash;return uint64_t(0);}))mode=ios_scene::Mode::Flat;
+  if(mode!=ios_scene::Mode::World)gx::g_ios_world_wide_canvas=false;
   gx::g_ios_scene=mode;std::vector<uint8_t> skip;gx::mark_offscreen_passes(b,skip);ios_canvas::native_passes(b,skip,gx::g_ios_native_copies);
   gx::ios_widen(b,2868,1320);
   assert(b.cmds.size()==commands.size());assert(b.verts.size()==verts.size());assert(!memcmp(b.verts.data(),verts.data(),verts.size()*sizeof(gx::GpuVertex)));assert(b.packed==packed && b.mtxs==matrices);
