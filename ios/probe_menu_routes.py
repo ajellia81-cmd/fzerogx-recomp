@@ -94,6 +94,7 @@ def run_route(item):
     for direction,stick in (("LEFT","SL"),("RIGHT","SR"),("UP","SU"),("DOWN","SD")):
         navigation=navigation.replace(":"+direction+":",":"+direction+"+"+stick+":")
     env=os.environ.copy()
+    env["FZGX_TRACE_UI_QUEUES"]="1"
     env.update(FZGX_PRIVATE_CAPTURE="1",FZGX_MENU_PROBE="1",FZGX_CAPTURE_METADATA="1",FZGX_PROBE_END_FRAME="6500",FZGX_CAPTURE_FRAMES="2300,2500,2700,2801,2810,2850,2900,3100,3300,3500,3700,3900,4000,4001,4002,4003,4200,4500,4800,5000,5200,5400",GCN_INPUT=navigation)
     if name.startswith("boot-card"):
         env["FZGX_CAPTURE_FRAMES"]=",".join(map(str,range(30,2001,30)))+","+env["FZGX_CAPTURE_FRAMES"]

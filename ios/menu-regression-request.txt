@@ -1,1 +1,1 @@
-Validate Records, Replay and Options from START-only entry into the main selector, with the known GP pause control. Production source is identical to Build29.
+Trace the original paused UI enqueue call chain and enforce the audit exit status. Do not package or deliver an unverified IPA.

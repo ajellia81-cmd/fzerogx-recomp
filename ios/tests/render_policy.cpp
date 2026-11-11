@@ -208,6 +208,6 @@ int main(int argc,char**argv){
  // Perspective water/refraction that samples a full-frame copy remains a
  // world surface: only orthographic feedback bypasses canvas correction.
  gx::Batch water;auto wet=camera;wet.tex_id[0]=42;wet.tex_is_efb[0]=true;quad(water,wet,1,1,2,2);widen(water,ios_scene::Mode::World,21.f/9);assert(near(water.states[water.cmds[0].state].proj[0],4.f/7));
- ios_audit::captures(argc,argv);
+ if(int result=ios_audit::captures(argc,argv))return result;
  puts("All display owners, shared 2D composition, aspect, clipping, preview/copy boundaries, cameras, logos and films passed");
 }

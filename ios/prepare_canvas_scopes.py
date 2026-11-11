@@ -13,15 +13,15 @@ extern "C" {
 #endif
 unsigned fzgx_native_canvas_begin(unsigned owner);
 void fzgx_native_canvas_end(unsigned previous);
-void fzgx_ui_queue_record(unsigned address);
+void fzgx_ui_queue_record(unsigned address, void* cpu);
 unsigned fzgx_ui_queue_draw(unsigned address);
 #ifdef __cplusplus
 }
 #endif
 """
 queue_hooks={
-    "8184F734": [("\n\t/* 8184FB60 ", "\n    fzgx_ui_queue_record(c->r[30]);\n\t/* 8184FB60 ")],
-    "8184FC50": [("\n\t/* 8184FCD0 ", "\n    fzgx_ui_queue_record(c->r[31]);\n\t/* 8184FCD0 ")],
+    "8184F734": [("\n\t/* 8184FB60 ", "\n    fzgx_ui_queue_record(c->r[30], c);\n\t/* 8184FB60 ")],
+    "8184FC50": [("\n\t/* 8184FCD0 ", "\n    fzgx_ui_queue_record(c->r[31], c);\n\t/* 8184FCD0 ")],
     "8184FD64": [
         ("void fn_8184FD64(CPU* c) {", "void fn_8184FD64(CPU* c) {\n    unsigned queueTag=0;"),
         ("\n\t/* 8184FF34 ", "\n    queueTag=fzgx_ui_queue_draw(c->r[28]);\n\t/* 8184FF34 "),

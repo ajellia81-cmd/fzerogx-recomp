@@ -35,6 +35,7 @@
 #include <cstring>
 #include <unordered_set>
 #include <mutex>
+#include <string>
 #endif
 
 #if defined(FZGX_IOS_FRONTEND) || defined(FZGX_IOS_INPUT_PROBE)
@@ -64,7 +65,22 @@ extern "C" void fzgx_native_canvas_end(unsigned previous){
 }
 static std::mutex ios_ui_queue_mutex;
 static std::unordered_set<unsigned> ios_ui_queue;
-extern "C" void fzgx_ui_queue_record(unsigned address){
+extern "C" void fzgx_ui_queue_record(unsigned address,void* opaque){
+#if defined(FZGX_IOS_INPUT_PROBE)
+    if(getenv("FZGX_TRACE_UI_QUEUES") && fzgx::race_read().paused){
+        const CPU* cpu=static_cast<CPU*>(opaque);
+        unsigned sp=cpu->r[1];char trace[512];unsigned at=0;
+        at+=snprintf(trace+at,sizeof(trace)-at,"UI enqueue native=%u chain=",unsigned(bool(ios_ordered_draw_tag&0x40)));
+        for(unsigned depth=0;depth<12 && at+16<sizeof(trace);++depth){
+            if(sp<0x80000000u || sp>=0x84000000u)break;
+            unsigned next=LD32(sp);
+            if(next<=sp || next>=0x84000000u)break;
+            at+=snprintf(trace+at,sizeof(trace)-at,"%08x,",LD32(next+4));sp=next;
+        }
+        static thread_local std::unordered_set<std::string> seen;
+        if(seen.size()<80 && seen.insert(trace).second)fprintf(stderr,"%s\n",trace);
+    }
+#endif
     std::lock_guard<std::mutex> lock(ios_ui_queue_mutex);
     if(ios_ordered_draw_tag&0x40)ios_ui_queue.insert(address);
     else ios_ui_queue.erase(address);
@@ -72,6 +88,9 @@ extern "C" void fzgx_ui_queue_record(unsigned address){
 extern "C" unsigned fzgx_ui_queue_draw(unsigned address){
     bool native;
     {std::lock_guard<std::mutex> lock(ios_ui_queue_mutex);native=ios_ui_queue.erase(address)!=0;}
+#if defined(FZGX_IOS_INPUT_PROBE)
+    if(native){static unsigned reported=0;if(reported++<3)fprintf(stderr,"Native queued UI consumed: %08x\n",address);}
+#endif
     const unsigned previous=ios_ordered_draw_tag;
     ios_ordered_draw_tag=uint8_t((previous&~0x40u)|(native?0x40u:0u));
     if(ios_ordered_draw_tag!=previous)ios_submit_ui_tag(ios_ordered_draw_tag);
