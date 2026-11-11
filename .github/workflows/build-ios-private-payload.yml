@@ -109,6 +109,7 @@ jobs:
         if: ${{ !inputs.probe_only }}
         env:
           FZGX_CAPTURE_AUDIT: "1"
+          FZGX_REQUIRE_NATIVE_UI: "1"
         run: python3 ios/tests/check_policy.py > build-private-logs/presentation-audit.txt 2>&1
       - name: Collect observed shader and blend configurations before boot
         if: ${{ !inputs.probe_only }}
@@ -164,8 +165,8 @@ jobs:
         run: |
           APP=$(find build-ios -path '*/Release-iphoneos/FZeroGX.app' -type d -print -quit)
           test -n "$APP"
-          python3 ios/package_unsigned.py "$APP" FZeroGX-iOS-build28-unsigned.ipa
-          openssl cms -encrypt -binary -aes256 -in FZeroGX-iOS-build28-unsigned.ipa -out FZeroGX-private.ipa.enc -outform DER ios/delivery-public.pem
+          python3 ios/package_unsigned.py "$APP" FZeroGX-iOS-build29-unsigned.ipa
+          openssl cms -encrypt -binary -aes256 -in FZeroGX-iOS-build29-unsigned.ipa -out FZeroGX-private.ipa.enc -outform DER ios/delivery-public.pem
       - name: Encrypt diagnostics for private review
         if: always()
         shell: bash

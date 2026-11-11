@@ -1,2 +1,2 @@
-Build28 retry: include the runtime declaration for the legal FIFO flush helper. Same integrated presentation fixes and corrected probe boot.
+Build29: preserve modal ownership through both original 88-byte sprite enqueue paths and the index-sorted renderer. Require actual tagged UI draws before packaging.
 routes=boot-card-empty,records,replay-card,options-memory,gp-pause

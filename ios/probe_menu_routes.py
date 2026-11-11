@@ -89,7 +89,8 @@ def run_route(item):
         shutil.copyfile(seed, saves / 'memcard_a.raw')
     # The original menu reads stick navigation; include it with each intended
     # direction instead of assuming D-pad presses reached the target screen.
-    navigation=boot+events
+    prefix="500:A:5,1300:A:5,1340:A:5,1380:A:5,1440:START:5,1500:A:5,1580:LEFT:5,1620:A:5,1800:A:5,2000:START:5," if name=="gp-pause" else boot
+    navigation=prefix+events
     for direction,stick in (("LEFT","SL"),("RIGHT","SR"),("UP","SU"),("DOWN","SD")):
         navigation=navigation.replace(":"+direction+":",":"+direction+"+"+stick+":")
     env=os.environ.copy()

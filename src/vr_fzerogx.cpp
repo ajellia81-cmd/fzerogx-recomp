@@ -34,6 +34,7 @@
 #include "runtime.h"
 #include <cstring>
 #include <unordered_set>
+#include <mutex>
 #endif
 
 #if defined(FZGX_IOS_FRONTEND) || defined(FZGX_IOS_INPUT_PROBE)
@@ -53,12 +54,28 @@ extern "C" unsigned fzgx_native_canvas_begin(unsigned owner){
     static thread_local std::unordered_set<unsigned> entered;
     if(entered.insert(owner).second)fprintf(stderr,"Native UI canvas scope entered: %08x\n",owner);
 #endif
-    ios_submit_ui_tag(ios_ordered_draw_tag);
+    if(ios_ordered_draw_tag!=previous)ios_submit_ui_tag(ios_ordered_draw_tag);
     return previous;
 }
 extern "C" void fzgx_native_canvas_end(unsigned previous){
+    if(ios_ordered_draw_tag==previous)return;
     ios_ordered_draw_tag=uint8_t(previous);
     ios_submit_ui_tag(ios_ordered_draw_tag);
+}
+static std::mutex ios_ui_queue_mutex;
+static std::unordered_set<unsigned> ios_ui_queue;
+extern "C" void fzgx_ui_queue_record(unsigned address){
+    std::lock_guard<std::mutex> lock(ios_ui_queue_mutex);
+    if(ios_ordered_draw_tag&0x40)ios_ui_queue.insert(address);
+    else ios_ui_queue.erase(address);
+}
+extern "C" unsigned fzgx_ui_queue_draw(unsigned address){
+    bool native;
+    {std::lock_guard<std::mutex> lock(ios_ui_queue_mutex);native=ios_ui_queue.erase(address)!=0;}
+    const unsigned previous=ios_ordered_draw_tag;
+    ios_ordered_draw_tag=uint8_t((previous&~0x40u)|(native?0x40u:0u));
+    if(ios_ordered_draw_tag!=previous)ios_submit_ui_tag(ios_ordered_draw_tag);
+    return previous;
 }
 #endif
 

@@ -71,9 +71,10 @@ inline int captures(int argc,char**argv){
   }
  }
  fprintf(stderr,"Presentation audit: frames=%u draws=%llu orthographic=%llu corrected_ortho=%llu protected=%llu\n",frames,draws,ortho,changed,protectedDraws);
- fprintf(stderr,"Native card canvas draws=%u\\n",nativeCanvas);
+ fprintf(stderr,"Native UI canvas draws=%u\n",nativeCanvas);
  for(auto [m,n]:owners)fprintf(stderr,"Presentation owner mask=%u frames=%u\n",m,n);
  for(auto [f,n]:formats)fprintf(stderr,"Presentation sampled format=%u draws=%u\n",f,n);
+ if(getenv("FZGX_REQUIRE_NATIVE_UI") && !nativeCanvas){fprintf(stderr,"No actual native UI draws captured; do not deliver this candidate.\n");return 3;}
  return 0;
 }
 }
