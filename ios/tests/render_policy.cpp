@@ -154,6 +154,23 @@ int main(int argc,char**argv){
  assert(near(mixedWindows.states[mixedWindows.cmds[2].state].viewport[0],320));
  assert(near(mixedWindows.states[mixedWindows.cmds[3].state].viewport[0],320));
 
+ // Either UI family may be native 4:3 or guest-compensated 16:9, including
+ // the postrace card family over a full-width world presentation.
+ for(auto mode:{ios_scene::Mode::Menu,ios_scene::Mode::World})
+ for(unsigned family:{0u,1u})for(float source:{4.f/3,16.f/9}){
+  gx::Batch dialog;
+  auto letters=font;letters.tag=uint8_t(0x40|(family?0x80:0));
+  auto border=panel;border.tag=letters.tag;
+  quad(dialog,letters,160,180,source>1.5f?18:24,24);
+  quad(dialog,border,100,100,240,200);
+  float target=mode==ios_scene::Mode::World?21.f/9:16.f/9;
+  widen(dialog,mode,target);
+  assert(near(gx::g_ios_ui_canvas_source[family],source));
+  for(const auto& draw:dialog.cmds)
+   assert(near(dialog.states[draw.state].viewport[0],320*source/target));
+ }
+
+
  // A native card scope includes unrelated icon formats between text draws.
  for(auto mode:{ios_scene::Mode::World,ios_scene::Mode::Menu}){
   gx::Batch card;quad(card,font,80,40,18,24);

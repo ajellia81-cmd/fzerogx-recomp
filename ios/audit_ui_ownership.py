@@ -8,6 +8,7 @@ import json
 import re
 import sys
 
+if len(sys.argv)!=2:raise SystemExit("usage: audit_ui_ownership.py GENERATED_C_DIRECTORY")
 root=Path(sys.argv[1])
 functions={}
 for path in root.glob('*.c'):
