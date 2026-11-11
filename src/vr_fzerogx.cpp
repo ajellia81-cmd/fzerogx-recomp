@@ -33,6 +33,7 @@
 #include "recomp.h"
 #include "runtime.h"
 #include <cstring>
+#include <cmath>
 #include <unordered_set>
 #include <unordered_map>
 #include <mutex>
@@ -128,6 +129,19 @@ extern "C" void fzgx_ui_queue_record(unsigned address,void* opaque){
         }
         static thread_local std::unordered_set<std::string> seen;
         if(seen.size()<80 && seen.insert(trace).second)fprintf(stderr,"%s\n",trace);
+    }
+#endif
+#if defined(FZGX_IOS_INPUT_PROBE)
+    if(getenv("FZGX_TRACE_UI_QUEUES") && address>=0x80000000u && address<0x83ffff00u &&
+       (LD32(address+48)&0x400000u) && std::fabs(LDF32(address+12))<.001f && LDF32(address+8)>400){
+        const CPU* cpu=static_cast<CPU*>(opaque);unsigned sp=cpu->r[1];std::string trace;
+        for(unsigned depth=0;depth<12;++depth){
+            if(sp<0x80000000u || sp>=0x83ffff00u)break;
+            unsigned next=LD32(sp);if(next<=sp || next>=0x83ffff00u)break;
+            char part[32];snprintf(part,sizeof(part),"%08x,",LD32(next+4));trace+=part;sp=next;
+        }
+        static std::unordered_set<std::string> seen;
+        if(seen.size()<30 && seen.insert(trace).second)fprintf(stderr,"Direct footer enqueue chain=%s\n",trace.c_str());
     }
 #endif
     std::lock_guard<std::mutex> lock(ios_ui_queue_mutex);
@@ -241,6 +255,35 @@ void guest_frame(uint32_t frame) {
     ios_ordered_draw_tag=ios_context::encode(modes,race.linked?race.state:-1,live);
     // Same original display-mode test used by the game's shared coordinate
     // compensation helper: modes 1 and 2 use a wide authored canvas.
+#if defined(FZGX_IOS_INPUT_PROBE)
+    // Read-only original bitmap evidence, kept inside encrypted route logs.
+    if(const uint32_t data=g_rel_base[5]){
+        static bool dumped=false;
+        const uint32_t entry=data+0xFCD4u+150u*40;
+        if(!dumped && LD32(entry)==1){
+            const uint32_t bank=LD32(entry+32);
+            if(bank>=0x80000000u && bank<0x83fff000u){
+                dumped=true;
+                fprintf(stderr,"Original replay bank header:");
+                for(unsigned j=0;j<16;++j)fprintf(stderr,"%02x",LD8(bank+j));
+                fprintf(stderr,"\n");
+                const uint32_t table=LD32(bank+4);
+                if(table>=0x80000000u && table<0x83fff000u){
+                    const uint32_t image=table+7*16;
+                    fprintf(stderr,"Original replay bitmap descriptor:");
+                    for(unsigned j=0;j<16;++j)fprintf(stderr,"%02x",LD8(image+j));
+                    fprintf(stderr,"\n");
+                    const uint32_t pixels=LD32(image);
+                    if(pixels>=0x80000000u && pixels<0x83fff000u){
+                        fprintf(stderr,"Original replay bitmap data:");
+                        for(unsigned j=0;j<256;++j)fprintf(stderr,"%02x",LD8(pixels+j));
+                        fprintf(stderr,"\n");
+                    }
+                }
+            }
+        }
+    }
+#endif
     const uint32_t canvasBase=g_rel_base[6];
     const unsigned displayMode=canvasBase?LD32(canvasBase+0x6F5F0u):0;
     if(displayMode==1 || displayMode==2)ios_ordered_draw_tag|=0x80;

@@ -1,1 +1,1 @@
-Build 33: verify original immediate-vs-sorted UI ownership, preserve queued Records body during direct footer appearance; capture actual vertical Shop Item selection and menu cross checks.
+Build 33 focused proof: trace actual zero-depth queued footer ownership and sample the verified Shop Item CPU path; read-only original replay bitmap evidence.

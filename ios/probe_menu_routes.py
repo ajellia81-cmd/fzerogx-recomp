@@ -7,6 +7,7 @@ from pathlib import Path
 import os
 import shutil
 import subprocess
+import time
 from concurrent.futures import ThreadPoolExecutor
 
 root=Path.cwd()
@@ -129,7 +130,20 @@ def run_route(item):
         env["FZGX_CAPTURE_FRAMES"]="4800,4999,5000,5001,5002,5020,5100,5300,5500,5700,5900,6100,6199,6200,6201,6202,6300,6500,6800,7000,7200,7400"
         env["FZGX_PROBE_END_FRAME"]="7500"
     with (root/"build-private-logs"/("menu-"+name+".txt")).open("w") as log:
-        subprocess.run([str(root/"build-host/fzerogx_bench"),"--seconds=140","--warmup=0",str(root/"rom/game.iso")],cwd=directory,env=env,stdout=log,stderr=subprocess.STDOUT,check=True)
+        command=[str(root/"build-host/fzerogx_bench"),"--seconds=180","--warmup=0",str(root/"rom/game.iso")]
+        if name=="shop-items":
+            process=subprocess.Popen(command,cwd=directory,env=env,stdout=log,stderr=subprocess.STDOUT)
+            sampled=False
+            while process.poll() is None:
+                log.flush()
+                contents=(root/"build-private-logs"/("menu-"+name+".txt")).read_text()
+                if not sampled and "frame=4500 " in contents:
+                    sampled=True
+                    with (root/"build-private-logs/item-profile-driver.txt").open("w") as profilelog:
+                        subprocess.run(["sample",str(process.pid),"5","-file",str(root/"build-private-logs/item-cpu-profile.txt")],stdout=profilelog,stderr=subprocess.STDOUT,check=False)
+                time.sleep(.25)
+            if process.returncode:raise subprocess.CalledProcessError(process.returncode,command)
+        else:subprocess.run(command,cwd=directory,env=env,stdout=log,stderr=subprocess.STDOUT,check=True)
     print("Completed private game UI route:",name,flush=True)
 
 with ThreadPoolExecutor(max_workers=2) as pool:

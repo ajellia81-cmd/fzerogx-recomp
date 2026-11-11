@@ -160,6 +160,20 @@ int main(int argc,char**argv){
  // correction and persists on text-free frames. Deliberately scaled glyphs do
  // not vote for either display canvas.
  gx::Batch wide;quad(wide,font,100,100,18,24);assert(ios_canvas::source_aspect(wide,{})==16.f/9);widen(wide,ios_scene::Mode::Menu);assert(wide.states[wide.cmds[0].state].viewport[0]==320);
+ // Records' immediate help strip can appear after a bitmap-only wide body.
+ // Its font, backing and button icons share the direct family's canvas.
+ for(bool help:{false,true}){
+  gx::Batch records;auto body=s;body.tag=ios_context::encode(ios_guest::Selection,41,false)|0x80;
+  quad(records,body,160,24,315,64);
+  if(help){auto directFont=font;directFont.tag=0x40;
+   auto directPanel=panel;directPanel.tag=0x40;
+   quad(records,directPanel,370,430,200,30);
+   quad(records,directFont,410,445,24,24);
+  }
+  widen(records,ios_scene::Mode::Menu);
+  assert(near(records.states[records.cmds[0].state].viewport[0],320));
+  if(help){assert(near(records.states[records.cmds[1].state].viewport[0],240));assert(near(records.states[records.cmds[2].state].viewport[0],240));}
+ }
  // Opening a native 4:3 pause panel cannot change an already compensated HUD.
  gx::Batch paused;quad(paused,font,100,100,18,24);
  auto pausePanel=panel;pausePanel.tag=0x40;pausePanel.bp[0x88]=(5u<<20)|51|(103<<10);
@@ -298,4 +312,5 @@ int main(int argc,char**argv){
  if(int result=ios_audit::captures(argc,argv))return result;
  puts("Presentation fixtures and supplied captures passed; visual screen coverage is reported separately");
 }
+
 

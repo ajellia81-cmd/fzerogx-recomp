@@ -10,7 +10,7 @@ jobs:
     runs-on: macos-15-intel
     timeout-minutes: 60
     env:
-      FZGX_MENU_ROUTES: attract,records,garage-0,shop-items,shop-items-right,options-memory,profile,story,customize,replay-card
+      FZGX_MENU_ROUTES: records,shop-items,replay-card,attract
       DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
     steps:
       - uses: actions/checkout@v4
