@@ -18,6 +18,9 @@ inline void observe(gx::Batch& b){
         fprintf(stderr,"iOS scene transition: batch=%llu phase=%d modules=%u\n",frames,phase,modules);
         lastPhase=phase;lastModules=modules;
     }
+    unsigned nativeDraws=0;
+    for(const auto& draw:b.cmds)if(draw.type==gx::CmdType::Draw && draw.state<b.states.size() && (b.states[draw.state].tag&0x40))++nativeDraws;
+    if(nativeDraws)fprintf(stderr,"Native card canvas rendered: frame=%llu draws=%u\n",frames,nativeDraws);
     ios_capture::observe(b,unsigned(frames),modules,phase);
     auto mode=ios_scene::classify(b,false,modules,phase);
     if(mode==ios_scene::Mode::Menu){

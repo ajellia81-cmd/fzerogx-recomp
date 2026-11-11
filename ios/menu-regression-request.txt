@@ -1,1 +1,1 @@
-Build18 investigation: explicitly reproduce TIME ATTACK Records, sort and pilot toggles; capture the first profile illustration before it becomes a 3D model. Route completion must not be reported as proof of the intended screen; inspect captures first. Do not alter owner saves.
+Trace actual common-card scope entries and rendered draw tags before accepting Build25. Include empty-card boot and owner-save routes.

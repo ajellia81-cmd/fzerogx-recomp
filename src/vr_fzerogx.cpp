@@ -39,6 +39,10 @@ static thread_local uint8_t ios_ordered_draw_tag=0;
 extern "C" unsigned fzgx_native_canvas_begin(){
     const unsigned previous=ios_ordered_draw_tag;
     ios_ordered_draw_tag|=0x40;
+#if defined(FZGX_IOS_INPUT_PROBE)
+    static unsigned entries=0;
+    if(++entries<=5)fprintf(stderr,"Native card canvas scope entered: %u\n",entries);
+#endif
     gx::set_draw_tag(ios_ordered_draw_tag);
     return previous;
 }

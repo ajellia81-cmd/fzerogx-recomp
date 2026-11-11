@@ -10,7 +10,7 @@ jobs:
     runs-on: macos-15-intel
     timeout-minutes: 60
     env:
-      FZGX_MENU_ROUTES: records,records-right,records-sort,records-pilot,profile
+      FZGX_MENU_ROUTES: boot-card-empty,boot-card,options-memory,replay-card
       DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
     steps:
       - uses: actions/checkout@v4
@@ -20,6 +20,7 @@ jobs:
       - name: Receive owner-supplied disc privately
         env:
           ICLOUD_SOURCE_ID: ${{ secrets.ICLOUD_SOURCE_ID }}
+          ICLOUD_SAVE_ID: ${{ secrets.ICLOUD_SAVE_ID }}
         run: python3 ios/fetch_private_disc.py
       - name: Generate and compile existing host game
         run: |
@@ -28,6 +29,10 @@ jobs:
           cmake --build build-host --target fzerogx_bench --parallel 3 > build-private-logs/build.txt 2>&1
       - name: Capture Records layouts and the initial profile illustration
         run: python3 ios/probe_menu_routes.py
+      - name: Audit captured canvas tags
+        env:
+          FZGX_CAPTURE_AUDIT: "1"
+        run: python3 ios/tests/check_policy.py > build-private-logs/presentation-audit.txt 2>&1
       - name: Encrypt diagnostics
         if: always()
         run: |
