@@ -10,7 +10,7 @@ jobs:
     runs-on: macos-15-intel
     timeout-minutes: 60
     env:
-      FZGX_MENU_ROUTES: gp-pause,boot-card-empty,replay-card,options-memory
+      FZGX_MENU_ROUTES: attract,returnlogo,options-memory,records
       DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
     steps:
       - uses: actions/checkout@v4
@@ -27,7 +27,7 @@ jobs:
           mkdir -p build-private-logs
           cmake -S . -B build-host -G Ninja -DGCN_BENCH_ONLY=ON -DFZGX_IOS_INPUT_PROBE=ON -DFZGX_IOS_LOGO_PROBE=ON -DCMAKE_BUILD_TYPE=Release -DGAME_ISO="$PWD/rom/game.iso" > build-private-logs/configure.txt 2>&1
           cmake --build build-host --target fzerogx_bench --parallel 3 > build-private-logs/build.txt 2>&1
-      - name: Capture Records layouts and the initial profile illustration
+      - name: Capture title demo and menu backdrop geometry
         run: python3 ios/probe_menu_routes.py
       - name: Audit captured canvas tags
         env:

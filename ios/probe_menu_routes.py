@@ -53,6 +53,7 @@ for n in range(1,5):
     events+=",3800:A:5,4000:A:5,4200:A:1800"
     routes[f"timeattack-course-{n}"]=events
 routes["story-play"]=routes["story"]+",3400:START:5,3800:A:5,4200:A:5,4600:A:5,5000:START:5,5400:A:5,6000:A:1200"
+routes["attract"]=""
 routes["boot-card"]=""
 routes["boot-card-empty"]=""
 routes["replay-card"]=routes["replay"]+",3400:A:5,3800:DOWN:5,4200:A:5,4600:B:5"
@@ -90,6 +91,7 @@ def run_route(item):
     # The original menu reads stick navigation; include it with each intended
     # direction instead of assuming D-pad presses reached the target screen.
     prefix="500:A:5,1300:A:5,1340:A:5,1380:A:5,1440:START:5,1500:A:5,1580:LEFT:5,1620:A:5,1800:A:5,2000:START:5," if name=="gp-pause" else boot
+    if name=="attract":prefix=""
     navigation=prefix+events
     for direction,stick in (("LEFT","SL"),("RIGHT","SR"),("UP","SU"),("DOWN","SD")):
         navigation=navigation.replace(":"+direction+":",":"+direction+"+"+stick+":")
@@ -97,6 +99,9 @@ def run_route(item):
     env["FZGX_TRACE_UI_QUEUES"]="1"
     env["FZGX_TRACE_UI_TEXT"]="1"
     env.update(FZGX_PRIVATE_CAPTURE="1",FZGX_MENU_PROBE="1",FZGX_CAPTURE_METADATA="1",FZGX_PROBE_END_FRAME="6500",FZGX_CAPTURE_FRAMES="2300,2500,2700,2801,2810,2850,2900,3100,3300,3500,3700,3900,4000,4001,4002,4003,4200,4500,4800,5000,5200,5400",GCN_INPUT=navigation)
+    if name=="attract":
+        env["FZGX_PROBE_END_FRAME"]="10000"
+        env["FZGX_CAPTURE_FRAMES"]="900,1200,1800,2400,3000,3600,4200,4500,4800,5400,6000,6600,7200,7800,8400,9000,9600"
     if name.startswith("boot-card"):
         env["FZGX_CAPTURE_FRAMES"]=",".join(map(str,range(30,2001,30)))+","+env["FZGX_CAPTURE_FRAMES"]
     if name=="profile":

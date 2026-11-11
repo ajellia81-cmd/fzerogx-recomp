@@ -1,1 +1,1 @@
-Replay save canvas audit: actual card dialogs, progress, list and shared message composers; 2026-11-11 build31 investigation
+Investigate title-demo baked-art canvas and finite menu backdrop coverage; build31 baseline, no application renderer changes.
