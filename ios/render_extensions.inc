@@ -6,6 +6,7 @@ static std::atomic<ios_scene::Mode> g_ios_scene{ios_scene::Mode::Menu};
 static std::atomic<int> g_ios_motion_reason{0};
 static uint64_t g_ios_frame_scene=0;
 static float g_ios_canvas_source=4.f/3;
+static std::array<float,2> g_ios_ui_canvas_source={4.f/3,4.f/3};
 static bool g_ios_world_wide_canvas=false;
 static std::unordered_set<uint32_t> g_ios_native_copies;
 static bool g_ios_frame_sega=false;
@@ -75,6 +76,19 @@ void ios_widen(Batch& b,int width,int height){
            b.states[command.state].proj[6] && (b.states[command.state].tag&0x40))
             modal[i]=1;
     }
+    // Infer each complete UI family's canvas from its own ordinary glyphs.
+    // A card browser can already be 16:9 while a pause widget is still 4:3.
+    // Panels/icons follow the same family map; never scale letters separately.
+    for(unsigned family=0;family<2;++family){
+        auto familySkip=skip;
+        for(size_t i=0;i<b.cmds.size();++i){
+            const auto& c=b.cmds[i];
+            bool own=modal[i] && c.state<b.states.size() &&
+                unsigned(bool(b.states[c.state].tag&0x80))==family;
+            if(!own)familySkip[i]=1;
+        }
+        g_ios_ui_canvas_source[family]=ios_canvas::source_aspect(b,familySkip,g_ios_ui_canvas_source[family]);
+    }
     // The race HUD and the guest pause menu can use different source canvases.
     auto hudSkip=skip;
     for(size_t i=0;i<modal.size();++i)hudSkip[i]|=modal[i];
@@ -98,12 +112,13 @@ void ios_widen(Batch& b,int width,int height){
     const size_t original=b.states.size();
     // Material state can be shared by a full-frame effect and a small UI
     // element. Cache by the actual presentation path, never just by state id.
-    std::vector<std::array<int32_t,7>> corrected(original);for(auto& cache:corrected)cache.fill(-1);
+    std::vector<std::array<int32_t,8>> corrected(original);for(auto& cache:corrected)cache.fill(-1);
     for(size_t i=0;i<b.cmds.size();++i){
         auto& c=b.cmds[i];
         if(c.type!=CmdType::Draw || !c.count || !c.vcount || c.state>=original || skip[i])continue;
         const bool isModal=i<modal.size() && modal[i];
-        const float ratio=(isModal?4.f/3:g_ios_canvas_source)/target;
+        const unsigned family=unsigned(bool(b.states[c.state].tag&0x80));
+        const float ratio=(isModal?g_ios_ui_canvas_source[family]:g_ios_canvas_source)/target;
         PixelState st=b.states[c.state];
         if(ios_scene::movie_state(st) || ios_canvas::solid_cover(b,c,st) || ios_canvas::screen_effect(b,c,st))continue;
         bool feedback=st.proj[6] && ios_canvas::feedback(st,[](uint32_t id){return is_fullscreen_tex(id) && !g_ios_native_copies.count(id);});
@@ -121,7 +136,7 @@ void ios_widen(Batch& b,int width,int height){
         if(edge==ios_canvas::Edge::Horizontal)continue;
         bool side=edge==ios_canvas::Edge::Left || edge==ios_canvas::Edge::Right;
         int cell=split.active() && i<split.owner.size()?split.owner[i]:-1;
-        unsigned path=isModal?6u:cell>=0?2u+unsigned(cell):st.proj[6]?0:1;
+        unsigned path=isModal?6u+family:cell>=0?2u+unsigned(cell):st.proj[6]?0:1;
         const float anchor=split.anchor(i,frame.width*.5f);
         if(!side && corrected[c.state][path]>=0){c.state=uint32_t(corrected[c.state][path]);continue;}
         if(side){
@@ -434,5 +449,6 @@ bool ios_render_motion(Batch& b,bool smooth,void (*show)(void*),void* context) {
     }
     return presented;
 }
+
 
 

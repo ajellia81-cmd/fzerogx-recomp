@@ -19,12 +19,14 @@ inline uint8_t encode(unsigned modules,int phase,bool live){
         modules&ios_guest::Replay?Replay:modules&ios_guest::Title?Title:
         modules&ios_guest::Story?Story:modules&ios_guest::Winning?Winning:
         phase>=37 && phase<=43?Settings37+unsigned(phase-37):Unknown;
-    return uint8_t(0x80|k|(live?0x20:0));
+    // Codes 1..40 carry the full scene/live context; zero is untagged.
+    // Bits 6 and 7 remain independent UI ownership and UI-family metadata.
+    return uint8_t(1+k+(live?20:0));
 }
 inline Snapshot decode(uint8_t tag){
-    Snapshot s;if(!(tag&0x80))return s;
-    s.stamped=true;s.live=(tag&0x20)!=0;
-    switch(tag&31){
+    Snapshot s;unsigned code=tag&63;if(code<1 || code>40)return s;
+    s.stamped=true;s.live=code>20;unsigned kind=(code-1)%20;
+    switch(kind){
         case Title:s.modules=ios_guest::Title;break;
         case Menu:s.modules=ios_guest::Selection;break;
         case Option:s.modules=ios_guest::Option;break;
@@ -37,7 +39,7 @@ inline Snapshot decode(uint8_t tag){
         case Winning:s.modules=ios_guest::Winning;s.phase=43;break;
         case Movie:s.modules=ios_guest::Movie;break;
         case Interview:s.modules=ios_guest::Interview;break;
-        default:if((tag&31)>=Settings37 && (tag&31)<=End43)s.phase=37+int((tag&31)-Settings37);break;
+        default:if(kind>=Settings37 && kind<=End43)s.phase=37+int(kind-Settings37);break;
     }
     return s;
 }
@@ -49,4 +51,5 @@ inline Snapshot read(const gx::Batch& b){
     return s;
 }
 }
+
 

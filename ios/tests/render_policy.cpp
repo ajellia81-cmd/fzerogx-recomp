@@ -30,13 +30,23 @@ unsigned world_cell(gx::Batch& b,float x,float y,float w,float h){
 
 float screen(const gx::PixelState& s,float x){return s.viewport[0]*(s.proj[0]*x+s.proj[1])+s.viewport[3]-int(s.bp[0x59]&1023)*2;}
 float sx(const gx::Batch& b,unsigned i,float x){return screen(b.states[b.cmds[i].state],x);}
-void widen(gx::Batch& b,ios_scene::Mode mode,float target=16.f/9){gx::g_ios_canvas_source=4.f/3;gx::g_ios_world_wide_canvas=false;gx::g_ios_scene=mode;gx::ios_widen(b,int(target*1440+.5f),1440);}
+void widen(gx::Batch& b,ios_scene::Mode mode,float target=16.f/9){gx::g_ios_canvas_source=4.f/3;gx::g_ios_ui_canvas_source={4.f/3,4.f/3};gx::g_ios_world_wide_canvas=false;gx::g_ios_scene=mode;gx::ios_widen(b,int(target*1440+.5f),1440);}
 }
 #include "tools/capture_presentation_audit.h"
 int main(int argc,char**argv){
  gx::ShaderKey k{};k.dst_alpha=2;gx::g_dual_source=false;gx::ios_shader_key(k);assert(k.dst_alpha==0);
  k.dst_alpha=2;gx::g_dual_source=true;gx::ios_shader_key(k);assert(k.dst_alpha==2);gx::g_dual_source=false;
  const auto s=state();
+ // UI ownership/family bits cannot alter any of the 40 scene/live codes.
+ for(unsigned kind=0;kind<20;++kind)for(bool live:{false,true}){
+  auto base=ios_context::decode(uint8_t(1+kind+(live?20:0)));
+  assert(base.stamped && base.live==live);
+  for(unsigned flags:{0u,0x40u,0x80u,0xc0u}){
+   auto tagged=ios_context::decode(uint8_t(1+kind+(live?20:0))|flags);
+   assert(tagged.stamped && tagged.live==base.live && tagged.modules==base.modules && tagged.phase==base.phase);
+  }
+ }
+ assert(!ios_context::decode(0).stamped && !ios_context::decode(63).stamped);
  // Records can outlive Selection and contain only orthographic draws.
  // Neither an absent owner nor a stale non-race phase may switch to 4:3 output.
  for(int phase:{-1,0,1,36,37,38,39,40,41,42,43}){
@@ -109,13 +119,13 @@ int main(int argc,char**argv){
  gx::Batch wide;quad(wide,font,100,100,18,24);assert(ios_canvas::source_aspect(wide,{})==16.f/9);widen(wide,ios_scene::Mode::Menu);assert(wide.states[wide.cmds[0].state].viewport[0]==320);
  // Opening a native 4:3 pause panel cannot change an already compensated HUD.
  gx::Batch paused;quad(paused,font,100,100,18,24);
- auto pausePanel=panel;pausePanel.tag=0xc0;pausePanel.bp[0x88]=(5u<<20)|51|(103<<10);
+ auto pausePanel=panel;pausePanel.tag=0x40;pausePanel.bp[0x88]=(5u<<20)|51|(103<<10);
  auto modalTexture=std::make_shared<gx::TexData>();
  modalTexture->id=2;modalTexture->hash=ios_ui::panel_hash;
  paused.new_textures.push_back(modalTexture);
  quad(paused,s,80,120,92,116);
  quad(paused,pausePanel,200,140,240,200);
- auto pauseFont=font;pauseFont.tag=0xc0;quad(paused,pauseFont,310,220,24,24);
+ auto pauseFont=font;pauseFont.tag=0x40;quad(paused,pauseFont,310,220,24,24);
  widen(paused,ios_scene::Mode::World);
  assert(gx::g_ios_canvas_source==16.f/9);
  assert(near(paused.states[paused.cmds[1].state].viewport[0],320));
@@ -127,11 +137,28 @@ int main(int argc,char**argv){
  gx::ios_widen(unrecognised,2560,1440);
  assert(gx::g_ios_canvas_source==16.f/9);
  assert(near(unrecognised.states[unrecognised.cmds[0].state].viewport[0],320));
+ // Reproduce a compensated card browser over a 4:3 gameplay dialog:
+ // text, borders and unrelated icon formats must share THEIR family's map.
+ gx::Batch mixedWindows;
+ auto narrowFont=font;narrowFont.tag=0x40;
+ auto wideFont=font;wideFont.tag=0xc0;
+ auto narrowPanel=panel;narrowPanel.tag=0x40;
+ auto widePanel=panel;widePanel.tag=0xc0;
+ quad(mixedWindows,narrowFont,160,180,24,24);
+ quad(mixedWindows,narrowPanel,100,100,240,200);
+ quad(mixedWindows,wideFont,350,180,18,24);
+ quad(mixedWindows,widePanel,300,100,240,200);
+ widen(mixedWindows,ios_scene::Mode::World);
+ assert(near(mixedWindows.states[mixedWindows.cmds[0].state].viewport[0],240));
+ assert(near(mixedWindows.states[mixedWindows.cmds[1].state].viewport[0],240));
+ assert(near(mixedWindows.states[mixedWindows.cmds[2].state].viewport[0],320));
+ assert(near(mixedWindows.states[mixedWindows.cmds[3].state].viewport[0],320));
+
  // A native card scope includes unrelated icon formats between text draws.
  for(auto mode:{ios_scene::Mode::World,ios_scene::Mode::Menu}){
   gx::Batch card;quad(card,font,80,40,18,24);
-  auto native=font;native.tag=0xc0;quad(card,native,160,180,24,24);
-  auto icon=s;icon.tag=0xc0;icon.bp[0x88]=(5u<<20)|63|(63<<10);
+  auto native=font;native.tag=0x40;quad(card,native,160,180,24,24);
+  auto icon=s;icon.tag=0x40;icon.bp[0x88]=(5u<<20)|63|(63<<10);
   quad(card,icon,300,300,40,40);
   quad(card,native,350,300,24,24);
   widen(card,mode);
@@ -209,5 +236,6 @@ int main(int argc,char**argv){
  // world surface: only orthographic feedback bypasses canvas correction.
  gx::Batch water;auto wet=camera;wet.tex_id[0]=42;wet.tex_is_efb[0]=true;quad(water,wet,1,1,2,2);widen(water,ios_scene::Mode::World,21.f/9);assert(near(water.states[water.cmds[0].state].proj[0],4.f/7));
  if(int result=ios_audit::captures(argc,argv))return result;
- puts("All display owners, shared 2D composition, aspect, clipping, preview/copy boundaries, cameras, logos and films passed");
+ puts("Presentation fixtures and supplied captures passed; visual screen coverage is reported separately");
 }
+

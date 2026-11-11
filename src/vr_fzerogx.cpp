@@ -34,6 +34,7 @@
 #include "runtime.h"
 #include <cstring>
 #include <unordered_set>
+#include <unordered_map>
 #include <mutex>
 #include <string>
 #endif
@@ -48,7 +49,21 @@ static void ios_submit_ui_tag(uint8_t tag){
 extern "C" unsigned fzgx_native_canvas_begin(unsigned owner){
     (void)owner;
     const unsigned previous=ios_ordered_draw_tag;
-    ios_ordered_draw_tag|=0x40;
+    bool generic=owner==0x8184D0A0u || owner==0x8184D10Cu ||
+        owner==0x8184D2ACu || owner==0x8184D4C8u ||
+        owner==0x818403D4u || owner==0x818408E8u;
+    if(!(previous&0x40) || !generic){
+        // Gameplay widgets and the original card/text-window system have
+        // independent canvases, even when both appear in the same frame.
+        bool window=(owner>=0x818B0000u && owner<=0x818C3374u) ||
+            owner==0x8184D0A0u || owner==0x8184D10Cu ||
+            owner==0x8184D2ACu || owner==0x8184D4C8u ||
+            owner==0x81962164u || owner==0x819623A4u ||
+            owner==0x819E29BCu || owner==0x819E2CB8u || owner==0x819E3A94u ||
+            owner==0x819F53B0u || owner==0x81A23D64u ||
+            owner==0x81A2CC64u || owner==0x81A2CEECu || owner==0x81A2D1A0u;
+        ios_ordered_draw_tag=uint8_t((previous&~0xc0u)|0x40|(window?0x80:0));
+    }
 #if defined(FZGX_IOS_INPUT_PROBE)
     static thread_local std::unordered_set<unsigned> entered;
     if(entered.insert(owner).second)fprintf(stderr,"Native UI canvas scope entered: %08x\n",owner);
@@ -90,7 +105,7 @@ extern "C" void fzgx_trace_ui_text(void* opaque){
 }
 #endif
 static std::mutex ios_ui_queue_mutex;
-static std::unordered_set<unsigned> ios_ui_queue;
+static std::unordered_map<unsigned,uint8_t> ios_ui_queue;
 extern "C" void fzgx_ui_queue_record(unsigned address,void* opaque){
 #if defined(FZGX_IOS_INPUT_PROBE)
     if(getenv("FZGX_TRACE_UI_QUEUES") && fzgx::race_read().paused){
@@ -108,17 +123,20 @@ extern "C" void fzgx_ui_queue_record(unsigned address,void* opaque){
     }
 #endif
     std::lock_guard<std::mutex> lock(ios_ui_queue_mutex);
-    if(ios_ordered_draw_tag&0x40)ios_ui_queue.insert(address);
+    if(ios_ordered_draw_tag&0x40)ios_ui_queue[address]=ios_ordered_draw_tag&0xc0;
     else ios_ui_queue.erase(address);
 }
 extern "C" unsigned fzgx_ui_queue_draw(unsigned address){
-    bool native;
-    {std::lock_guard<std::mutex> lock(ios_ui_queue_mutex);native=ios_ui_queue.erase(address)!=0;}
+    uint8_t native=0;
+    {std::lock_guard<std::mutex> lock(ios_ui_queue_mutex);
+        auto it=ios_ui_queue.find(address);
+        if(it!=ios_ui_queue.end()){native=it->second;ios_ui_queue.erase(it);}
+    }
 #if defined(FZGX_IOS_INPUT_PROBE)
     if(native){static unsigned reported=0;if(reported++<3)fprintf(stderr,"Native queued UI consumed: %08x\n",address);}
 #endif
     const unsigned previous=ios_ordered_draw_tag;
-    ios_ordered_draw_tag=uint8_t((previous&~0x40u)|(native?0x40u:0u));
+    ios_ordered_draw_tag=uint8_t((previous&~0xc0u)|native);
     if(ios_ordered_draw_tag!=previous)ios_submit_ui_tag(ios_ordered_draw_tag);
     return previous;
 }

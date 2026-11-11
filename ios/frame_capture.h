@@ -24,7 +24,7 @@ inline void observe(const gx::Batch& b,unsigned frame,unsigned modules,int phase
     if(!capture)return;
     char path[128];snprintf(path,sizeof path,"frame-%u.capture",frame);
     FILE* f=fopen(path,"wb");if(!f)std::abort();
-    uint32_t header[]={0x36585A46,1,sizeof(gx::Cmd),sizeof(gx::GpuVertex),sizeof(gx::PixelState),frame,modules,uint32_t(phase)};
+    uint32_t header[]={0x36585A46,2,sizeof(gx::Cmd),sizeof(gx::GpuVertex),sizeof(gx::PixelState),frame,modules,uint32_t(phase)};
     fwrite(header,sizeof header,1,f);
     vector(f,b.cmds);vector(f,b.verts);vector(f,b.packed);vector(f,b.indices);vector(f,b.states);vector(f,b.mtxs);
     uint64_t n=live.size();fwrite(&n,8,1,f);
@@ -33,4 +33,5 @@ inline void observe(const gx::Batch& b,unsigned frame,unsigned modules,int phase
     fclose(f);fprintf(stderr,"Private renderer capture: frame=%u modules=%u phase=%d textures=%zu\n",frame,modules,phase,live.size());
 }
 }
+
 

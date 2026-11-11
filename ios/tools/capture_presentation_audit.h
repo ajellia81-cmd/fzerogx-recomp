@@ -5,7 +5,7 @@
 namespace ios_audit {
 template<class T> std::vector<T> read(std::ifstream& in){uint64_t n=0;in.read((char*)&n,8);assert(in && n<100000000);std::vector<T> v(n);in.read((char*)v.data(),sizeof(T)*n);assert(in);return v;}
 inline int captures(int argc,char**argv){
- unsigned nativeCanvas=0;unsigned frames=0;unsigned long long draws=0,ortho=0,changed=0,protectedDraws=0;std::map<unsigned,unsigned> owners,formats;
+ unsigned nativeGlyphs=0;unsigned nativeCanvas=0;unsigned frames=0;unsigned long long draws=0,ortho=0,changed=0,protectedDraws=0;std::map<unsigned,unsigned> owners,formats;
  for(int arg=1;arg<argc;++arg){
   std::vector<std::filesystem::path> files;
   for(const auto& entry:std::filesystem::recursive_directory_iterator(argv[arg]))
@@ -17,6 +17,7 @@ inline int captures(int argc,char**argv){
    return frameNumber(lhs)<frameNumber(rhs);
   });
   gx::g_ios_canvas_source=4.f/3;
+  gx::g_ios_ui_canvas_source={4.f/3,4.f/3};
   gx::g_ios_world_wide_canvas=false;
   bool havePrevious=false;
   ios_scene::Mode previousMode=ios_scene::Mode::Menu;
@@ -24,11 +25,12 @@ inline int captures(int argc,char**argv){
   float previousAspect=0;
   std::filesystem::path previousFile;
   for(const auto& file:files){
-  std::ifstream in(file,std::ios::binary);uint32_t h[8];in.read((char*)h,sizeof h);assert(in && h[0]==0x36585A46 && h[1]==1 && h[2]==sizeof(gx::Cmd) && h[3]==sizeof(gx::GpuVertex) && h[4]==sizeof(gx::PixelState));
+  std::ifstream in(file,std::ios::binary);uint32_t h[8];in.read((char*)h,sizeof h);assert(in && h[0]==0x36585A46 && (h[1]==1 || h[1]==2) && h[2]==sizeof(gx::Cmd) && h[3]==sizeof(gx::GpuVertex) && h[4]==sizeof(gx::PixelState));
   gx::Batch b;b.cmds=read<gx::Cmd>(in);b.verts=read<gx::GpuVertex>(in);b.packed=read<uint8_t>(in);b.indices=read<uint32_t>(in);b.states=read<gx::PixelState>(in);b.mtxs=read<float>(in);
   uint64_t n=0;in.read((char*)&n,8);assert(in && n<100000);
   for(uint64_t i=0;i<n;++i){uint32_t meta[4];uint64_t hash;in.read((char*)meta,sizeof meta);in.read((char*)&hash,8);assert(in);auto t=std::make_shared<gx::TexData>();t->id=meta[0];t->width=meta[1];t->height=meta[2];t->hash=hash;b.new_textures.push_back(t);for(unsigned l=0;l<meta[3];++l){uint64_t pixels=0;in.read((char*)&pixels,8);assert(in && pixels<100000000);in.seekg(pixels*4,std::ios::cur);assert(in);}}
-  for(auto& s:b.states)s.tag=ios_context::encode(h[6],int32_t(h[7]),bool(s.tag&0x20))|(s.tag&0x40);
+  for(auto& s:b.states){bool live=h[1]==1?bool(s.tag&0x20):ios_context::decode(s.tag).live;
+   s.tag=ios_context::encode(h[6],int32_t(h[7]),live)|(s.tag&(h[1]==1?0x40:0xc0));}
   const auto commands=b.cmds;const auto states=b.states;const auto verts=b.verts;const auto packed=b.packed;const auto matrices=b.mtxs;
   gx::g_fullscreen_tex.clear();gx::g_ios_native_copies.clear();
   auto context=ios_context::read(b);auto mode=ios_scene::classify(b,context.live,h[6],int32_t(h[7]));
@@ -49,6 +51,18 @@ inline int captures(int argc,char**argv){
     if(!protectedPath && ios_canvas::edge(b,old,before)==ios_canvas::Edge::None){
      // A native UI element may move only through the shared viewport map:
      // never through individually edited geometry/UVs or per-word anchors.
+     if(before.tag&0x40){
+      float glyphAspect=ios_ui::glyph_canvas(b,old,before);
+      if(glyphAspect && std::fabs(before.viewport[0])>1e-5f){
+       float target=mode==ios_scene::Mode::World?2868.f/1320:16.f/9;
+       float ratio=after.viewport[0]/before.viewport[0];
+       if(std::fabs(ratio-glyphAspect/target)>.001f){
+        fprintf(stderr,"Native glyph aspect mismatch: %s family=%u actual=%f expected=%f\n",file.string().c_str(),unsigned(bool(before.tag&0x80)),ratio,glyphAspect/target);
+        return 4;
+       }
+       ++nativeGlyphs;
+      }
+     }
      assert(!memcmp(before.proj,after.proj,sizeof before.proj));
      assert(before.viewport[1]==after.viewport[1] && before.viewport[4]==after.viewport[4]);
      assert(((after.bp[0x20]>>12)&2047)<=((after.bp[0x21]>>12)&2047));
@@ -71,10 +85,11 @@ inline int captures(int argc,char**argv){
   }
  }
  fprintf(stderr,"Presentation audit: frames=%u draws=%llu orthographic=%llu corrected_ortho=%llu protected=%llu\n",frames,draws,ortho,changed,protectedDraws);
- fprintf(stderr,"Native UI canvas draws=%u\n",nativeCanvas);
+ fprintf(stderr,"Native UI canvas draws=%u; physically verified native glyphs=%u\n",nativeCanvas,nativeGlyphs);
  for(auto [m,n]:owners)fprintf(stderr,"Presentation owner mask=%u frames=%u\n",m,n);
  for(auto [f,n]:formats)fprintf(stderr,"Presentation sampled format=%u draws=%u\n",f,n);
  if(getenv("FZGX_REQUIRE_NATIVE_UI") && !nativeCanvas){fprintf(stderr,"No actual native UI draws captured; do not deliver this candidate.\n");return 3;}
  return 0;
 }
 }
+

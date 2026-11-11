@@ -1,2 +1,2 @@
-Build 31: native ownership from every original text-window bound collector, plus actual card dialog/progress/file-list compositors. Run complete static UI call inventory before packaging.
+Build 31 revised candidate: independently infer original 4:3 gameplay-window and already-compensated 16:9 card canvases. Reject native glyph physical aspect mismatches; preserve per-family queue metadata and scene/live context.
 routes=gp-pause,boot-card-empty,replay-card,options-memory,records,customize,shop,story,profile,options-screen
