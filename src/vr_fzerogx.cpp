@@ -102,6 +102,18 @@ void guest_frame(uint32_t frame) {
         if(!linked)continue;
         modes|=ios_guest::module_mask(m.name);
     }
+#if defined(FZGX_IOS_INPUT_PROBE)
+    const uint32_t mainBase=g_rel_base[6];
+    if(mainBase){
+        const unsigned selection=LD16(mainBase+0x8B3A0u);
+        const unsigned cursor=LD16(mainBase+0x8B42Cu);
+        static unsigned oldSelection=~0u,oldCursor=~0u;
+        if(selection!=oldSelection || cursor!=oldCursor){
+            fprintf(stderr,"Guest selection state: frame=%u selection=%u cursor=%u modules=%u\n",frame,selection,cursor,modes);
+            oldSelection=selection;oldCursor=cursor;
+        }
+    }
+#endif
     ios_guest::modules.store(modes,std::memory_order_relaxed);
     ios_guest::phase.store(race.linked?race.state:-1,std::memory_order_relaxed);
 #endif

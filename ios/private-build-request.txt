@@ -1,2 +1,2 @@
-Build25: integrate Records classification and explicit common memory-card canvas scope.
-routes=boot-card,records,records-right,records-sort,records-pilot,records-clear,records-page,replay,replay-card,options-memory,practice-pause,gp-pause,story-play
+Build26: validate common card tags with original stick navigation and explicit menu-state diagnostics; integrate Records fallback and card canvas fix.
+routes=boot-card-empty,boot-card,records,replay-card,options-memory,practice-pause,gp-pause,story-play

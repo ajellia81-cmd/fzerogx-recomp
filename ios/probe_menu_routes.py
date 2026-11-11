@@ -87,10 +87,15 @@ def run_route(item):
         saves = directory / 'saves'
         saves.mkdir(exist_ok=True)
         shutil.copyfile(seed, saves / 'memcard_a.raw')
+    # The original menu reads stick navigation; include it with each intended
+    # direction instead of assuming D-pad presses reached the target screen.
+    navigation=boot+events
+    for direction,stick in (("LEFT","SL"),("RIGHT","SR"),("UP","SU"),("DOWN","SD")):
+        navigation=navigation.replace(":"+direction+":",":"+direction+"+"+stick+":")
     env=os.environ.copy()
-    env.update(FZGX_PRIVATE_CAPTURE="1",FZGX_MENU_PROBE="1",FZGX_CAPTURE_METADATA="1",FZGX_PROBE_END_FRAME="6500",FZGX_CAPTURE_FRAMES="2300,2500,2700,2801,2810,2850,2900,3100,3300,3500,3700,3900,4000,4001,4002,4003,4200,4500,4800,5000,5200,5400",GCN_INPUT=boot+events)
+    env.update(FZGX_PRIVATE_CAPTURE="1",FZGX_MENU_PROBE="1",FZGX_CAPTURE_METADATA="1",FZGX_PROBE_END_FRAME="6500",FZGX_CAPTURE_FRAMES="2300,2500,2700,2801,2810,2850,2900,3100,3300,3500,3700,3900,4000,4001,4002,4003,4200,4500,4800,5000,5200,5400",GCN_INPUT=navigation)
     if name.startswith("boot-card"):
-        env["FZGX_CAPTURE_FRAMES"]=",".join(map(str,range(30,2001,30)))
+        env["FZGX_CAPTURE_FRAMES"]=",".join(map(str,range(30,2001,30)))+","+env["FZGX_CAPTURE_FRAMES"]
     if name=="profile":
         early=",".join(map(str,[3020,3040,3050,3060,3065,3070,3080,3090,3100,3110,3120,3130,3140,3150,3160,3180,3200,3220,3240]))
         env["FZGX_CAPTURE_FRAMES"]=early+","+env["FZGX_CAPTURE_FRAMES"]
