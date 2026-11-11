@@ -13,7 +13,7 @@ targets=("818C24A4","818403D4","818408E8","8182D038",
          "819E29BC","819E2CB8","819E3A94",
          "81962164","819623A4","81A23D64","81A2CC64","81A2CEEC",
          "8184D2AC","8184D4C8","8184D10C","819F53B0","81A2D1A0")
-declarations="""/* FZGX_NATIVE_CANVAS_SCOPE_V5 */
+declarations="""/* FZGX_NATIVE_CANVAS_SCOPE_V6 */
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -22,6 +22,7 @@ void fzgx_native_canvas_end(unsigned previous);
 void fzgx_ui_queue_record(unsigned address, void* cpu);
 unsigned fzgx_ui_queue_draw(unsigned address);
 unsigned fzgx_ui_sprite_begin(void);
+unsigned fzgx_ui_immediate_begin(void);
 #if defined(FZGX_IOS_INPUT_PROBE)
 void fzgx_trace_ui_text(void* cpu);
 #endif
@@ -30,6 +31,12 @@ void fzgx_trace_ui_text(void* cpu);
 #endif
 """
 queue_hooks={
+    "8184AC20": [
+        ("void fn_8184AC20(CPU* c) {", "void fn_8184AC20(CPU* c) {\n    unsigned directTag=fzgx_ui_immediate_begin();"),
+        ("RET();", "fzgx_native_canvas_end(directTag); RET();")],
+    "8184E724": [
+        ("void fn_8184E724(CPU* c) {", "void fn_8184E724(CPU* c) {\n    unsigned directTag=fzgx_ui_immediate_begin();"),
+        ("RET();", "fzgx_native_canvas_end(directTag); RET();")],
     "8184A0D8": [("void fn_8184A0D8(CPU* c) {", "void fn_8184A0D8(CPU* c) {\n#if defined(FZGX_IOS_INPUT_PROBE)\n    fzgx_trace_ui_text(c);\n#endif")],
     "8184F734": [
         ("void fn_8184F734(CPU* c) {", "void fn_8184F734(CPU* c) {\n    unsigned spriteTag=fzgx_ui_sprite_begin();"),
@@ -49,7 +56,7 @@ found={name:0 for name in (*targets,*queue_hooks)}
 for path in root.glob("*.c"):
     text=path.read_text()
     changed=False
-    if "/* FZGX_NATIVE_CANVAS_SCOPE_V5 */" in text:
+    if "/* FZGX_NATIVE_CANVAS_SCOPE_V6 */" in text:
         for name in targets:
             if "void fn_"+name+"(CPU* c) {" in text:
                 if text.count("fzgx_native_canvas_begin(0x"+name+"u)")!=1:
@@ -58,7 +65,7 @@ for path in root.glob("*.c"):
         for name in queue_hooks:
             if "void fn_"+name+"(CPU* c) {" in text:found[name]+=1
         continue
-    if any("/* FZGX_NATIVE_CANVAS_SCOPE"+v+" */" in text for v in ("", "_V2", "_V3", "_V4")):
+    if any("/* FZGX_NATIVE_CANVAS_SCOPE"+v+" */" in text for v in ("", "_V2", "_V3", "_V4", "_V5")):
         raise SystemExit("Regenerate original C before upgrading native UI scopes")
     for name in targets:
         signature="void fn_"+name+"(CPU* c) {"
@@ -91,4 +98,5 @@ for path in root.glob("*.c"):
     if changed:path.write_text(declarations+text)
 if any(count!=1 for count in found.values()):raise SystemExit("Pinned UI inventory changed: "+str(found))
 print("Applied ordered native UI scopes:",len(targets))
+
 

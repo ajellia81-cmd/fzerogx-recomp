@@ -76,6 +76,9 @@ for direction in ("RIGHT","DOWN"):
   nav+=",3500:A:5,3900:RIGHT:5,4100:RIGHT:5,4400:A:5"
   routes[f"shop-{direction.lower()}-{count}"]=nav
 
+routes["shop-items"]="2200:DOWN:5,2400:DOWN:5,2600:A:5,3000:RIGHT:5,3150:RIGHT:5,3500:A:5,3900:DOWN:5,4100:DOWN:5,4400:A:5"
+routes["shop-items-right"]="2200:DOWN:5,2400:DOWN:5,2600:A:5,3000:RIGHT:5,3150:RIGHT:5,3500:A:5,3900:DOWN:5,4100:DOWN:5,4400:A:5,4900:RIGHT:5,5100:RIGHT:5"
+
 selected=os.environ.get("FZGX_MENU_ROUTES")
 if not selected:
     request=root/"ios/private-build-request.txt"
@@ -131,6 +134,7 @@ def run_route(item):
 
 with ThreadPoolExecutor(max_workers=2) as pool:
     list(pool.map(run_route,routes.items()))
+
 
 
 
