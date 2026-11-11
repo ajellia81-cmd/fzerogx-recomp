@@ -10,7 +10,7 @@ jobs:
     runs-on: macos-15-intel
     timeout-minutes: 60
     env:
-      FZGX_MENU_ROUTES: boot-card-empty,boot-card,options-memory,replay-card
+      FZGX_MENU_ROUTES: records,replay-card,options-memory,gp-pause
       DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
     steps:
       - uses: actions/checkout@v4
@@ -32,7 +32,20 @@ jobs:
       - name: Audit captured canvas tags
         env:
           FZGX_CAPTURE_AUDIT: "1"
+          FZGX_REQUIRE_NATIVE_UI: "1"
         run: python3 ios/tests/check_policy.py > build-private-logs/presentation-audit.txt 2>&1
+      - name: Encrypt compact route logs separately
+        if: always()
+        run: |
+          tar -czf menu-route-logs.tar.gz build-private-logs/*.txt
+          openssl cms -encrypt -binary -aes256 -in menu-route-logs.tar.gz -out FZeroGX-menu-route-logs.enc -outform DER ios/delivery-public.pem
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: FZeroGX-encrypted-menu-route-logs
+          path: FZeroGX-menu-route-logs.enc
+          if-no-files-found: error
+          retention-days: 1
       - name: Encrypt diagnostics
         if: always()
         run: |

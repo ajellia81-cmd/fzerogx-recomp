@@ -10,7 +10,7 @@ import subprocess
 from concurrent.futures import ThreadPoolExecutor
 
 root=Path.cwd()
-boot="500:A:5,"
+boot="1440:START:5,"
 routes={
     "practice":"2200:DOWN:5,2400:A:5,2600:A:5,2800:A:5,3000:A:5,3200:A:5,3400:A:5,3600:A:5,3800:A:1200",
     "timeattack":"2200:RIGHT:5,2400:RIGHT:5,2600:A:5,2800:A:5,3000:A:5,3200:A:5,3400:A:5,3600:A:5,3800:A:1200",

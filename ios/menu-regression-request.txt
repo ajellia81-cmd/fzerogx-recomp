@@ -1,1 +1,1 @@
-Trace actual common-card scope entries and rendered draw tags before accepting Build25. Include empty-card boot and owner-save routes.
+Validate Records, Replay and Options from START-only entry into the main selector, with the known GP pause control. Production source is identical to Build29.
