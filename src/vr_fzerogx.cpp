@@ -32,16 +32,18 @@
 #include "../ios/scene_context.h"
 #include "recomp.h"
 #include <cstring>
+#include <unordered_set>
 #endif
 
 #if defined(FZGX_IOS_FRONTEND) || defined(FZGX_IOS_INPUT_PROBE)
 static thread_local uint8_t ios_ordered_draw_tag=0;
-extern "C" unsigned fzgx_native_canvas_begin(){
+extern "C" unsigned fzgx_native_canvas_begin(unsigned owner){
+    (void)owner;
     const unsigned previous=ios_ordered_draw_tag;
     ios_ordered_draw_tag|=0x40;
 #if defined(FZGX_IOS_INPUT_PROBE)
-    static unsigned entries=0;
-    if(++entries<=5)fprintf(stderr,"Native card canvas scope entered: %u\n",entries);
+    static thread_local std::unordered_set<unsigned> entered;
+    if(entered.insert(owner).second)fprintf(stderr,"Native UI canvas scope entered: %08x\n",owner);
 #endif
     gx::set_draw_tag(ios_ordered_draw_tag);
     return previous;

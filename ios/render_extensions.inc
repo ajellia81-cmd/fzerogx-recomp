@@ -66,17 +66,8 @@ void ios_widen(Batch& b,int width,int height){
     const float target=mode==ios_scene::Mode::World?float(width)/height:16.f/9;
     note_fullscreen_copies(b);std::vector<uint8_t> skip;mark_offscreen_passes(b,skip);
     ios_canvas::native_passes(b,skip,g_ios_native_copies);
-    std::vector<uint8_t> modal;
-    if(mode==ios_scene::Mode::World){
-        std::unordered_map<uint32_t,uint64_t> incoming;
-        for(const auto& texture:b.new_textures)incoming[texture->id]=texture->hash;
-        modal=ios_ui::modal_draws(b,skip,[&](uint32_t id){
-            auto it=incoming.find(id);
-            return it==incoming.end()?render_texture_hash(id):it->second;
-        });
-    }
-    modal.resize(b.cmds.size());
-    // The original memory-card draw function owns its entire UI, including
+    std::vector<uint8_t> modal(b.cmds.size());
+    // Original shared modal draw functions own their complete UI, including
     // variable-width text, embedded buttons, progress bars and borders.
     for(size_t i=0;i<b.cmds.size();++i){
         const auto& command=b.cmds[i];

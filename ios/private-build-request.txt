@@ -1,2 +1,2 @@
-Build26: validate common card tags with original stick navigation and explicit menu-state diagnostics; integrate Records fallback and card canvas fix.
-routes=boot-card-empty,boot-card,records,replay-card,options-memory,practice-pause,gp-pause,story-play
+Build27: apply complete original shared UI function scopes; remove texture-adjacency modal guessing; retain Records classification fix.
+routes=boot-card-empty,records,replay-card,options-memory,practice-pause,gp-pause
