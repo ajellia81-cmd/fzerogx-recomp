@@ -242,10 +242,10 @@ int main(int argc,char**argv){
  widen(previewFull,ios_scene::Mode::Menu);assert(previewFull.cmds[0].state==0);assert(previewFull.cmds[2].state!=1);
  assert(near(previewFull.states[previewFull.cmds[2].state].viewport[0],240));assert(near(sx(previewFull,2,440),410));
  assert(!memcmp(&previewFull.cmds[1],&pc,sizeof pc));
- // If the same target is also the final screen, its producer is corrected
+ // If the same target is also the final world screen, its producer is corrected
  // once. Translated consumers conjugate placement, preserving picture scale.
  gx::Batch post;quad(post,camera,1,1,2,2);post.cmds.push_back(pc);quad(post,pr,0,0,640,480);quad(post,pr,120,0,640,480);post.cmds.push_back(xfb);post.cmds.push_back(present);
- widen(post,ios_scene::Mode::Menu);assert(post.cmds[0].state!=0);assert(post.cmds[2].state==1);
+ widen(post,ios_scene::Mode::World);assert(post.cmds[0].state!=0);assert(post.cmds[2].state==1);
  assert(near(post.states[post.cmds[3].state].viewport[0],320));assert(near(sx(post,3,440),410));
  // Real VS input uses two narrow world viewports but a shared full-screen
  // HUD state. Expand each camera; center each connected HUD group in its own
