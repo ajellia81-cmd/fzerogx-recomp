@@ -1,2 +1,2 @@
-Build27: apply complete original shared UI function scopes; remove texture-adjacency modal guessing; retain Records classification fix.
-routes=boot-card-empty,records,replay-card,options-memory,practice-pause,gp-pause
+Build28: exact native modal FIFO boundaries, full eight shared UI scopes and Records fallback. Remove automatic GP entry from the probe boot sequence.
+routes=boot-card-empty,records,replay-card,options-memory,gp-pause

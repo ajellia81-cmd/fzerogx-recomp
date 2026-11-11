@@ -37,6 +37,13 @@
 
 #if defined(FZGX_IOS_FRONTEND) || defined(FZGX_IOS_INPUT_PROBE)
 static thread_local uint8_t ios_ordered_draw_tag=0;
+static void ios_submit_ui_tag(uint8_t tag){
+    // Like GXFlush, send one full line of legal NOP bytes. The gather pipe
+    // may retain earlier draw bytes; set_draw_tag alone only orders bytes
+    // already handed to the front end. Never drain a partial FIFO line.
+    for(unsigned i=0;i<8;++i)gp_write32(0);
+    gx::set_draw_tag(tag);
+}
 extern "C" unsigned fzgx_native_canvas_begin(unsigned owner){
     (void)owner;
     const unsigned previous=ios_ordered_draw_tag;
@@ -45,12 +52,12 @@ extern "C" unsigned fzgx_native_canvas_begin(unsigned owner){
     static thread_local std::unordered_set<unsigned> entered;
     if(entered.insert(owner).second)fprintf(stderr,"Native UI canvas scope entered: %08x\n",owner);
 #endif
-    gx::set_draw_tag(ios_ordered_draw_tag);
+    ios_submit_ui_tag(ios_ordered_draw_tag);
     return previous;
 }
 extern "C" void fzgx_native_canvas_end(unsigned previous){
     ios_ordered_draw_tag=uint8_t(previous);
-    gx::set_draw_tag(ios_ordered_draw_tag);
+    ios_submit_ui_tag(ios_ordered_draw_tag);
 }
 #endif
 
