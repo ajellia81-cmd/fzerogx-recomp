@@ -1,1 +1,1 @@
-Trace native UI tags at the shared XF command arrival and pixel-state snapshot boundaries; keep strict capture gate.
+Distinguish direct FIFO and recorded GPU command paths at actual native UI tags; trace each presentation tag separately.
