@@ -154,6 +154,10 @@ void ios_widen(Batch& b,int width,int height){
         }else if(!st.proj[6] && split.active() && st.view_space){
             ios_canvas::compose_at(st,ratio,frame,anchor);
         }else if(!st.proj[6] && ios_scene::full_view(st)){
+            // Menu is the guest's authored 16:9 composition. Its finite
+            // backdrop and decorative camera groups must keep their original
+            // framing; widening these exposes the edges of their geometry.
+            if(mode==ios_scene::Mode::Menu)continue;
             // Expand real camera FOV rather than stretching its image. This
             // is equivalent to the 2D affine transform inside the native frame,
             // but admits world geometry beyond the old left/right edges.

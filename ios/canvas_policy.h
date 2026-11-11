@@ -9,15 +9,25 @@ namespace ios_canvas {
 // bounding box: borders, gauges, font shadows and EFB previews must stay joined.
 inline float source_aspect(const gx::Batch& b,const std::vector<uint8_t>& skip,float fallback=4.f/3){
     unsigned normal=0,wide=0;
+    bool normalCamera=false,wideCamera=false;
     for(size_t i=0;i<b.cmds.size();++i){const auto& c=b.cmds[i];
         if(c.type!=gx::CmdType::Draw || !c.count || c.state>=b.states.size() || (i<skip.size()&&skip[i]))continue;
         const auto& s=b.states[c.state];if(!ios_scene::full_view(s))continue;
+        if(!s.proj[6] && !s.view_space && std::fabs(s.proj[0])>1e-7f){
+            const float camera=std::fabs(s.proj[2]/s.proj[0]);
+            normalCamera|=std::fabs(camera-4.f/3)<.02f;
+            wideCamera|=std::fabs(camera-16.f/9)<.02f;
+        }
         float a=ios_ui::glyph_canvas(b,c,s);
         normal+=a==4.f/3;wide+=a==16.f/9;
     }
-    // Only positive geometric evidence may select an already-compensated
-    // canvas. A frame without ordinary text retains the console's 4:3 canvas.
-    return normal?4.f/3:wide?16.f/9:fallback;
+    // Text is direct evidence of its own canvas. Without ordinary glyphs,
+    // use the guest-authored full-view camera, before device FOV expansion.
+    // Title/attract captions and other bitmap-only world overlays are already
+    // compensated for that display canvas. A 4:3 finite menu backdrop can
+    // coexist with a 16:9 foreground camera, so the latter wins camera ties.
+    // Native/offscreen and other ownership families are excluded by skip.
+    return normal?4.f/3:wide?16.f/9:wideCamera?16.f/9:normalCamera?4.f/3:fallback;
 }
 struct Frame {float width=640,height=480;};
 inline Frame frame(const gx::Batch& b){

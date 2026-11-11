@@ -1,0 +1,9 @@
+# Build 32: bitmap-only canvas evidence and authored menu cameras
+
+Opening/attract bitmap captions were already 16:9-compensated by the guest but retained the port's default 4:3 canvas because they contain no ordinary glyphs. The source-canvas policy now uses positive, guest-authored full-view perspective aspect when ordinary glyph evidence is absent. The original 4:3/16:9 projection is inspected before device FOV correction, with native window families and offscreen passes excluded. Ordinary glyph evidence keeps priority. Mixed menu camera groups prefer a positively observed 16:9 foreground over the original 4:3 finite backdrop. Frames with neither kind of evidence retain their prior fallback.
+
+Menu output has a fixed authored 16:9 composition. Its full-view perspective camera groups now retain their original projection instead of inheriting real-world FOV expansion. This keeps finite backdrop/decorative geometry covering the frame. World and split-screen camera expansion, original window families and native preview targets retain their existing paths.
+
+New asset-free fixtures check bitmap-only 4:3 and 16:9 source compositions at several target aspects, excluded ownership groups, mixed authored cameras, and finite background coverage. Private captured-frame oracles assert the two reported attract-caption transforms using their known original-art hashes (test-only) and assert that menu camera projections stay unchanged. The device workflow requires actual captured attract captions as well as native window glyphs.
+
+Verification is performed by GitHub Actions macOS. The full-game function/call-path inventory is structural; captured owners and device visual confirmation are reported separately. Save Replay remains covered by its existing independent window-family and real-card-path checks. No arbitrary bitmap aspect is inferred from texture dimensions in production.

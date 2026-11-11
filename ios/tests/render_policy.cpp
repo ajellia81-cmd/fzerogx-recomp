@@ -79,6 +79,38 @@ int main(int argc,char**argv){
   float dy=std::fabs(st.viewport[1]*st.proj[2]*wh.second)/480;
   assert(near(dx/dy*effective,wh.first/wh.second));
  }
+ // Bitmap-only compositions inherit the guest camera's display canvas,
+ // independently of an earlier menu or the device output aspect. No font
+ // vote and no texture-size production heuristic is involved.
+ for(float source:{4.f/3,16.f/9})for(float target:{16.f/9,2868.f/1320,21.f/9}){
+  gx::Batch title;auto cam=s;cam.proj[6]=0;cam.proj[0]=1;cam.proj[1]=0;cam.proj[2]=source;cam.proj[3]=0;
+  auto world=quad(title,cam,-2,-2,4,4);for(unsigned j=0;j<4;++j)title.verts[world.vfirst+j].pos[2]=-5;
+  auto image=s;image.bp[0x88]=(1u<<20)|323|(95<<10);
+  const float width=324*(4.f/3)/source;quad(title,image,320-width/2,362,width,24);
+  assert(near(ios_canvas::source_aspect(title,{},source==4.f/3?16.f/9:4.f/3),source));
+  widen(title,ios_scene::Mode::World,target);
+  const auto& after=title.states[title.cmds[1].state];
+  const float actualTarget=float(int(target*1440+.5f))/1440;
+  assert(near(after.viewport[0]/image.viewport[0],source/actualTarget));
+  assert(near((after.viewport[0]*after.proj[0]*width/640)/(std::fabs(after.viewport[1]*after.proj[2]*24)/480)*actualTarget,324.f/24));
+ }
+ // The finite 4:3 menu backdrop covers the authored frame and stays covered.
+ // A second 16:9 decoration camera must not change that framing. Real world
+ // cameras still expand to the drawable, and native UI families do not borrow
+ // a camera vote from an excluded owner.
+ {
+  gx::Batch menu;auto cam=s;cam.proj[6]=0;cam.proj[0]=1.4407365f;cam.proj[1]=0;cam.proj[2]=1.9209821f;cam.proj[3]=0;
+  auto bg=quad(menu,cam,-1.193f/cam.proj[0],-1/cam.proj[2],2*1.193f/cam.proj[0],2/cam.proj[2]);
+  for(unsigned j=0;j<4;++j)menu.verts[bg.vfirst+j].pos[2]=-1;
+  auto decoration=cam;decoration.proj[2]=decoration.proj[0]*16.f/9;quad(menu,decoration,-1,-1,2,2);
+  assert(near(ios_canvas::source_aspect(menu,{}),16.f/9));
+  assert(near(ios_canvas::source_aspect(menu,{0,1},16.f/9),4.f/3));
+  assert(near(ios_canvas::source_aspect(menu,{1,1},4.f/3),4.f/3));
+  widen(menu,ios_scene::Mode::Menu);
+  assert(!memcmp(cam.proj,menu.states[menu.cmds[0].state].proj,sizeof cam.proj));
+  float box[4];assert(ios_scene::draw_bounds(menu,menu.cmds[0],menu.states[menu.cmds[0].state],box));
+  assert(box[0]<-1 && box[2]>1);
+ }
  // Composite continuity, across different materials and texture-sorted order:
  // metal border meets panel, gauge marker meets gauge, letters keep baseline
  // and run spacing. No per-letter or per-texture translation is permitted.

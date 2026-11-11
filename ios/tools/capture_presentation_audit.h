@@ -5,6 +5,7 @@
 namespace ios_audit {
 template<class T> std::vector<T> read(std::ifstream& in){uint64_t n=0;in.read((char*)&n,8);assert(in && n<100000000);std::vector<T> v(n);in.read((char*)v.data(),sizeof(T)*n);assert(in);return v;}
 inline int captures(int argc,char**argv){
+ unsigned attractBitmaps=0,menuCameras=0;
  unsigned nativeGlyphs=0;std::map<unsigned,unsigned> nativeAspects;unsigned nativeCanvas=0;unsigned frames=0;unsigned long long draws=0,ortho=0,changed=0,protectedDraws=0;std::map<unsigned,unsigned> owners,formats;
  for(int arg=1;arg<argc;++arg){
   std::vector<std::filesystem::path> files;
@@ -44,8 +45,26 @@ inline int captures(int argc,char**argv){
    assert(c.count==old.count && c.vfirst==old.vfirst && c.vcount==old.vcount && c.state<b.states.size());if(!c.count || old.state>=states.size())continue;
    ++draws;const auto& before=states[old.state];nativeCanvas+=bool(before.tag&0x40);const auto& after=b.states[c.state];
    bool protectedPath=skip[i] || mode==ios_scene::Mode::Flat || mode==ios_scene::Mode::Movie || ios_scene::movie_state(before) || (before.proj[6] && ios_canvas::feedback(before,[&](uint32_t id){return gx::is_fullscreen_tex(id) && !gx::g_ios_native_copies.count(id) && ios_canvas::screen_copy(b,old,before,id);})) || ios_canvas::solid_cover(b,old,before) || ios_canvas::screen_effect(b,old,before) || ios_canvas::edge(b,old,before)==ios_canvas::Edge::Horizontal;
+   if(mode==ios_scene::Mode::Menu && !before.proj[6] && ios_scene::full_view(before)){
+    assert(!memcmp(before.proj,after.proj,sizeof before.proj));++menuCameras;
+   }
    if(protectedPath){assert(!memcmp(&before,&after,sizeof before));++protectedDraws;}
    if(before.proj[6]){
+    if(!protectedPath && mode==ios_scene::Mode::World && (h[6]&ios_guest::Title)){
+     for(unsigned m=0,used=ios_scene::sampled_maps(before);m<8;++m)if(used&(1u<<m)){
+      uint64_t hash=0;for(const auto& t:b.new_textures)if(t->id==before.tex_id[m])hash=t->hash;
+      // Test oracles for the two reported original bitmap captions. Production
+      // canvas selection does not use their hashes or image dimensions.
+      if(hash==0x67df86918c39f581ull || hash==0x1535135412f8ed1bull){
+       const float actual=after.viewport[0]/before.viewport[0];
+       const float expected=(16.f/9)/(2868.f/1320);
+       if(std::fabs(actual-expected)>.001f){
+        fprintf(stderr,"Attract bitmap aspect mismatch: %s actual=%f expected=%f\n",file.string().c_str(),actual,expected);return 4;
+       }
+       ++attractBitmaps;
+      }
+     }
+    }
     ++ortho;changed+=c.state!=old.state;
     for(unsigned m=0,used=ios_scene::sampled_maps(before);m<8;++m)if((used&(1u<<m)) && before.tex_id[m]){unsigned t=before.bp[0x88+(m&3)+(m>=4?32:0)];++formats[(t>>20)&15];}
     if(!protectedPath && ios_canvas::edge(b,old,before)==ios_canvas::Edge::None){
@@ -89,6 +108,8 @@ inline int captures(int argc,char**argv){
  for(auto [m,n]:owners)fprintf(stderr,"Presentation owner mask=%u frames=%u\n",m,n);
  for(auto [f,n]:formats)fprintf(stderr,"Presentation sampled format=%u draws=%u\n",f,n);
  for(auto [key,n]:nativeAspects)fprintf(stderr,"Native glyph family=%u source=%s draws=%u\n",key/2,key%2?"16:9":"4:3",n);
+ fprintf(stderr,"Verified attract bitmap draws=%u; preserved authored menu camera draws=%u\n",attractBitmaps,menuCameras);
+ if(getenv("FZGX_REQUIRE_ATTRACT_BITMAPS") && !attractBitmaps){fprintf(stderr,"No reported attract bitmaps captured.\n");return 3;}
  if(getenv("FZGX_REQUIRE_NATIVE_UI") && (!nativeCanvas || !nativeGlyphs)){fprintf(stderr,"No actual native UI draws captured; do not deliver this candidate.\n");return 3;}
  return 0;
 }

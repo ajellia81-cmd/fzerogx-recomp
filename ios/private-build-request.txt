@@ -1,2 +1,2 @@
-Build 31 final candidate: independent gameplay and card window canvases, complete function/UI API inventory, strict physical glyph aspect checks, capture readers v1/v2.
-routes=gp-pause,boot-card-empty,replay-card,options-memory,records,customize,shop,story,profile,options-screen
+Build 32: guest camera evidence for bitmap-only UI canvases; preserve authored menu camera framing; strict attract-caption and menu-camera capture checks, retain Save Replay window families.
+routes=attract,returnlogo,gp-pause,boot-card-empty,replay-card,options-memory,records,customize,shop,story,profile,options-screen
