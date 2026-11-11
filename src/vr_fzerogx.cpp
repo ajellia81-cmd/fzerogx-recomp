@@ -31,6 +31,7 @@
 #include "../ios/guest_state.h"
 #include "../ios/scene_context.h"
 #include "recomp.h"
+#include "runtime.h"
 #include <cstring>
 #include <unordered_set>
 #endif

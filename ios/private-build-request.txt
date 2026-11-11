@@ -1,2 +1,2 @@
-Build28: exact native modal FIFO boundaries, full eight shared UI scopes and Records fallback. Remove automatic GP entry from the probe boot sequence.
+Build28 retry: include the runtime declaration for the legal FIFO flush helper. Same integrated presentation fixes and corrected probe boot.
 routes=boot-card-empty,records,replay-card,options-memory,gp-pause
