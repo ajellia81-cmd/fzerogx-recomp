@@ -68,6 +68,14 @@ for pilot in range(30):
     events+=("," if pilot else "")+"4800:A:5,5200:X:5"
     routes[f"pilot-index-{pilot:02}"]=events
 
+# Build 33: independently probe each Customize branch and both Shop axes.
+for direction in ("RIGHT","DOWN"):
+ for count in (1,2):
+  nav="2200:DOWN:5,2400:DOWN:5,2600:A:5,"
+  nav+=",".join(f"{3000+j*150}:{direction}:5" for j in range(count))
+  nav+=",3500:A:5,3900:RIGHT:5,4100:RIGHT:5,4400:A:5"
+  routes[f"shop-{direction.lower()}-{count}"]=nav
+
 selected=os.environ.get("FZGX_MENU_ROUTES")
 if not selected:
     request=root/"ios/private-build-request.txt"
@@ -112,7 +120,7 @@ def run_route(item):
     if name.startswith("versus-"):
         env["FZGX_PROBE_PLAYERS"]=name.rsplit("-",1)[1]
     if name.startswith("records"):
-        env["FZGX_CAPTURE_FRAMES"]="2900,3100,3300,3500,3700,3900,4000,4001,4002,4003,4020,4050,4100,4200,4500,4800,5000,5200,5400"
+        env["FZGX_CAPTURE_FRAMES"]=",".join(map(str,range(2750,3501,5)))+","+"2900,3100,3300,3500,3700,3900,4000,4001,4002,4003,4020,4050,4100,4200,4500,4800,5000,5200,5400"
     if name=="replay":env["FZGX_CAPTURE_FRAMES"]="30,60,120,180,240,360,480,600,1000,1900,"+env["FZGX_CAPTURE_FRAMES"]
     if name.endswith("-pause") or name.endswith("-retire") or name=="story-play":
         env["FZGX_CAPTURE_FRAMES"]="4800,4999,5000,5001,5002,5020,5100,5300,5500,5700,5900,6100,6199,6200,6201,6202,6300,6500,6800,7000,7200,7400"
@@ -123,6 +131,7 @@ def run_route(item):
 
 with ThreadPoolExecutor(max_workers=2) as pool:
     list(pool.map(run_route,routes.items()))
+
 
 
 

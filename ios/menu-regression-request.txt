@@ -1,1 +1,1 @@
-Investigate title-demo baked-art canvas and finite menu backdrop coverage; build31 baseline, no application renderer changes.
+Build 33 investigation: dense Records entry captures; explicit Garage and Customize branch navigation to identify actual Shop/Item owner before performance fixes.
