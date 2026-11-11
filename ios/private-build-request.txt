@@ -1,3 +1,2 @@
-Build 32: guest camera evidence for bitmap-only UI canvases; preserve authored menu camera framing; strict attract-caption and menu-camera capture checks, retain Save Replay window families.
+Build 32 final candidate: guest camera evidence plus ordered original display-canvas fallback for all bitmap-only frames; authored Menu camera framing; independent native window families; capture v3 and old-format compatibility.
 routes=attract,returnlogo,gp-pause,boot-card-empty,replay-card,options-memory,records,customize,shop,story,profile,options-screen
-Validation revision: world postprocess fixture exercises World; Menu framing has its own coverage check.

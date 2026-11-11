@@ -123,17 +123,18 @@ extern "C" void fzgx_ui_queue_record(unsigned address,void* opaque){
     }
 #endif
     std::lock_guard<std::mutex> lock(ios_ui_queue_mutex);
-    if(ios_ordered_draw_tag&0x40)ios_ui_queue[address]=ios_ordered_draw_tag&0xc0;
-    else ios_ui_queue.erase(address);
+    // Queue records use a fixed guest pool. Overwrite even zero ownership and
+    // retain slots through consumption, avoiding per-frame erase/reallocation.
+    ios_ui_queue[address]=ios_ordered_draw_tag&0xc0;
 }
 extern "C" unsigned fzgx_ui_queue_draw(unsigned address){
     uint8_t native=0;
     {std::lock_guard<std::mutex> lock(ios_ui_queue_mutex);
         auto it=ios_ui_queue.find(address);
-        if(it!=ios_ui_queue.end()){native=it->second;ios_ui_queue.erase(it);}
+        if(it!=ios_ui_queue.end())native=it->second;
     }
 #if defined(FZGX_IOS_INPUT_PROBE)
-    if(native){static unsigned reported=0;if(reported++<3)fprintf(stderr,"Native queued UI consumed: %08x\n",address);}
+    if(native&0x40){static unsigned reported=0;if(reported++<3)fprintf(stderr,"Native queued UI consumed: %08x\n",address);}
 #endif
     const unsigned previous=ios_ordered_draw_tag;
     ios_ordered_draw_tag=uint8_t((previous&~0xc0u)|native);
@@ -230,6 +231,18 @@ void guest_frame(uint32_t frame) {
     g_stereo.store(live, std::memory_order_relaxed);
 #if defined(FZGX_IOS_FRONTEND) || defined(FZGX_IOS_INPUT_PROBE)
     ios_ordered_draw_tag=ios_context::encode(modes,race.linked?race.state:-1,live);
+    // Same original display-mode test used by the game's shared coordinate
+    // compensation helper: modes 1 and 2 use a wide authored canvas.
+    const uint32_t canvasBase=g_rel_base[6];
+    const unsigned displayMode=canvasBase?LD32(canvasBase+0x6F5F0u):0;
+    if(displayMode==1 || displayMode==2)ios_ordered_draw_tag|=0x80;
+#if defined(FZGX_IOS_INPUT_PROBE)
+    static unsigned previousDisplay=~0u;
+    if(previousDisplay!=displayMode){
+        fprintf(stderr,"Guest authored canvas: frame=%u display_mode=%u wide=%u\n",frame,displayMode,unsigned(bool(ios_ordered_draw_tag&0x80)));
+        previousDisplay=displayMode;
+    }
+#endif
     gx::set_draw_tag(ios_ordered_draw_tag);
 #endif
 

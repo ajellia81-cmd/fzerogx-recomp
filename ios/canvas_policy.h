@@ -1,5 +1,6 @@
 #pragma once
 #include "ui_policy.h"
+#include "scene_context.h"
 #include <cmath>
 #include <unordered_set>
 #include <unordered_map>
@@ -9,7 +10,7 @@ namespace ios_canvas {
 // bounding box: borders, gauges, font shadows and EFB previews must stay joined.
 inline float source_aspect(const gx::Batch& b,const std::vector<uint8_t>& skip,float fallback=4.f/3){
     unsigned normal=0,wide=0;
-    bool normalCamera=false,wideCamera=false;
+    bool normalCamera=false,wideCamera=false,normalAuthored=false,wideAuthored=false;
     for(size_t i=0;i<b.cmds.size();++i){const auto& c=b.cmds[i];
         if(c.type!=gx::CmdType::Draw || !c.count || c.state>=b.states.size() || (i<skip.size()&&skip[i]))continue;
         const auto& s=b.states[c.state];if(!ios_scene::full_view(s))continue;
@@ -18,6 +19,8 @@ inline float source_aspect(const gx::Batch& b,const std::vector<uint8_t>& skip,f
             normalCamera|=std::fabs(camera-4.f/3)<.02f;
             wideCamera|=std::fabs(camera-16.f/9)<.02f;
         }
+        const float authored=ios_context::authored_canvas(s.tag);
+        normalAuthored|=authored==4.f/3;wideAuthored|=authored==16.f/9;
         float a=ios_ui::glyph_canvas(b,c,s);
         normal+=a==4.f/3;wide+=a==16.f/9;
     }
@@ -27,7 +30,9 @@ inline float source_aspect(const gx::Batch& b,const std::vector<uint8_t>& skip,f
     // compensated for that display canvas. A 4:3 finite menu backdrop can
     // coexist with a 16:9 foreground camera, so the latter wins camera ties.
     // Native/offscreen and other ownership families are excluded by skip.
-    return normal?4.f/3:wide?16.f/9:wideCamera?16.f/9:normalCamera?4.f/3:fallback;
+    // If there is no geometric evidence at all, use the ordered original
+    // display snapshot, including each sorted sprite's submission-time canvas.
+    return normal?4.f/3:wide?16.f/9:wideCamera?16.f/9:normalCamera?4.f/3:wideAuthored?16.f/9:normalAuthored?4.f/3:fallback;
 }
 struct Frame {float width=640,height=480;};
 inline Frame frame(const gx::Batch& b){

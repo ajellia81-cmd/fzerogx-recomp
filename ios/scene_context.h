@@ -20,7 +20,8 @@ inline uint8_t encode(unsigned modules,int phase,bool live){
         modules&ios_guest::Story?Story:modules&ios_guest::Winning?Winning:
         phase>=37 && phase<=43?Settings37+unsigned(phase-37):Unknown;
     // Codes 1..40 carry the full scene/live context; zero is untagged.
-    // Bits 6 and 7 remain independent UI ownership and UI-family metadata.
+    // Bit 6 marks native UI ownership. Bit 7 selects its family when native,
+    // otherwise it snapshots the guest's authored wide display canvas.
     return uint8_t(1+k+(live?20:0));
 }
 inline Snapshot decode(uint8_t tag){
@@ -42,6 +43,10 @@ inline Snapshot decode(uint8_t tag){
         default:if(kind>=Settings37 && kind<=End43)s.phase=37+int(kind-Settings37);break;
     }
     return s;
+}
+inline float authored_canvas(uint8_t tag){
+    if((tag&0x40) || !decode(tag).stamped)return 0;
+    return tag&0x80?16.f/9:4.f/3;
 }
 inline Snapshot read(const gx::Batch& b){
     Snapshot s;

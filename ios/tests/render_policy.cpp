@@ -79,6 +79,15 @@ int main(int argc,char**argv){
   float dy=std::fabs(st.viewport[1]*st.proj[2]*wh.second)/480;
   assert(near(dx/dy*effective,wh.first/wh.second));
  }
+ // Ordered regular-canvas fallback covers bitmap-only frames with neither
+ // ordinary text nor a camera. Native UI families remain independent, and
+ // an option change cannot inherit the preceding screen's aspect.
+ for(unsigned kind=0;kind<40;++kind)for(bool wide:{false,true}){
+  gx::Batch noEvidence;auto tagged=s;tagged.tag=uint8_t(1+kind)|(wide?0x80:0);
+  quad(noEvidence,tagged,100,100,120,24);
+  assert(near(ios_canvas::source_aspect(noEvidence,{},wide?4.f/3:16.f/9),wide?16.f/9:4.f/3));
+  assert(ios_context::authored_canvas(tagged.tag|0x40)==0);
+ }
  // Bitmap-only compositions inherit the guest camera's display canvas,
  // independently of an earlier menu or the device output aspect. No font
  // vote and no texture-size production heuristic is involved.
