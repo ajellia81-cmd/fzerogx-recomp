@@ -13,14 +13,15 @@ inline float source_aspect(const gx::Batch& b,const std::vector<uint8_t>& skip,f
     bool normalCamera=false,wideCamera=false,normalAuthored=false,wideAuthored=false;
     for(size_t i=0;i<b.cmds.size();++i){const auto& c=b.cmds[i];
         if(c.type!=gx::CmdType::Draw || !c.count || c.state>=b.states.size() || (i<skip.size()&&skip[i]))continue;
-        const auto& s=b.states[c.state];if(!ios_scene::full_view(s))continue;
+        const auto& s=b.states[c.state];
+        const float authored=ios_context::authored_canvas(s.tag);
+        normalAuthored|=authored==4.f/3;wideAuthored|=authored==16.f/9;
+        if(!ios_scene::full_view(s))continue;
         if(!s.proj[6] && !s.view_space && std::fabs(s.proj[0])>1e-7f){
             const float camera=std::fabs(s.proj[2]/s.proj[0]);
             normalCamera|=std::fabs(camera-4.f/3)<.02f;
             wideCamera|=std::fabs(camera-16.f/9)<.02f;
         }
-        const float authored=ios_context::authored_canvas(s.tag);
-        normalAuthored|=authored==4.f/3;wideAuthored|=authored==16.f/9;
         float a=ios_ui::glyph_canvas(b,c,s);
         normal+=a==4.f/3;wide+=a==16.f/9;
     }

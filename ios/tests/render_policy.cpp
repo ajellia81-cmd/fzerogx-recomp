@@ -87,6 +87,8 @@ int main(int argc,char**argv){
   quad(noEvidence,tagged,100,100,120,24);
   assert(near(ios_canvas::source_aspect(noEvidence,{},wide?4.f/3:16.f/9),wide?16.f/9:4.f/3));
   assert(ios_context::authored_canvas(tagged.tag|0x40)==0);
+  noEvidence.states[0].viewport[0]=80;
+  assert(near(ios_canvas::source_aspect(noEvidence,{},wide?4.f/3:16.f/9),wide?16.f/9:4.f/3));
  }
  // Bitmap-only compositions inherit the guest camera's display canvas,
  // independently of an earlier menu or the device output aspect. No font

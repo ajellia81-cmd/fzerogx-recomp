@@ -1,3 +1,4 @@
 Build 32 final candidate: guest camera evidence plus ordered original display-canvas fallback for all bitmap-only frames; authored Menu camera framing; independent native window families; capture v3 and old-format compatibility.
 routes=attract,returnlogo,gp-pause,boot-card-empty,replay-card,options-memory,records,customize,shop,story,profile,options-screen
 Capture consumers: presentation and pipeline readers accept version 3, retaining versions 1 and 2.
+Authored fallback also covers partial viewports; camera/glyph voting stays limited to full-view geometry.
