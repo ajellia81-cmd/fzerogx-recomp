@@ -1,1 +1,1 @@
-Trace the original paused UI enqueue call chain and enforce the audit exit status. Do not package or deliver an unverified IPA.
+Trace native UI tags at the shared XF command arrival and pixel-state snapshot boundaries; keep strict capture gate.
