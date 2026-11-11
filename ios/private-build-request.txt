@@ -1,2 +1,2 @@
-Build30: cover inline recompiled GP stores (8/16/32 bit), general MMIO writes, recorded FIFOs, partial commands and inlined display lists. Enforce captured native UI draw evidence.
-routes=gp-pause,records,replay-card,options-memory
+Build 31: native ownership from every original text-window bound collector, plus actual card dialog/progress/file-list compositors. Run complete static UI call inventory before packaging.
+routes=gp-pause,boot-card-empty,replay-card,options-memory,records,customize,shop,story,profile,options-screen

@@ -11,8 +11,9 @@ targets=("818C24A4","818403D4","818408E8","8182D038",
          "8182D888","8182D524","8182EBB8","8182F294",
          "818B6B28","818B8EDC","818BC310","818BFE20",
          "819E29BC","819E2CB8","819E3A94",
-         "81962164","819623A4","81A23D64","81A2CC64","81A2CEEC")
-declarations="""/* FZGX_NATIVE_CANVAS_SCOPE_V4 */
+         "81962164","819623A4","81A23D64","81A2CC64","81A2CEEC",
+         "8184D2AC","8184D4C8","8184D10C","819F53B0","81A2D1A0")
+declarations="""/* FZGX_NATIVE_CANVAS_SCOPE_V5 */
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -20,13 +21,24 @@ unsigned fzgx_native_canvas_begin(unsigned owner);
 void fzgx_native_canvas_end(unsigned previous);
 void fzgx_ui_queue_record(unsigned address, void* cpu);
 unsigned fzgx_ui_queue_draw(unsigned address);
+unsigned fzgx_ui_sprite_begin(void);
+#if defined(FZGX_IOS_INPUT_PROBE)
+void fzgx_trace_ui_text(void* cpu);
+#endif
 #ifdef __cplusplus
 }
 #endif
 """
 queue_hooks={
-    "8184F734": [("\n\t/* 8184FB60 ", "\n    fzgx_ui_queue_record(c->r[30], c);\n\t/* 8184FB60 ")],
-    "8184FC50": [("\n\t/* 8184FCD0 ", "\n    fzgx_ui_queue_record(c->r[31], c);\n\t/* 8184FCD0 ")],
+    "8184A0D8": [("void fn_8184A0D8(CPU* c) {", "void fn_8184A0D8(CPU* c) {\n#if defined(FZGX_IOS_INPUT_PROBE)\n    fzgx_trace_ui_text(c);\n#endif")],
+    "8184F734": [
+        ("void fn_8184F734(CPU* c) {", "void fn_8184F734(CPU* c) {\n    unsigned spriteTag=fzgx_ui_sprite_begin();"),
+        ("RET();", "fzgx_native_canvas_end(spriteTag); RET();"),
+        ("\n\t/* 8184FB60 ", "\n    fzgx_ui_queue_record(c->r[30], c);\n\t/* 8184FB60 ")],
+    "8184FC50": [
+        ("void fn_8184FC50(CPU* c) {", "void fn_8184FC50(CPU* c) {\n    unsigned spriteTag=fzgx_ui_sprite_begin();"),
+        ("RET();", "fzgx_native_canvas_end(spriteTag); RET();"),
+        ("\n\t/* 8184FCD0 ", "\n    fzgx_ui_queue_record(c->r[31], c);\n\t/* 8184FCD0 ")],
     "8184FD64": [
         ("void fn_8184FD64(CPU* c) {", "void fn_8184FD64(CPU* c) {\n    unsigned queueTag=0;"),
         ("\n\t/* 8184FF34 ", "\n    queueTag=fzgx_ui_queue_draw(c->r[28]);\n\t/* 8184FF34 "),
@@ -37,7 +49,7 @@ found={name:0 for name in (*targets,*queue_hooks)}
 for path in root.glob("*.c"):
     text=path.read_text()
     changed=False
-    if "/* FZGX_NATIVE_CANVAS_SCOPE_V4 */" in text:
+    if "/* FZGX_NATIVE_CANVAS_SCOPE_V5 */" in text:
         for name in targets:
             if "void fn_"+name+"(CPU* c) {" in text:
                 if text.count("fzgx_native_canvas_begin(0x"+name+"u)")!=1:
@@ -46,7 +58,7 @@ for path in root.glob("*.c"):
         for name in queue_hooks:
             if "void fn_"+name+"(CPU* c) {" in text:found[name]+=1
         continue
-    if any("/* FZGX_NATIVE_CANVAS_SCOPE"+v+" */" in text for v in ("", "_V2", "_V3")):
+    if any("/* FZGX_NATIVE_CANVAS_SCOPE"+v+" */" in text for v in ("", "_V2", "_V3", "_V4")):
         raise SystemExit("Regenerate original C before upgrading native UI scopes")
     for name in targets:
         signature="void fn_"+name+"(CPU* c) {"
@@ -57,7 +69,7 @@ for path in root.glob("*.c"):
         end=text.find("\n/* ",start)
         if end<0:end=len(text)
         body=text[start:end]
-        if body.count("RET();")!=1 or "return;" in body:
+        if body.count("RET();")!=(2 if name=="81A2D1A0" else 1) or "return;" in body:
             raise SystemExit("Pinned UI return paths changed: "+name)
         body=body.replace(signature,signature+"\n    unsigned nativeCanvas=fzgx_native_canvas_begin(0x"+name+"u);",1)
         body=body.replace("RET();","fzgx_native_canvas_end(nativeCanvas); RET();")

@@ -101,7 +101,7 @@ jobs:
         run: |
           cmake -S . -B build-host -G Ninja -DGCN_BENCH_ONLY=ON -DFZGX_IOS_INPUT_PROBE=ON -DFZGX_IOS_LOGO_PROBE=ON -DCMAKE_BUILD_TYPE=Release -DGAME_ISO="$PWD/rom/game.iso" > build-private-logs/logo-configure.txt 2>&1
           cmake --build build-host --target fzerogx_bench --parallel 3 > build-private-logs/logo-build.txt 2>&1
-          GCN_TIMESCALE=1 FZGX_LOGO_TRACE=1 build-host/fzerogx_bench --seconds=20 --warmup=0 "$PWD/rom/game.iso" > build-private-logs/logo-timing.txt 2>&1
+          python3 ios/audit_ui_ownership.py build-host/gen > build-private-logs/ui-ownership.txt\n          GCN_TIMESCALE=1 FZGX_LOGO_TRACE=1 build-host/fzerogx_bench --seconds=20 --warmup=0 "$PWD/rom/game.iso" > build-private-logs/logo-timing.txt 2>&1
       - name: Inspect menu compositing regressions (private headless captures)
         if: ${{ !inputs.probe_only }}
         run: python3 ios/probe_menu_routes.py
@@ -165,8 +165,8 @@ jobs:
         run: |
           APP=$(find build-ios -path '*/Release-iphoneos/FZeroGX.app' -type d -print -quit)
           test -n "$APP"
-          python3 ios/package_unsigned.py "$APP" FZeroGX-iOS-build30-unsigned.ipa
-          openssl cms -encrypt -binary -aes256 -in FZeroGX-iOS-build30-unsigned.ipa -out FZeroGX-private.ipa.enc -outform DER ios/delivery-public.pem
+          python3 ios/package_unsigned.py "$APP" FZeroGX-iOS-build31-unsigned.ipa
+          openssl cms -encrypt -binary -aes256 -in FZeroGX-iOS-build31-unsigned.ipa -out FZeroGX-private.ipa.enc -outform DER ios/delivery-public.pem
       - name: Encrypt diagnostics for private review
         if: always()
         shell: bash

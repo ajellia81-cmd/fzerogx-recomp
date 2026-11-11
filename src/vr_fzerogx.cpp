@@ -61,6 +61,34 @@ extern "C" void fzgx_native_canvas_end(unsigned previous){
     ios_ordered_draw_tag=uint8_t(previous);
     ios_submit_ui_tag(ios_ordered_draw_tag);
 }
+// The original engine collects text bounds between its window-begin and
+// window-finish calls. This semantic state covers every caller, including
+// title/card error paths that do not pass through a named modal dispatcher.
+extern "C" unsigned fzgx_ui_sprite_begin(){
+    const unsigned previous=ios_ordered_draw_tag;
+    const uint32_t base=g_rel_base[6];
+    if(base && (LD32(base+0x4BA30u) || LD32(base+0x4BA44u)))
+        return fzgx_native_canvas_begin(0x8184D0A0u);
+    return previous;
+}
+#if defined(FZGX_IOS_INPUT_PROBE)
+extern "C" void fzgx_trace_ui_text(void* opaque){
+    if(!getenv("FZGX_TRACE_UI_TEXT"))return;
+    const CPU* cpu=static_cast<CPU*>(opaque);
+    unsigned address=cpu->r[3];
+    if(address<0x80000000u || address>=0x83ffff00u)return;
+    std::string text;
+    for(unsigned i=0;i<180;++i){
+        unsigned ch=LD8(address+i);
+        if(!ch)break;
+        if(ch>=32 && ch<127)text+=char(ch);else text+=' ';
+    }
+    if(text.size()<4)return;
+    static thread_local std::unordered_set<std::string> seen;
+    if(seen.size()<1200 && seen.insert(text).second)
+        fprintf(stderr,"UI text: %s\n",text.c_str());
+}
+#endif
 static std::mutex ios_ui_queue_mutex;
 static std::unordered_set<unsigned> ios_ui_queue;
 extern "C" void fzgx_ui_queue_record(unsigned address,void* opaque){
