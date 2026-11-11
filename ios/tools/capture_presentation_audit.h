@@ -5,7 +5,7 @@
 namespace ios_audit {
 template<class T> std::vector<T> read(std::ifstream& in){uint64_t n=0;in.read((char*)&n,8);assert(in && n<100000000);std::vector<T> v(n);in.read((char*)v.data(),sizeof(T)*n);assert(in);return v;}
 inline int captures(int argc,char**argv){
- unsigned nativeGlyphs=0;unsigned nativeCanvas=0;unsigned frames=0;unsigned long long draws=0,ortho=0,changed=0,protectedDraws=0;std::map<unsigned,unsigned> owners,formats;
+ unsigned nativeGlyphs=0;std::map<unsigned,unsigned> nativeAspects;unsigned nativeCanvas=0;unsigned frames=0;unsigned long long draws=0,ortho=0,changed=0,protectedDraws=0;std::map<unsigned,unsigned> owners,formats;
  for(int arg=1;arg<argc;++arg){
   std::vector<std::filesystem::path> files;
   for(const auto& entry:std::filesystem::recursive_directory_iterator(argv[arg]))
@@ -60,7 +60,7 @@ inline int captures(int argc,char**argv){
         fprintf(stderr,"Native glyph aspect mismatch: %s family=%u actual=%f expected=%f\n",file.string().c_str(),unsigned(bool(before.tag&0x80)),ratio,glyphAspect/target);
         return 4;
        }
-       ++nativeGlyphs;
+       ++nativeGlyphs;++nativeAspects[(before.tag&0x80?2:0)+(glyphAspect>1.5f?1:0)];
       }
      }
      assert(!memcmp(before.proj,after.proj,sizeof before.proj));
@@ -88,7 +88,8 @@ inline int captures(int argc,char**argv){
  fprintf(stderr,"Native UI canvas draws=%u; physically verified native glyphs=%u\n",nativeCanvas,nativeGlyphs);
  for(auto [m,n]:owners)fprintf(stderr,"Presentation owner mask=%u frames=%u\n",m,n);
  for(auto [f,n]:formats)fprintf(stderr,"Presentation sampled format=%u draws=%u\n",f,n);
- if(getenv("FZGX_REQUIRE_NATIVE_UI") && !nativeCanvas){fprintf(stderr,"No actual native UI draws captured; do not deliver this candidate.\n");return 3;}
+ for(auto [key,n]:nativeAspects)fprintf(stderr,"Native glyph family=%u source=%s draws=%u\n",key/2,key%2?"16:9":"4:3",n);
+ if(getenv("FZGX_REQUIRE_NATIVE_UI") && (!nativeCanvas || !nativeGlyphs)){fprintf(stderr,"No actual native UI draws captured; do not deliver this candidate.\n");return 3;}
  return 0;
 }
 }

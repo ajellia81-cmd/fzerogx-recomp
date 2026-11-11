@@ -1,2 +1,2 @@
-Build 31 revised candidate: independently infer original 4:3 gameplay-window and already-compensated 16:9 card canvases. Reject native glyph physical aspect mismatches; preserve per-family queue metadata and scene/live context.
+Build 31 final candidate: independent gameplay and card window canvases, complete function/UI API inventory, strict physical glyph aspect checks, capture readers v1/v2.
 routes=gp-pause,boot-card-empty,replay-card,options-memory,records,customize,shop,story,profile,options-screen
