@@ -1,2 +1,2 @@
-Build30: associate presentation tags with write-gather bytes in RAM, preserve tags through partial commands and display-list expansion, and recover tags in the actual front end. Require nonzero actual captured UI draws.
+Build30: checked, idempotent recorded GPU-byte metadata patch. Verify original FIFO staging, partial commands and expanded display lists before delivery.
 routes=gp-pause,records,replay-card,options-memory
