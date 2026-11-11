@@ -19,7 +19,7 @@ int main(int argc,char**argv){
  auto initial=keys.size();std::set<std::pair<uint64_t,uint32_t>> recipes;unsigned frames=0;
  for(int i=4;i<argc;++i)for(auto& file:std::filesystem::recursive_directory_iterator(argv[i]))if(file.path().extension()==".capture"){
   std::ifstream in(file.path(),std::ios::binary);uint32_t h[8];in.read((char*)h,sizeof h);
-  assert(in && h[0]==0x36585A46 && h[1]==1 && h[2]==sizeof(Cmd) && h[3]==sizeof(GpuVertex) && h[4]==sizeof(PixelState));
+  assert(in && h[0]==0x36585A46 && (h[1]==1 || h[1]==2) && h[2]==sizeof(Cmd) && h[3]==sizeof(GpuVertex) && h[4]==sizeof(PixelState));
   auto cmds=readVector<Cmd>(in);auto vertices=readVector<GpuVertex>(in);skipVector<uint8_t>(in);skipVector<uint32_t>(in);auto states=readVector<PixelState>(in);
   auto batch=std::make_unique<Batch>();batch->cmds=cmds;batch->states=states;batch->verts=std::move(vertices);
   auto mode=ios_scene::classify(*batch,false,h[6],int32_t(h[7]));
