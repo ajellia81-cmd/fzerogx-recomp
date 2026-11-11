@@ -3,11 +3,16 @@ from pathlib import Path
 import sys
 
 root=Path(sys.argv[1])
-# Common memory-card draw; shared message widget and its button wrapper;
+# Card dialog dispatcher, progress/status renderer, file-list compositor and
+# standalone card panel (distinct from the legacy 818C24A4 manager).
+# Shared message widget and its button wrapper;
 # race message, confirmation, window and pause/result-menu draw functions.
 targets=("818C24A4","818403D4","818408E8","8182D038",
-         "8182D888","8182D524","8182EBB8","8182F294")
-declarations="""/* FZGX_NATIVE_CANVAS_SCOPE_V3 */
+         "8182D888","8182D524","8182EBB8","8182F294",
+         "818B6B28","818B8EDC","818BC310","818BFE20",
+         "819E29BC","819E2CB8","819E3A94",
+         "81962164","819623A4","81A23D64","81A2CC64","81A2CEEC")
+declarations="""/* FZGX_NATIVE_CANVAS_SCOPE_V4 */
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -32,7 +37,7 @@ found={name:0 for name in (*targets,*queue_hooks)}
 for path in root.glob("*.c"):
     text=path.read_text()
     changed=False
-    if "/* FZGX_NATIVE_CANVAS_SCOPE_V3 */" in text:
+    if "/* FZGX_NATIVE_CANVAS_SCOPE_V4 */" in text:
         for name in targets:
             if "void fn_"+name+"(CPU* c) {" in text:
                 if text.count("fzgx_native_canvas_begin(0x"+name+"u)")!=1:
@@ -41,7 +46,7 @@ for path in root.glob("*.c"):
         for name in queue_hooks:
             if "void fn_"+name+"(CPU* c) {" in text:found[name]+=1
         continue
-    if "/* FZGX_NATIVE_CANVAS_SCOPE */" in text or "/* FZGX_NATIVE_CANVAS_SCOPE_V2 */" in text:
+    if any("/* FZGX_NATIVE_CANVAS_SCOPE"+v+" */" in text for v in ("", "_V2", "_V3")):
         raise SystemExit("Regenerate original C before upgrading native UI scopes")
     for name in targets:
         signature="void fn_"+name+"(CPU* c) {"
@@ -74,3 +79,4 @@ for path in root.glob("*.c"):
     if changed:path.write_text(declarations+text)
 if any(count!=1 for count in found.values()):raise SystemExit("Pinned UI inventory changed: "+str(found))
 print("Applied ordered native UI scopes:",len(targets))
+

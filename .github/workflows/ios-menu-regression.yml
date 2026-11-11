@@ -10,7 +10,7 @@ jobs:
     runs-on: macos-15-intel
     timeout-minutes: 60
     env:
-      FZGX_MENU_ROUTES: gp-pause
+      FZGX_MENU_ROUTES: gp-pause,boot-card-empty,replay-card,options-memory
       DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
     steps:
       - uses: actions/checkout@v4

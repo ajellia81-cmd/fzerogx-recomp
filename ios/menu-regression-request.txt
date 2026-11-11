@@ -1,1 +1,1 @@
-Distinguish direct FIFO and recorded GPU command paths at actual native UI tags; trace each presentation tag separately.
+Replay save canvas audit: actual card dialogs, progress, list and shared message composers; 2026-11-11 build31 investigation
