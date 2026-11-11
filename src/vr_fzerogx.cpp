@@ -44,7 +44,6 @@ static void ios_submit_ui_tag(uint8_t tag){
     // Like GXFlush, send one full line of legal NOP bytes. The gather pipe
     // may retain earlier draw bytes; set_draw_tag alone only orders bytes
     // already handed to the front end. Never drain a partial FIFO line.
-    for(unsigned i=0;i<8;++i)gp_write32(0);
     gx::set_draw_tag(tag);
 }
 extern "C" unsigned fzgx_native_canvas_begin(unsigned owner){

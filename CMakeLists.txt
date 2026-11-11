@@ -12,6 +12,11 @@ endif()
 
 # Everything that is not specific to F-Zero GX lives in gcn-recomp (a submodule): the
 # recompiler, the GameCube runtime, the renderer and the frontends. See its README.
+if(CMAKE_SYSTEM_NAME STREQUAL "iOS" OR FZGX_IOS_INPUT_PROBE)
+  find_package(Python3 REQUIRED COMPONENTS Interpreter)
+  execute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/ios/prepare_draw_tags.py"
+    "${CMAKE_SOURCE_DIR}/gcn-recomp" COMMAND_ERROR_IS_FATAL ANY)
+endif()
 add_subdirectory(gcn-recomp)
 gcn_enable_languages()
 

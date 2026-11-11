@@ -25,7 +25,6 @@ jobs:
       - name: Generate and compile existing host game
         run: |
           mkdir -p build-private-logs
-          python3 ios/trace_ui_fifo.py
           cmake -S . -B build-host -G Ninja -DGCN_BENCH_ONLY=ON -DFZGX_IOS_INPUT_PROBE=ON -DFZGX_IOS_LOGO_PROBE=ON -DCMAKE_BUILD_TYPE=Release -DGAME_ISO="$PWD/rom/game.iso" > build-private-logs/configure.txt 2>&1
           cmake --build build-host --target fzerogx_bench --parallel 3 > build-private-logs/build.txt 2>&1
       - name: Capture Records layouts and the initial profile illustration
