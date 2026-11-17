@@ -14,7 +14,7 @@ targets=("818C24A4","818403D4","818408E8","8182D038",
          "81962164","819623A4","81A23D64","81A2CC64","81A2CEEC",
          "8184D2AC","8184D4C8","8184D10C","819F53B0","81A2D1A0",
          "81853C9C","81853E40","81853FE4")
-declarations="""/* FZGX_NATIVE_CANVAS_SCOPE_V8 */
+declarations="""/* FZGX_NATIVE_CANVAS_SCOPE_V9 */
 #if defined(FZGX_IOS_INPUT_PROBE)
 #include <stdio.h>
 #include <stdlib.h>
@@ -25,6 +25,9 @@ extern "C" {
 unsigned fzgx_native_canvas_begin(unsigned owner);
 void fzgx_native_canvas_end(unsigned previous);
 void fzgx_ui_queue_record(unsigned address, void* cpu);
+unsigned fzgx_bitmap_group_begin(void);
+void fzgx_bitmap_group_end(unsigned previous);
+void fzgx_bitmap_record(unsigned address);
 unsigned fzgx_ui_queue_draw(unsigned address);
 unsigned fzgx_ui_sprite_begin(void);
 unsigned fzgx_ui_immediate_begin(void);
@@ -46,7 +49,9 @@ queue_hooks={
     "8184F734": [
         ("void fn_8184F734(CPU* c) {", "void fn_8184F734(CPU* c) {\n    unsigned spriteTag=fzgx_ui_sprite_begin();"),
         ("RET();", "fzgx_native_canvas_end(spriteTag); RET();"),
-        ("\n\t/* 8184FB60 ", "\n    fzgx_ui_queue_record(c->r[30], c);\n\t/* 8184FB60 ")],
+        ("\n\t/* 8184FA08 ", "\n    fzgx_bitmap_record(c->r[1]+8);\n\t/* 8184FA08 "),
+        ("\n\t/* 8184FAD8 ", "\n    fzgx_bitmap_record(c->r[1]+8);\n\t/* 8184FAD8 "),
+        ("\n\t/* 8184FB60 ", "\n    fzgx_bitmap_record(c->r[30]); fzgx_ui_queue_record(c->r[30], c);\n\t/* 8184FB60 ")],
     "8184FC50": [
         ("void fn_8184FC50(CPU* c) {", "void fn_8184FC50(CPU* c) {\n    unsigned spriteTag=fzgx_ui_sprite_begin();"),
         ("RET();", "fzgx_native_canvas_end(spriteTag); RET();"),
@@ -57,6 +62,12 @@ queue_hooks={
         ("L_81850108:", "L_81850108:\n    fzgx_native_canvas_end(queueTag);")
     ],
 }
+# Native-pixel badge composition and its independently reused glow renderer.
+# Scale copied sprite records, preserving anchors, UVs and original assets.
+for name in ("8194108C", "81941360"):
+    queue_hooks[name]=[
+        ("void fn_"+name+"(CPU* c) {", "void fn_"+name+"(CPU* c) {\n    unsigned bitmapGroup=fzgx_bitmap_group_begin();"),
+        ("RET();", "fzgx_bitmap_group_end(bitmapGroup); RET();")]
 # A sampled Shop hot path repeatedly searches the same 44-entry category table
 # from its beginning to recover an item's ordinal. Count preceding equal
 # categories once instead. Ownership/unlock checks remain original guest code.
@@ -87,7 +98,7 @@ found={name:0 for name in (*targets,*queue_hooks)}
 for path in root.glob("*.c"):
     text=path.read_text()
     changed=False
-    if "/* FZGX_NATIVE_CANVAS_SCOPE_V8 */" in text:
+    if "/* FZGX_NATIVE_CANVAS_SCOPE_V9 */" in text:
         for name in targets:
             if "void fn_"+name+"(CPU* c) {" in text:
                 if text.count("fzgx_native_canvas_begin(0x"+name+"u)")!=1:
@@ -96,7 +107,7 @@ for path in root.glob("*.c"):
         for name in queue_hooks:
             if "void fn_"+name+"(CPU* c) {" in text:found[name]+=1
         continue
-    if any("/* FZGX_NATIVE_CANVAS_SCOPE"+v+" */" in text for v in ("", "_V2", "_V3", "_V4", "_V5", "_V6", "_V7")):
+    if any("/* FZGX_NATIVE_CANVAS_SCOPE"+v+" */" in text for v in ("", "_V2", "_V3", "_V4", "_V5", "_V6", "_V7", "_V8")):
         raise SystemExit("Regenerate original C before upgrading native UI scopes")
     for name in targets:
         signature="void fn_"+name+"(CPU* c) {"

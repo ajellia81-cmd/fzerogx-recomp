@@ -118,6 +118,15 @@ extern "C" void fzgx_trace_ui_text(void* opaque){
     }
 }
 #endif
+// A composite of original pixel artwork uses local sizes on the menu canvas.
+// Nesting (badge -> glow) must apply one correction to each copied record.
+static thread_local unsigned ios_bitmap_group=0;
+extern "C" unsigned fzgx_bitmap_group_begin(){unsigned previous=ios_bitmap_group;ios_bitmap_group=1;return previous;}
+extern "C" void fzgx_bitmap_group_end(unsigned previous){ios_bitmap_group=previous;}
+extern "C" void fzgx_bitmap_record(unsigned address){
+    if(ios_bitmap_group && (ios_ordered_draw_tag&0xc0u)==0x80u)
+        STF32(address+16,LDF32(address+16)*.75f);
+}
 static std::mutex ios_ui_queue_mutex;
 static std::unordered_map<unsigned,uint8_t> ios_ui_queue;
 extern "C" void fzgx_ui_queue_record(unsigned address,void* opaque){

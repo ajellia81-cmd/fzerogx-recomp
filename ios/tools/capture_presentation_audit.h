@@ -5,7 +5,7 @@
 namespace ios_audit {
 template<class T> std::vector<T> read(std::ifstream& in){uint64_t n=0;in.read((char*)&n,8);assert(in && n<100000000);std::vector<T> v(n);in.read((char*)v.data(),sizeof(T)*n);assert(in);return v;}
 inline int captures(int argc,char**argv){
- unsigned attractBitmaps=0,menuCameras=0;
+ unsigned attractBitmaps=0,menuCameras=0,badges=0,clearReuse=0;
  unsigned nativeGlyphs=0;std::map<unsigned,unsigned> nativeAspects;unsigned nativeCanvas=0;unsigned frames=0;unsigned long long draws=0,ortho=0,changed=0,protectedDraws=0;std::map<unsigned,unsigned> owners,formats;
  for(int arg=1;arg<argc;++arg){
   std::vector<std::filesystem::path> files;
@@ -20,6 +20,7 @@ inline int captures(int argc,char**argv){
   gx::g_ios_canvas_source=4.f/3;
   gx::g_ios_ui_canvas_source={4.f/3,4.f/3};
   gx::g_ios_world_wide_canvas=false;
+  ios_gpu_work::FrameStart clearStart;
   bool havePrevious=false;
   ios_scene::Mode previousMode=ios_scene::Mode::Menu;
   unsigned previousOwner=0;
@@ -32,6 +33,7 @@ inline int captures(int argc,char**argv){
   for(uint64_t i=0;i<n;++i){uint32_t meta[4];uint64_t hash;in.read((char*)meta,sizeof meta);in.read((char*)&hash,8);assert(in);auto t=std::make_shared<gx::TexData>();t->id=meta[0];t->width=meta[1];t->height=meta[2];t->hash=hash;b.new_textures.push_back(t);for(unsigned l=0;l<meta[3];++l){uint64_t pixels=0;in.read((char*)&pixels,8);assert(in && pixels<100000000);in.seekg(pixels*4,std::ios::cur);assert(in);}}
   for(auto& s:b.states){bool live=h[1]==1?bool(s.tag&0x20):ios_context::decode(s.tag).live;
    s.tag=ios_context::encode(h[6],int32_t(h[7]),live)|(s.tag&(h[1]==1?0x40:0xc0));}
+  if(clearStart.reusable(b))++clearReuse;clearStart.remember(b);
   const auto commands=b.cmds;const auto states=b.states;const auto verts=b.verts;const auto packed=b.packed;const auto matrices=b.mtxs;
   gx::g_fullscreen_tex.clear();gx::g_ios_native_copies.clear();
   auto context=ios_context::read(b);auto mode=ios_scene::classify(b,context.live,h[6],int32_t(h[7]));
@@ -47,6 +49,14 @@ inline int captures(int argc,char**argv){
    if(c.type!=gx::CmdType::Draw){assert(!memcmp(&c,&old,sizeof c));continue;}
    assert(c.count==old.count && c.vfirst==old.vfirst && c.vcount==old.vcount && c.state<b.states.size());if(!c.count || old.state>=states.size())continue;
    ++draws;const auto& before=states[old.state];nativeCanvas+=bool(before.tag&0x40);const auto& after=b.states[c.state];
+   if(getenv("FZGX_REQUIRE_BADGES") && before.proj[6] && mode==ios_scene::Mode::Menu){
+    for(const auto& texture:b.new_textures)if(texture->id==before.tex_id[0] && texture->hash==0x14bfbab5beb63e87ull){
+     float bounds[4];assert(ios_scene::draw_bounds(b,c,after,bounds));
+     float aspect=std::fabs((bounds[2]-bounds[0])/(bounds[3]-bounds[1]))*(16.f/9);
+     if(std::fabs(aspect-92.f/116)>.002f){fprintf(stderr,"Badge aspect mismatch %s actual=%f\n",file.string().c_str(),aspect);return 4;}
+     ++badges;
+    }
+   }
    bool protectedPath=skip[i] || mode==ios_scene::Mode::Flat || mode==ios_scene::Mode::Movie || ios_scene::movie_state(before) || (before.proj[6] && ios_canvas::feedback(before,[&](uint32_t id){return gx::is_fullscreen_tex(id) && !gx::g_ios_native_copies.count(id) && ios_canvas::screen_copy(b,old,before,id);})) || ios_canvas::solid_cover(b,old,before) || ios_canvas::screen_effect(b,old,before) || ios_canvas::edge(b,old,before)==ios_canvas::Edge::Horizontal;
    if(mode==ios_scene::Mode::Menu && !before.proj[6] && ios_scene::full_view(before)){
     assert(!memcmp(before.proj,after.proj,sizeof before.proj));++menuCameras;
@@ -112,6 +122,8 @@ inline int captures(int argc,char**argv){
  for(auto [f,n]:formats)fprintf(stderr,"Presentation sampled format=%u draws=%u\n",f,n);
  for(auto [key,n]:nativeAspects)fprintf(stderr,"Native glyph family=%u source=%s draws=%u\n",key/2,key%2?"16:9":"4:3",n);
  fprintf(stderr,"Verified attract bitmap draws=%u; preserved authored menu camera draws=%u\n",attractBitmaps,menuCameras);
+ fprintf(stderr,"Verified badge aspect draws=%u; copy-free terminal-clear frames=%u\n",badges,clearReuse);
+ if(getenv("FZGX_REQUIRE_BADGES") && (!badges || !clearReuse)){fprintf(stderr,"Missing real badge/terminal-clear coverage.\n");return 3;}
  if(getenv("FZGX_REQUIRE_ATTRACT_BITMAPS") && !attractBitmaps){fprintf(stderr,"No reported attract bitmaps captured.\n");return 3;}
  if(getenv("FZGX_REQUIRE_NATIVE_UI") && (!nativeCanvas || !nativeGlyphs)){fprintf(stderr,"No actual native UI draws captured; do not deliver this candidate.\n");return 3;}
  return 0;
