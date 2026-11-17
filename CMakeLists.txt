@@ -82,6 +82,7 @@ if(FZGX_IOS_INPUT_PROBE AND NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
   target_sources(fzerogx_bench PRIVATE "${CMAKE_BINARY_DIR}/ios_probe_main.cpp")
   target_include_directories(fzerogx_bench PRIVATE "${CMAKE_SOURCE_DIR}/ios")
   target_compile_definitions(fzerogx_bench PRIVATE FZGX_IOS_INPUT_PROBE)
+  target_compile_definitions(game_recomp PRIVATE FZGX_IOS_INPUT_PROBE)
 endif()
 
 if(FZGX_IOS_LOGO_PROBE AND NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")

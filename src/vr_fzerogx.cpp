@@ -83,13 +83,22 @@ extern "C" void fzgx_native_canvas_end(unsigned previous){
 extern "C" unsigned fzgx_ui_sprite_begin(){
     const unsigned previous=ios_ordered_draw_tag;
     const uint32_t base=g_rel_base[6];
-    if(base && (!LD8(base+0x4BA11u) || LD32(base+0x4BA30u) || LD32(base+0x4BA44u)))
+    if(base && (LD32(base+0x4BA30u) || LD32(base+0x4BA44u)))
         return fzgx_native_canvas_begin(0x8184D0A0u);
     return previous;
 }
-// Original coordinate compensation is byte +0x45, independent of the
-// immediate/queued switch at +0x44. Capture ownership before either path.
+// Original immediate submission is independent of the sorted menu scene.
 extern "C" unsigned fzgx_ui_immediate_begin(){
+    const unsigned previous=ios_ordered_draw_tag;
+    if(previous&0x40)return previous;
+    const uint32_t base=g_rel_base[6];
+    if(base && !LD8(base+0x4BA10u))return fzgx_native_canvas_begin(0);
+    return previous;
+}
+// Ordinary text has its own coordinate-compensation switch. Scope its
+// complete string compositor (including embedded icons), rather than bitmap
+// submissions whose vertices may already contain authored compensation.
+extern "C" unsigned fzgx_ui_text_begin(){
     const unsigned previous=ios_ordered_draw_tag;
     if(previous&0x40)return previous;
     const uint32_t base=g_rel_base[6];
