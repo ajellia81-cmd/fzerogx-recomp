@@ -14,4 +14,8 @@ The actual Item CPU sample identified 818F9028 repeatedly copying and scanning i
 
 ## Verification
 
-Final macOS device/capture workflow pending. Physical iPhone operation remains separate from structural source inventory, reached-route evidence and package verification. No local builds.
+Final macOS device/capture workflow passed: https://github.com/ajellia81-cmd/fzerogx-recomp/actions/runs/44024358806 (source fc5f99682fc8206673cdd3e82d8da09d4c33770c). ARM64 runtime/fixture/thread-resource check passed: run 44024358668.
+
+The final audit passed 455 captures / 191,278 draws, 3,783 physically checked native glyphs, 30 attract bitmap draws and 40,287 preserved authored menu camera draws. Native family 0 contained 2,286 4:3 glyphs; family 1 contained 1,497 16:9 glyphs. These are renderer-input checks, not physical-device pixels.
+
+Package: FZeroGX-iOS-build33-unsigned.ipa, 14,973,997 bytes, seven bundle files. SHA256 715a735b602688979ef2b30426cfc91d9b62ab64cb8290acaa64361ba98d48f5. ZIP CRC passed; main and ANGLE are iPhoneOS ARM64 without LC_CODE_SIGNATURE. No ROM/DOL/REL/save/capture/key/source/log files in the IPA. Physical iPhone operation remains separate from structural source inventory, reached-route evidence and package verification. No local builds.
