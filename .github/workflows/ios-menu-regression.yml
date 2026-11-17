@@ -10,7 +10,7 @@ jobs:
     runs-on: macos-15-intel
     timeout-minutes: 60
     env:
-      FZGX_MENU_ROUTES: records,shop-items,replay-card,attract
+      FZGX_MENU_ROUTES: records,shop-items,garage-0
       DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
     steps:
       - uses: actions/checkout@v4
@@ -34,6 +34,22 @@ jobs:
           FZGX_CAPTURE_AUDIT: "1"
           FZGX_REQUIRE_NATIVE_UI: "1"
         run: python3 ios/tests/check_policy.py > build-private-logs/presentation-audit.txt 2>&1
+      - name: Report compact source-only performance and queue evidence
+        if: always()
+        run: |
+          python3 - <<'PYCODE'
+          from pathlib import Path
+          import re
+          profile=Path('build-private-logs/item-cpu-profile.txt')
+          if profile.exists():
+              lines=[s for s in profile.read_text().splitlines() if re.search(r'fn_[0-9A-Fa-f]+|fzgx_ui_|gx::|gcn::|semaphore|pthread_mutex',s)]
+              print('Shop CPU symbols (bounded):')
+              print('\n'.join(lines[:100]))
+          for p in Path('build-private-logs').glob('menu-*.txt'):
+              print(p.name)
+              lines=[s for s in p.read_text().splitlines() if s.startswith('Direct footer enqueue chain=')]
+              print('\n'.join(lines[:30]))
+          PYCODE
       - name: Encrypt compact route logs separately
         if: always()
         run: |
