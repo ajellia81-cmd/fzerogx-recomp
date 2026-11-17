@@ -1,1 +1,1 @@
-Inspect shared storage-dialog references using the REL import table.
+Build 33 recovery: inspect only sampled Shop Item hot functions and queued Records footer callers in existing generated corpus. No host or device compilation in this inspection job.
