@@ -28,3 +28,18 @@ ARM64 compilation, unsigned packaging and payload audit remain required.
 
 Device run44200431243 passed the Item original-code differential stage and is
 compiling. Final artifact identity and exact observed coverage pending.
+
+## Successful delivery
+
+Device run44200431243 succeeded; runtime run44200431336 succeeded.
+40 actual indices passed ORIGINAL rank/index/selected-record/scratch comparison.
+The macOS no-GPU Item route subsequently produced59-60 batches per virtual
+second, with about108k work edges per frame(32% of one60Hz field), without
+changing clock_cpu_scale or gameplay time. These are guest-clock observations,
+not iPhone display/GPU measurements. Real device120Hz output needs owner test.
+
+Unsigned version36 IPA validated:14974934 bytes, seven package files,
+ARM64 Mach-O and no executable LC_CODE_SIGNATURE, ZIP CRC valid, no disc,
+save, key, log or capture payloads.
+SHA256:d6c8e18e3f25080abcb6847dda3912a77af6bf5da3b1a5a5e83fdf9a35bb3f6d.
+Library ID:libfile_a2559e59580c81919e05d56d99a82968.
