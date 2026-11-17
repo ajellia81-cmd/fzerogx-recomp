@@ -119,8 +119,13 @@ extern "C" void fzgx_trace_ui_text(void* opaque){
     }
     if(text.size()<4)return;
     static thread_local std::unordered_set<std::string> seen;
-    if(seen.size()<1200 && seen.insert(text).second)
+    if(seen.size()<1200 && seen.insert(text).second){
         fprintf(stderr,"UI text: %s\n",text.c_str());
+        const unsigned base=g_rel_base[6], data=g_rel_base[5];
+        const unsigned settings=base+0x4B9CCu;
+        const unsigned font=LD16(settings+12), row=data+0x1AEA8u+font*56u;
+        fprintf(stderr,"Text owner=%08x font=%u size=%ux%u scale=%g,%g compensation=%u queued=%u\n",cpu->lr,font,unsigned(LD8(row+4)),unsigned(LD8(row+5)),LDF32(settings+28),LDF32(settings+32),unsigned(LD8(settings+69)),unsigned(LD8(settings+68)));
+    }
 }
 #endif
 static std::mutex ios_ui_queue_mutex;
