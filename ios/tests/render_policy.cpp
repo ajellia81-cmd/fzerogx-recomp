@@ -49,7 +49,7 @@ int main(int argc,char**argv){
   gx::Cmd present=clear;present.type=gx::CmdType::Present;current.cmds.push_back(present);
   ios_gpu_work::FrameStart start;assert(!start.reusable(current));start.remember(previous);
   assert(start.reusable(current) && start.clear.clear_rgba==0x12345678 && start.clear.clear_z_value==123456);
-  auto outside=current;outside.pooled=true;outside.cmds[0].copy.src_h=449;assert(!start.reusable(outside));
+  gx::Batch outside;outside.cmds=current.cmds;outside.cmds[0].copy.src_h=449;assert(!start.reusable(outside));
   auto independent=clear;independent.copy.to_xfb=false;current.cmds.insert(current.cmds.begin(),independent);assert(!start.reusable(current));
   current.cmds.erase(current.cmds.begin());current.cmds.push_back(present);assert(!start.reusable(current));
   current.cmds.pop_back();previous.cmds[0].copy.clear_alpha=false;start.remember(previous);assert(!start.reusable(current));
