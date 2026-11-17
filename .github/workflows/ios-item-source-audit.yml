@@ -1,0 +1,52 @@
+name: Inspect Item hot functions privately
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/ios-item-source-audit.yml]
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: macos-15-intel
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - name: Receive owner disc privately
+        env:
+          ICLOUD_SOURCE_ID: ${{ secrets.ICLOUD_SOURCE_ID }}
+        run: python3 ios/fetch_private_disc.py
+      - name: Generate existing source for bounded review
+        run: |
+          mkdir -p build-private-logs
+          cmake -S . -B build-host -G Ninja -DGCN_BENCH_ONLY=ON -DFZGX_IOS_INPUT_PROBE=ON -DCMAKE_BUILD_TYPE=Release -DGAME_ISO="$PWD/rom/game.iso" > build-private-logs/configure.txt 2>&1
+      - name: Encrypt only sampled hot functions
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          targets={'818F965C','819838F8','818F9028'}
+          out=Path('private-function-audit');out.mkdir()
+          found=set()
+          for p in Path('build-host/gen').glob('*.c'):
+              text=p.read_text()
+              for name in targets:
+                  start=text.find('void fn_'+name+'(CPU* c) {')
+                  if start<0:continue
+                  end=text.find('\n/* ',start+1)
+                  body=text[start:end if end>=0 else len(text)]
+                  (out/(name+'.c')).write_text(body)
+                  found.add(name)
+          assert found==targets
+          PY
+          tar -czf private-functions.tar.gz private-function-audit
+          openssl cms -encrypt -binary -aes256 -in private-functions.tar.gz -out FZeroGX-item-functions.enc -outform DER ios/delivery-public.pem
+          rm -rf private-function-audit private-functions.tar.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FZeroGX-encrypted-item-functions
+          path: FZeroGX-item-functions.enc
+          if-no-files-found: error
+          retention-days: 1
