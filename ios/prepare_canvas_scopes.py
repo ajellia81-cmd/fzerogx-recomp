@@ -52,6 +52,32 @@ queue_hooks={
         ("L_81850108:", "L_81850108:\n    fzgx_native_canvas_end(queueTag);")
     ],
 }
+# A sampled Shop hot path repeatedly searches the same 44-entry category table
+# from its beginning to recover an item's ordinal. Count preceding equal
+# categories once instead. Ownership/unlock checks remain original guest code.
+queue_hooks["818F9028"] = [
+    ("void fn_818F9028(CPU* c) {", "void fn_818F9028(CPU* c) {\n    unsigned fzgxRank=~0u; int fzgxRankProof=0;"),
+    ("L_818F90DC:", """L_818F90DC:
+    if (c->r[29] < 44u) {
+        unsigned index=c->r[29], table=c->r[28];
+        unsigned category=LD16(table+10u*index+2u), ordinal=0;
+        for(unsigned n=0;n<index;++n)ordinal+=LD16(table+10u*n+2u)==category;
+        fzgxRank=ordinal;
+#if defined(FZGX_IOS_INPUT_PROBE)
+        static unsigned char verified[44]={0};
+        if(!verified[index]) { verified[index]=1; fzgxRankProof=1; }
+        else
+#endif
+        { c->r[31]=ordinal; c->r[26]=index; goto L_818F9174; }
+    }
+"""),
+    ("L_818F9174:", """L_818F9174:
+#if defined(FZGX_IOS_INPUT_PROBE)
+    if(fzgxRankProof)fprintf(stderr,"Shop ordinal differential checked index=%u\\n",c->r[29]);
+    if(fzgxRank!=~0u && c->r[31]!=fzgxRank) { fprintf(stderr,"Shop ordinal differential failed\\n"); abort(); }
+#endif
+"""),
+]
 found={name:0 for name in (*targets,*queue_hooks)}
 for path in root.glob("*.c"):
     text=path.read_text()
