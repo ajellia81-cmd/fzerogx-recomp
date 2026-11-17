@@ -17,6 +17,9 @@
 #import "touch_controls.h"
 #include <atomic>
 #include <thread>
+#include <chrono>
+#include <algorithm>
+#include <cstdlib>
 #include <unistd.h>
 
 uint32_t boot_load(const char*);
@@ -366,17 +369,28 @@ static __weak GameController* currentController;
             checkpoint();
             fprintf(stderr,"iOS: GL %s / %s\n",glGetString(GL_VERSION),glGetString(GL_RENDERER));
             if (!audio_open()) fprintf(stderr,"iOS: audio unavailable\n");
+            setenv("GCN_STALLS","1",1);
+            setenv("GCN_CLOCKLOG","1",1);
+            fprintf(stderr,"iOS performance diagnostics build35: pipeline + guest clock + GX waits enabled\n");
             timing_init(); // Exclude shader preparation from the guest boot clock.
             uint32_t entry=boot_load(path.c_str());
             checkpoint();
             threads_start_boot(entry);
             dispatch_async(dispatch_get_main_queue(), ^{ [NSUserDefaults.standardUserDefaults setBool:YES forKey:@"recomp.setupComplete"]; [weakSelf.view viewWithTag:100].hidden=YES; });
             IOSPresentContext presentation{display,surface,swap};
+            using Clock=std::chrono::steady_clock;
+            auto perfEpoch=Clock::now();
+            double waitMs=0,setupMs=0,widenMs=0,renderMs=0,maxRenderMs=0;
+            uint64_t perfFrames=0,emptyPolls=0;
+            auto elapsed=[](Clock::time_point start){return std::chrono::duration<double,std::milli>(Clock::now()-start).count();};
             while (running) {
                 @autoreleasepool {
                 checkpoint();
+                const auto waitStart=Clock::now();
                 auto batch=gx::take_batch(4);
-                if (!batch) continue;
+                waitMs+=elapsed(waitStart);
+                if (!batch) {++emptyPolls;continue;}
+                const auto setupStart=Clock::now();
                 checkpoint();
                 EGLint width=0,height=0;
                 query(display,surface,EGL_WIDTH,&width); query(display,surface,EGL_HEIGHT,&height);
@@ -386,10 +400,22 @@ static __weak GameController* currentController;
                 const bool race=hooks.wants_stereo && hooks.wants_stereo(*batch);
                 gx::ios_prepare_scene(*batch,race);
                 gx::ios_configure_native(*batch,width,height);
+                setupMs+=elapsed(setupStart);
+                const auto widenStart=Clock::now();
                 gx::ios_widen(*batch,width,height);
+                widenMs+=elapsed(widenStart);
                 const auto renderStart=std::chrono::steady_clock::now();
                 gx::ios_render_motion(*batch,smoothMotion.load(),show_frame,&presentation);
                 gx::render_report_frame(gx::ios_scene_name(),std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-renderStart).count());
+                const double renderElapsed=elapsed(renderStart);
+                renderMs+=renderElapsed;maxRenderMs=std::max(maxRenderMs,renderElapsed);++perfFrames;
+                const double intervalMs=elapsed(perfEpoch);
+                if(intervalMs>=5000){
+                    fprintf(stderr,"iOS pipeline: span=%.3fs frames=%llu empty_polls=%llu avg_wait=%.2fms avg_setup=%.2fms avg_widen=%.2fms avg_render=%.2fms max_render=%.2fms scene=%s\n",
+                        intervalMs/1000,(unsigned long long)perfFrames,(unsigned long long)emptyPolls,
+                        waitMs/perfFrames,setupMs/perfFrames,widenMs/perfFrames,renderMs/perfFrames,maxRenderMs,gx::ios_scene_name());
+                    perfEpoch=Clock::now();waitMs=setupMs=widenMs=renderMs=maxRenderMs=0;perfFrames=emptyPolls=0;
+                }
                 if (presentation.failed) { fprintf(stderr,"iOS: surface presentation failed\n"); break; }
                 } // Drain temporary Objective-C/Metal objects every frame.
             }

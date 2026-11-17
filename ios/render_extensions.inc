@@ -353,7 +353,8 @@ bool ios_render_motion(Batch& b,bool smooth,void (*show)(void*),void* context) {
     static uint64_t previousScene=UINT64_MAX;
     uint64_t scene=g_ios_frame_scene;
     if(scene!=previousScene){history.clear();frameStartState.reset();previousScene=scene;}
-    static uint64_t ticks=0,intermediate=0,outputs=0,draws=0;
+    static uint64_t ticks=0,intermediate=0,outputs=0,draws=0,clearStarts=0,copyStarts=0;
+    static double prepTotal=0,midTotal=0,nativeTotal=0,swapTotal=0,peakTotal=0;
     static auto since=std::chrono::steady_clock::now();
     static std::vector<GpuVertex> realVertices;
     static std::vector<uint8_t> realPacked;
@@ -394,6 +395,7 @@ bool ios_render_motion(Batch& b,bool smooth,void (*show)(void*),void* context) {
         bool ready=frame.create(ios_px_x(EFB_W),ios_px_y(EFB_H),true);
         if(ready){
             if(frameStartState.reusable(b)){
+                ++clearStarts;
                 // The preceding real pass already cleared every pixel that
                 // this copy-free display pass can observe. Recreate that
                 // exact clear instead of resolving/copying colour and depth.
@@ -404,7 +406,7 @@ bool ios_render_motion(Batch& b,bool smooth,void (*show)(void*),void* context) {
                 clear_depth(c.clear_z_value/16777215.f);
                 glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
                 gl_state_invalidate();
-            }else frame.copy(originalFbo);
+            }else {++copyStarts;frame.copy(originalFbo);}
         }
         static GLuint reader=0;if(!reader)glGenFramebuffers(1,&reader);
         for(auto it=clones.begin();it!=clones.end();) {
@@ -461,10 +463,14 @@ bool ios_render_motion(Batch& b,bool smooth,void (*show)(void*),void* context) {
     if(presented && show) { timedShow(); if(g_ios_frame_sega)ios_logo::note_presentation(host_ns()); ++outputs; ++g_ios_native_frames; }
     double frameMs=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-frameStart).count();
     if(frameMs>25)fprintf(stderr,"iOS slow phases: prepare/history=%.1fms intermediate=%.1fms native=%.1fms swap/wait=%.1fms\n",std::max(0.,frameMs-midMs-nativeMs-swapMs),midMs,nativeMs,swapMs);
+    prepTotal+=std::max(0.,frameMs-midMs-nativeMs-swapMs);midTotal+=midMs;nativeTotal+=nativeMs;swapTotal+=swapMs;peakTotal=std::max(peakTotal,frameMs);
     ++ticks;
     double seconds=std::chrono::duration<double>(std::chrono::steady_clock::now()-since).count();
     if(seconds>=5) {
         fprintf(stderr,"iOS render: batches=%.1f/s swaps=%.1f/s interpolated=%.1f/s moving_draws=%llu (not a display measurement)\n",ticks/seconds,(outputs+intermediate)/seconds,intermediate/seconds,(unsigned long long)draws);
+        fprintf(stderr,"iOS phase averages: prepare=%.2fms intermediate=%.2fms native=%.2fms swap=%.2fms peak=%.2fms clear_starts=%llu copy_starts=%llu\n",
+            prepTotal/ticks,midTotal/ticks,nativeTotal/ticks,swapTotal/ticks,peakTotal,(unsigned long long)clearStarts,(unsigned long long)copyStarts);
+        prepTotal=midTotal=nativeTotal=swapTotal=peakTotal=0;clearStarts=copyStarts=0;
         ticks=intermediate=outputs=draws=0;since=std::chrono::steady_clock::now();
     }
     return presented;

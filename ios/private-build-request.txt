@@ -1,2 +1,2 @@
-Build 34: correct shared badge/backplate/glow widths while retaining anchors; reduce invisible GPU work and redundant interpolation EFB blits.
-routes=records,records-page,shop-items,shop-items-right,attract,gp-pause,replay-card
+Build35 performance diagnosis: preserve build34 fixes, record queue waits, original guest clock/work and render phase averages.
+performance-log-only=1
