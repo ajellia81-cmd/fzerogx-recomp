@@ -1,3 +1,4 @@
 Build 33 final: scope original shared text-and-panel message-bar compositors independently of authored menu bodies; retain original bitmap, generic sprite and string paths. Shop ordinal acceleration retains original ownership queries.
 routes=attract,gp-pause,replay-card,records,records-page,shop-items,profile
 Garage confirmed original by user; excluded from correction. Existing approved icon, settings and prior changes retained. macOS Actions unsigned IPA only.
+Retry after transient iCloud HTTP input failure; bounded network retries, no source policy changes.

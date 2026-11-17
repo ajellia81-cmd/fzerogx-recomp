@@ -4,6 +4,8 @@ import os
 from pathlib import Path
 from urllib.parse import quote, urlsplit
 from urllib.request import Request, urlopen
+from urllib.error import HTTPError, URLError
+import time
 
 
 class InputError(Exception):
@@ -39,11 +41,25 @@ def fetch(share_id, target, required_size=None):
     print(f"Private build input received: {target.name} ({total} bytes)")
 
 
+def fetch_with_retry(*args, **kwargs):
+    for attempt in range(3):
+        try:
+            return fetch(*args, **kwargs)
+        except HTTPError as error:
+            if error.code not in (408, 429, 500, 502, 503, 504) or attempt == 2:
+                raise
+        except (URLError, TimeoutError):
+            if attempt == 2:
+                raise
+        print(f"Transient private input transfer failure; retry {attempt + 1}/2")
+        time.sleep(3 * (attempt + 1))
+
+
 def main():
-    fetch(os.environ["ICLOUD_SOURCE_ID"], Path("rom/game.iso"))
+    fetch_with_retry(os.environ["ICLOUD_SOURCE_ID"], Path("rom/game.iso"))
     save_id = os.environ.get("ICLOUD_SAVE_ID")
     if save_id:
-        fetch(save_id, Path("rom/memcard_a.raw"), required_size=524288)
+        fetch_with_retry(save_id, Path("rom/memcard_a.raw"), required_size=524288)
 
 
 if __name__ == "__main__":
@@ -54,5 +70,5 @@ if __name__ == "__main__":
         raise SystemExit(1)
     except Exception as error:
         # URL-bearing exceptions must not expose a signed link in public logs.
-        print(f"Private build input download failed ({type(error).__name__})")
+        print(f"Private build input download failed ({type(error).__name__}, status={getattr(error, 'code', 'unavailable')})")
         raise SystemExit(1)
