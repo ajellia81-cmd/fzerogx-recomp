@@ -53,3 +53,27 @@ new capture checks require actual shield aspect92/116 and terminal-clear
 coverage. Asset-free fixtures exercise positive and negative copy-elision
 conditions. Completion, final artifact identity and real-device performance
 must be recorded after results are available. A fixed120fps is not claimed.
+
+## Completed delivery
+
+Device run44085305066 and runtime run44085305090 succeeded on macOS.
+Source434b945b822e59581a38a746a0205f67687bde97 produced version34.
+Private capture audit:433 frames,177993 draws,3783 physically checked native
+glyphs,365 badge-aspect checks,23 attract bitmap checks and36565 unchanged
+menu-camera draws.405 sampled adjacent-capture pairs meet the terminal-clear
+policy. This is policy coverage, not a device GPU performance measurement.
+Records frame4500 comparison preserves both anchors(68,57) and(572,57).
+Backing widths67.68->50.76; shield53.36->40.02; glow64.96->48.72.
+Heights and centers are unchanged. All three layers receive the same0.75.
+
+Final IPA:14974771 bytes, SHA256
+8f4c5d3b93e3cf5f3b4c2286584781eddd8b5be1dd70c3a286c0465838dc9c5d.
+ZIP CRC, plist version34, ARM64 Mach-O, absent executable code-signature
+command and seven-file asset-free package verified. Library delivery identity:
+libfile_5a496f0678c48191a166c39f413f72d6.
+
+Real-device Item120fps recovery remains unverified until the owner tests this
+build. The patch preserves the native display resolution and interpolation.
+Separate32x48 page-arrow and24x24 mask textures were seen in the bitmap
+inventory; they are not included in the badge fix and are not asserted faulty
+from texture geometry alone. Whole-game visual correctness is not claimed.
