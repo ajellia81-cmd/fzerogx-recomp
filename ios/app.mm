@@ -371,7 +371,7 @@ static __weak GameController* currentController;
             if (!audio_open()) fprintf(stderr,"iOS: audio unavailable\n");
             setenv("GCN_STALLS","1",1);
             setenv("GCN_CLOCKLOG","1",1);
-            fprintf(stderr,"iOS performance diagnostics build35: pipeline + guest clock + GX waits enabled\n");
+            fprintf(stderr,"iOS performance diagnostics build36: pipeline + guest clock + GX waits enabled\n");
             timing_init(); // Exclude shader preparation from the guest boot clock.
             uint32_t entry=boot_load(path.c_str());
             checkpoint();

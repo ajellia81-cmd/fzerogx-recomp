@@ -1,2 +1,2 @@
-Build35 performance diagnosis: preserve build34 fixes, record queue waits, original guest clock/work and render phase averages.
+Build36 Item ownership ordinal hot-path fix with original-code differential verification. Preserve build34 visuals and build35 timing logs.
 performance-log-only=1

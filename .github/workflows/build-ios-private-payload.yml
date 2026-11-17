@@ -26,7 +26,7 @@ permissions:
   contents: read
 jobs:
   device:
-    runs-on: ${{ inputs.runner_label || 'macos-15-intel' }}
+    runs-on: ${{ inputs.runner_label || 'macos-15' }}
     timeout-minutes: 180
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
@@ -114,6 +114,14 @@ jobs:
         run: |
           cmake --build build-host --target fzerogx_bench --parallel 3 > build-private-logs/item-diagnostic-build.txt 2>&1
           python3 ios/probe_menu_routes.py
+          python3 - <<'PYPROOF'
+          from pathlib import Path
+          import re
+          text=Path('build-private-logs/menu-shop-items.txt').read_text()
+          checked=set(map(int,re.findall(r'Item ownership ordinal differential checked index=(\d+)',text)))
+          print('Original Item rank and scratch records checked:',len(checked),'indices')
+          assert len(checked)>=40,sorted(checked)
+          PYPROOF
       - name: Verify startup logo timing policy with real guest code
         if: ${{ !inputs.probe_only && env.FZGX_PERF_DIAGNOSTIC_ONLY != '1' }}
         shell: bash
@@ -187,8 +195,8 @@ jobs:
         run: |
           APP=$(find build-ios -path '*/Release-iphoneos/FZeroGX.app' -type d -print -quit)
           test -n "$APP"
-          python3 ios/package_unsigned.py "$APP" FZeroGX-iOS-build35-diagnostic-unsigned.ipa
-          openssl cms -encrypt -binary -aes256 -in FZeroGX-iOS-build35-diagnostic-unsigned.ipa -out FZeroGX-private.ipa.enc -outform DER ios/delivery-public.pem
+          python3 ios/package_unsigned.py "$APP" FZeroGX-iOS-build36-item-fix-unsigned.ipa
+          openssl cms -encrypt -binary -aes256 -in FZeroGX-iOS-build36-item-fix-unsigned.ipa -out FZeroGX-private.ipa.enc -outform DER ios/delivery-public.pem
       - name: Encrypt diagnostics for private review
         if: always()
         shell: bash

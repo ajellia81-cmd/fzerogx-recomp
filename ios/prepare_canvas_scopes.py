@@ -14,7 +14,7 @@ targets=("818C24A4","818403D4","818408E8","8182D038",
          "81962164","819623A4","81A23D64","81A2CC64","81A2CEEC",
          "8184D2AC","8184D4C8","8184D10C","819F53B0","81A2D1A0",
          "81853C9C","81853E40","81853FE4")
-declarations="""/* FZGX_NATIVE_CANVAS_SCOPE_V9 */
+declarations="""/* FZGX_NATIVE_CANVAS_SCOPE_V10 */
 #if defined(FZGX_IOS_INPUT_PROBE)
 #include <stdio.h>
 #include <stdlib.h>
@@ -94,11 +94,46 @@ queue_hooks["818F9028"] = [
 #endif
 """),
 ]
+# The Item ownership path repeats the same inverse ordinal search, copying
+# the entire 44-entry table for every candidate. Keep its original scratch
+# records and downstream ownership checks; compute only the rank once.
+queue_hooks["818F965C"]=[
+    ("void fn_818F965C(CPU* c) {", "void fn_818F965C(CPU* c) {\n    unsigned fzgxItemRank=~0u; int fzgxItemProof=0;"),
+    ("L_818F9710:", """L_818F9710:
+    if(fzgxItemRank==~0u && c->r[30]<44u){
+        unsigned index=c->r[30],table=c->r[29],ordinal=0;
+        int category=(int)(int16_t)LD16(table+10u*index+2u);
+        for(unsigned n=0;n<index;++n)ordinal+=(int)(int16_t)LD16(table+10u*n+2u)==category;
+        fzgxItemRank=ordinal;
+#if defined(FZGX_IOS_INPUT_PROBE)
+        static unsigned char verified[44]={0};
+        if(!verified[index]){verified[index]=1;fzgxItemProof=1;}
+        else
+#endif
+        {
+            for(unsigned n=0;n<440;++n)ST8(c->r[1]+44u+n,LD8(table+n));
+            for(unsigned n=0;n<10;++n)ST8(c->r[1]+8u+n,LD8(table+10u*index+n));
+            c->r[24]=c->r[1]+44u+10u*index;c->r[25]=(unsigned)category;
+            c->r[26]=index;c->r[27]=ordinal;c->r[28]=ordinal;c->ctr=0;
+            goto L_818F97A8;
+        }
+    }
+"""),
+    ("L_818F97A8:", """L_818F97A8:
+#if defined(FZGX_IOS_INPUT_PROBE)
+    if(fzgxItemRank!=~0u){
+        if(c->r[28]!=fzgxItemRank || c->r[26]!=c->r[30]){fprintf(stderr,"Item ordinal differential failed\\n");abort();}
+        for(unsigned n=0;n<10;++n)if(LD8(c->r[1]+8u+n)!=LD8(c->r[29]+10u*c->r[30]+n)){fprintf(stderr,"Item selected record differential failed\\n");abort();}
+        for(unsigned n=0;n<440;++n)if(LD8(c->r[1]+44u+n)!=LD8(c->r[29]+n)){fprintf(stderr,"Item scratch differential failed\\n");abort();}
+        if(fzgxItemProof)fprintf(stderr,"Item ownership ordinal differential checked index=%u\\n",c->r[30]);
+    }
+#endif
+""")]
 found={name:0 for name in (*targets,*queue_hooks)}
 for path in root.glob("*.c"):
     text=path.read_text()
     changed=False
-    if "/* FZGX_NATIVE_CANVAS_SCOPE_V9 */" in text:
+    if "/* FZGX_NATIVE_CANVAS_SCOPE_V10 */" in text:
         for name in targets:
             if "void fn_"+name+"(CPU* c) {" in text:
                 if text.count("fzgx_native_canvas_begin(0x"+name+"u)")!=1:
@@ -107,7 +142,7 @@ for path in root.glob("*.c"):
         for name in queue_hooks:
             if "void fn_"+name+"(CPU* c) {" in text:found[name]+=1
         continue
-    if any("/* FZGX_NATIVE_CANVAS_SCOPE"+v+" */" in text for v in ("", "_V2", "_V3", "_V4", "_V5", "_V6", "_V7", "_V8")):
+    if any("/* FZGX_NATIVE_CANVAS_SCOPE"+v+" */" in text for v in ("", "_V2", "_V3", "_V4", "_V5", "_V6", "_V7", "_V8", "_V9")):
         raise SystemExit("Regenerate original C before upgrading native UI scopes")
     for name in targets:
         signature="void fn_"+name+"(CPU* c) {"
