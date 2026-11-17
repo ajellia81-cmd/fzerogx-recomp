@@ -14,6 +14,10 @@ targets=("818C24A4","818403D4","818408E8","8182D038",
          "81962164","819623A4","81A23D64","81A2CC64","81A2CEEC",
          "8184D2AC","8184D4C8","8184D10C","819F53B0","81A2D1A0")
 declarations="""/* FZGX_NATIVE_CANVAS_SCOPE_V7 */
+#if defined(FZGX_IOS_INPUT_PROBE)
+#include <stdio.h>
+#include <stdlib.h>
+#endif
 #ifdef __cplusplus
 extern "C" {
 #endif

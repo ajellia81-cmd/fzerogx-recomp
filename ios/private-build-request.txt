@@ -2,3 +2,4 @@ Build 33: original coordinate-compensation flag for immediate and queued UI; acc
 routes=attract,gp-pause,replay-card,records,records-page,shop-items,profile
 Preserve all prior changes and approved icon. Build and verify unsigned ARM64 IPA on macOS Actions only.
 Scope only ordinary string compositor when coordinate compensation is disabled; authored bitmap paths retain original ownership. Garage confirmed original by user; no correction.
+Generated-code probe diagnostics include their C standard-library declarations explicitly.
