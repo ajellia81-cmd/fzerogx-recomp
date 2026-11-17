@@ -95,16 +95,6 @@ extern "C" unsigned fzgx_ui_immediate_begin(){
     if(base && !LD8(base+0x4BA10u))return fzgx_native_canvas_begin(0);
     return previous;
 }
-// Ordinary text has its own coordinate-compensation switch. Scope its
-// complete string compositor (including embedded icons), rather than bitmap
-// submissions whose vertices may already contain authored compensation.
-extern "C" unsigned fzgx_ui_text_begin(){
-    const unsigned previous=ios_ordered_draw_tag;
-    if(previous&0x40)return previous;
-    const uint32_t base=g_rel_base[6];
-    if(base && !LD8(base+0x4BA11u))return fzgx_native_canvas_begin(0);
-    return previous;
-}
 #if defined(FZGX_IOS_INPUT_PROBE)
 extern "C" void fzgx_trace_ui_text(void* opaque){
     if(!getenv("FZGX_TRACE_UI_TEXT"))return;
