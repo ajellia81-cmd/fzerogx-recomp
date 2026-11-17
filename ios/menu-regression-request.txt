@@ -1,1 +1,1 @@
-Records only: distinguish actual font metric compensation from unscaled control footer; report source caller and font state once per text.
+Build 34: Records-only original enqueue owner trace for badge, backing and glow. Reuse existing capture corpus; preserve resolved Records footer and Shop ordinal changes.

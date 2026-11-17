@@ -149,6 +149,23 @@ extern "C" void fzgx_ui_queue_record(unsigned address,void* opaque){
         if(seen.size()<30 && seen.insert(trace).second)fprintf(stderr,"Direct footer enqueue chain=%s\n",trace.c_str());
     }
 #endif
+#if defined(FZGX_IOS_INPUT_PROBE)
+    if(getenv("FZGX_TRACE_UI_QUEUES") && address>=0x80000000u && address<0x83ffff00u){
+        const float x=LDF32(address+4), y=LDF32(address+8);
+        if((std::fabs(x-68.f)<4 || std::fabs(x-572.f)<4) && std::fabs(y-57.f)<12){
+            const CPU* cpu=static_cast<CPU*>(opaque); unsigned sp=cpu->r[1]; std::string trace;
+            for(unsigned depth=0;depth<10;++depth){
+                if(sp<0x80000000u || sp>=0x83ffff00u)break;
+                unsigned next=LD32(sp);if(next<=sp || next>=0x83ffff00u)break;
+                char part[32];snprintf(part,sizeof(part),"%08x,",LD32(next+4));trace+=part;sp=next;
+            }
+            char prefix[160];snprintf(prefix,sizeof(prefix),"Emblem enqueue id=%08x flags=%08x x=%.2f y=%.2f scale=%.3f,%.3f chain=",LD32(address),LD32(address+48),x,y,LDF32(address+16),LDF32(address+20));
+            trace=prefix+trace;
+            static std::unordered_set<std::string> seen;
+            if(seen.size()<60 && seen.insert(trace).second)fprintf(stderr,"%s\n",trace.c_str());
+        }
+    }
+#endif
     std::lock_guard<std::mutex> lock(ios_ui_queue_mutex);
     // Queue records use a fixed guest pool. Overwrite even zero ownership and
     // retain slots through consumption, avoiding per-frame erase/reallocation.

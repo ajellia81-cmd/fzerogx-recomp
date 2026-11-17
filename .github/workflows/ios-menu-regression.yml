@@ -47,7 +47,7 @@ jobs:
               print('\n'.join(lines[:100]))
           for p in Path('build-private-logs').glob('menu-*.txt'):
               print(p.name)
-              lines=[s for s in p.read_text().splitlines() if s.startswith('Direct footer enqueue chain=')]
+              lines=[s for s in p.read_text().splitlines() if s.startswith(('Direct footer enqueue chain=','Emblem enqueue'))]
               print('\n'.join(lines[:30]))
           PYCODE
       - name: Encrypt compact route logs separately
