@@ -34,6 +34,30 @@ void widen(gx::Batch& b,ios_scene::Mode mode,float target=16.f/9){gx::g_ios_canv
 }
 #include "tools/capture_presentation_audit.h"
 int main(int argc,char**argv){
+ // Preserve exact output density while excluding letterbox pixels from GPU work.
+ assert((ios_gpu_work::content_extent(2868,1320,false,16.f/9)==std::pair{2346,1320}));
+ assert((ios_gpu_work::content_extent(2868,1320,true,16.f/9)==std::pair{2868,1320}));
+ assert((ios_gpu_work::content_extent(1320,2868,false,4.f/3)==std::pair{1320,990}));
+ // A completed full colour/alpha/depth clear can replace an initial EFB blit
+ // only for a copy-free pass contained in that cleared region.
+ {
+  gx::Batch previous,current;
+  gx::Cmd clear{};clear.type=gx::CmdType::EfbCopy;clear.copy.src_w=640;clear.copy.src_h=448;
+  clear.copy.to_xfb=clear.copy.clear=clear.copy.clear_color=clear.copy.clear_alpha=clear.copy.clear_z=true;
+  clear.copy.clear_rgba=0x12345678;clear.copy.clear_z_value=123456;
+  previous.cmds.push_back(clear);
+  gx::Cmd present=clear;present.type=gx::CmdType::Present;current.cmds.push_back(present);
+  ios_gpu_work::FrameStart start;assert(!start.reusable(current));start.remember(previous);
+  assert(start.reusable(current) && start.clear.clear_rgba==0x12345678 && start.clear.clear_z_value==123456);
+  auto outside=current;outside.pooled=true;outside.cmds[0].copy.src_h=449;assert(!start.reusable(outside));
+  auto independent=clear;independent.copy.to_xfb=false;current.cmds.insert(current.cmds.begin(),independent);assert(!start.reusable(current));
+  current.cmds.erase(current.cmds.begin());current.cmds.push_back(present);assert(!start.reusable(current));
+  current.cmds.pop_back();previous.cmds[0].copy.clear_alpha=false;start.remember(previous);assert(!start.reusable(current));
+  previous.cmds[0]=clear;gx::Cmd draw{};draw.type=gx::CmdType::Draw;draw.count=3;previous.cmds.push_back(draw);
+  start.remember(previous);assert(!start.reusable(current));
+  previous.cmds.pop_back();start.remember(previous);start.reset();assert(!start.reusable(current));
+ }
+
  gx::ShaderKey k{};k.dst_alpha=2;gx::g_dual_source=false;gx::ios_shader_key(k);assert(k.dst_alpha==0);
  k.dst_alpha=2;gx::g_dual_source=true;gx::ios_shader_key(k);assert(k.dst_alpha==2);gx::g_dual_source=false;
  const auto s=state();

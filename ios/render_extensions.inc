@@ -227,7 +227,8 @@ void ios_configure_native(const Batch& b,int width,int height){
     if(width<=0 || height<=0)return;
     uint32_t sourceW=640,sourceH=vi_display_height()?vi_display_height():480;
     for(const auto& c:b.cmds)if(c.type==CmdType::Present && c.copy.src_w && c.copy.src_h && (!vi_display_height() || c.copy.dst_h>=vi_display_height())){sourceW=c.copy.src_w;sourceH=c.copy.src_h;break;}
-    const float sx=float(width)/sourceW,sy=float(height)/sourceH;
+    const auto content=ios_gpu_work::content_extent(width,height,g_ios_wide_view,g_ios_fixed_aspect);
+    const float sx=float(content.first)/sourceW,sy=float(content.second)/sourceH;
     if(std::fabs(sx-g_ios_scale_x)<.00001f && std::fabs(sy-g_ios_scale_y)<.00001f)return;
     const float oldX=g_ios_scale_x,oldY=g_ios_scale_y;
     const int oldW=ios_px_x(EFB_W),oldH=ios_px_y(EFB_H);
@@ -347,10 +348,11 @@ bool ios_render_motion(Batch& b,bool smooth,void (*show)(void*),void* context) {
     const auto frameStart=std::chrono::steady_clock::now();
     double swapMs=0,midMs=0;auto timedShow=[&]{auto at=std::chrono::steady_clock::now();show(context);swapMs+=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-at).count();};
     static ios_motion::History history;
+    static ios_gpu_work::FrameStart frameStartState;
     // Reset at actual guest mode changes, not a fluctuating geometry heuristic.
     static uint64_t previousScene=UINT64_MAX;
     uint64_t scene=g_ios_frame_scene;
-    if(scene!=previousScene){history.clear();previousScene=scene;}
+    if(scene!=previousScene){history.clear();frameStartState.reset();previousScene=scene;}
     static uint64_t ticks=0,intermediate=0,outputs=0,draws=0;
     static auto since=std::chrono::steady_clock::now();
     static std::vector<GpuVertex> realVertices;
@@ -390,7 +392,20 @@ bool ios_render_motion(Batch& b,bool smooth,void (*show)(void*),void* context) {
         for(const auto& c:b.cmds) if(c.type==CmdType::EfbCopy && !c.copy.to_xfb && c.copy.tex_id) targets.insert(c.copy.tex_id);
         GLuint originalFbo=g_efb_fbo, originalColor=g_efb_color, originalDepth=g_efb_depth;
         bool ready=frame.create(ios_px_x(EFB_W),ios_px_y(EFB_H),true);
-        if(ready)frame.copy(originalFbo);
+        if(ready){
+            if(frameStartState.reusable(b)){
+                // The preceding real pass already cleared every pixel that
+                // this copy-free display pass can observe. Recreate that
+                // exact clear instead of resolving/copying colour and depth.
+                const auto& c=frameStartState.clear;
+                glBindFramebuffer(GL_FRAMEBUFFER,frame.fbo);
+                glDisable(GL_SCISSOR_TEST);glColorMask(1,1,1,1);glDepthMask(GL_TRUE);
+                glClearColor(((c.clear_rgba>>24)&255)/255.f,((c.clear_rgba>>16)&255)/255.f,((c.clear_rgba>>8)&255)/255.f,(c.clear_rgba&255)/255.f);
+                clear_depth(c.clear_z_value/16777215.f);
+                glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
+                gl_state_invalidate();
+            }else frame.copy(originalFbo);
+        }
         static GLuint reader=0;if(!reader)glGenFramebuffers(1,&reader);
         for(auto it=clones.begin();it!=clones.end();) {
             if(!targets.count(it->first)){it->second.drop();it=clones.erase(it);}else ++it;
@@ -441,6 +456,7 @@ bool ios_render_motion(Batch& b,bool smooth,void (*show)(void*),void* context) {
     auto nativeStart=std::chrono::steady_clock::now();
     bool presented=render_execute(b);
     double nativeMs=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-nativeStart).count();
+    frameStartState.remember(b);
     g_ios_prepared=false;
     if(presented && show) { timedShow(); if(g_ios_frame_sega)ios_logo::note_presentation(host_ns()); ++outputs; ++g_ios_native_frames; }
     double frameMs=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-frameStart).count();
