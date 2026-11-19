@@ -1,3 +1,5 @@
+> Superseded by build38: build37 introduced silent foreground audio by calling audio restoration before unpausing. See [build38 correction](ios-build38-audio-resume.md). Keep event-driven haptic preparation, but restore audio only after the lifecycle gate is released.
+
 # Build37 foreground haptic preparation
 
 Owner confirmed build36 Item FPS fixed and Records badge size normal.
