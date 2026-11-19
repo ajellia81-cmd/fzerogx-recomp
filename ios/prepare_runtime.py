@@ -38,12 +38,10 @@ variant('visionos/audio_coreaudio.mm','audio_ios.mm',[
   '        for(UInt32 i=0;i<io->mNumberBuffers;++i)memset(io->mBuffers[i].mData,0,io->mBuffers[i].mDataByteSize);\n'
   '        return noErr;\n    }\n'
   '    audio_render((int16_t*)io->mBuffers[0].mData, (int)frames);'),
- ('static void resume_after_interruption(int tries) {',
-  'static void resume_after_interruption(int tries) {\n    g_ios_session_suspended=true;\n    if(ios_lifecycle::gate().paused() || !g_unit)return;'),
- ('        fprintf(stderr, "audio: resumed\\n");',
-  '        g_ios_session_suspended=false;\n        fprintf(stderr, "audio: resumed\\n");'),
+ ("static void resume_after_interruption(int tries) {\n    NSError* err = nil;\n    if ([AVAudioSession.sharedInstance setActive:YES error:&err] && AudioOutputUnitStart(g_unit) == noErr) {\n        fprintf(stderr, \"audio: resumed\\n\");\n        return;\n    }\n    if (tries == 0) fprintf(stderr, \"audio: cannot resume yet: %s\\n\", err.localizedDescription.UTF8String);\n    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC), dispatch_get_main_queue(), ^{\n        resume_after_interruption(tries + 1);\n    });\n}", "#include \"audio_resume.inc\"\n"),
+ ("        if (type == AVAudioSessionInterruptionTypeBegan) {\n            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC), dispatch_get_main_queue(), ^{\n                resume_after_interruption(0);\n            });\n        } else {\n            resume_after_interruption(0);\n        }", "        ios_audio_interrupted(type == AVAudioSessionInterruptionTypeBegan);"),
  ('bool audio_open() {',
-  'void ios_audio_suspend(){g_ios_session_suspended=true;if(g_unit)AudioOutputUnitStop(g_unit);[AVAudioSession.sharedInstance setActive:NO error:nil];}\n'
+  'void ios_audio_suspend(){g_ios_session_suspended=true;g_ios_audio_recovery.cancel();if(g_unit)AudioOutputUnitStop(g_unit);[AVAudioSession.sharedInstance setActive:NO error:nil];}\n'
   'void ios_audio_resume(){if(g_ios_session_suspended)resume_after_interruption(0);}\n\nbool audio_open() {')])
 
 # Original timing policy only; game instructions/data are not reproduced.

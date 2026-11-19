@@ -1,5 +1,6 @@
 // ROM-free tests for suspend/resume and controller defaults.
 #include "lifecycle.h"
+#include "audio_recovery.h"
 #include "logo_timing.h"
 #include "controller.h"
 #include <cassert>
@@ -8,6 +9,17 @@
 #include <thread>
 using namespace std::chrono_literals;
 int main(){
+ // Coalesce repeated recovery requests, accelerate only early failures and
+ // invalidate stale timers across success, suspension and newer requests.
+ ios_audio::Recovery recovery;
+ auto old=recovery.start();assert(recovery.start()==old && recovery.pending());
+ for(unsigned delay:{50u,100u,200u,400u,1000u,1000u})assert(recovery.next_delay_ms(old)==delay);
+ recovery.complete(old);assert(!recovery.current(old) && !recovery.pending());
+ auto next=recovery.start();assert(next!=old && recovery.next_delay_ms(next)==50);
+ recovery.cancel();assert(!recovery.current(next) && recovery.next_delay_ms(next)==0);
+ auto current=recovery.start();recovery.complete(old);assert(recovery.current(current));
+ recovery.complete(current);assert(!recovery.pending());
+
  assert(ios_logo::delay_ticks(ios_logo::boot_fade_a)==2025000);
  assert(ios_logo::delay_ticks(ios_logo::boot_fade_b)==2025000);
  assert(ios_logo::delay_ticks(0x80005A4C)==0 && ios_logo::delay_ticks(0x80005A94)==0);

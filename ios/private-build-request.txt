@@ -1,3 +1,3 @@
-Build38: release pause gate before audio restoration, then request immediate foreground haptic preparation. Fix build37 silent-audio regression; preserve confirmed Item FPS and Records emblem fixes.
+Build39: immediate audio restart with 50/100/200/400ms early retries then 1s backoff; coalesce recovery and cancel obsolete timers. Keep build38 resume order, foreground haptics, Item FPS and Records badge fixes.
 performance-log-only=1
 frontend-only=1
