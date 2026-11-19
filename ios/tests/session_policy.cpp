@@ -47,4 +47,13 @@ int main(){
  for(int i=0;i<30;++i){gate.pause();auto r=std::async(std::launch::async,[&]{gate.render_checkpoint([&]{++drained;});});gate.wait_for_renderer();assert(gate.paused());gate.resume();r.get();}
  gate.renderer_stopped();gate.pause();gate.wait_for_renderer();gate.resume();
  assert(!gate.resume());
+ // Foreground device restoration must see an unpaused gate. The actual audio
+ // restart returns immediately when paused: this catches the build37 regression.
+ for(int i=0;i<30;++i){
+  gate.pause();int stage=0;
+  auto audio=[&]{assert(!gate.paused());assert(stage==0);stage=1;};
+  auto haptics=[&]{assert(!gate.paused());assert(stage==1);stage=2;};
+  assert(gate.resume_devices(audio,haptics));assert(stage==2);
+  assert(!gate.resume_devices(audio,haptics));assert(stage==2);
+ }
 }

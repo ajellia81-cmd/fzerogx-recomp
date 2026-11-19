@@ -14,12 +14,10 @@
         }
         [self.touchControls resetInput];
         PadState neutral{};neutral.connected=ios_controller_snapshot().connected;pad_set_state(0,neutral);
-    }else if(ios_lifecycle::gate().paused()){
-        if(self.started)ios_audio_resume();
-        // Request haptics before releasing gameplay; do not wait for a display
-        // link, a controller event, or the next in-game motor command.
-        ios_rumble_resume();
-        if(ios_lifecycle::gate().resume())++fpsEpoch;
+    }else if(ios_lifecycle::gate().resume_devices(
+        [&]{if(self.started)ios_audio_resume();},
+        []{ios_rumble_resume();})){
+        ++fpsEpoch;
     }
 }
 - (void)foregroundChanged:(BOOL)active {

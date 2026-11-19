@@ -30,6 +30,13 @@ public:
         if(!paused_)return false;
         held_=held_locked();paused_=false;cv_.notify_all();return true;
     }
+    // Device restart callbacks may refuse work while paused (notably audio).
+    // Release the gate first, then restore audio and request haptics from the
+    // same activation event. Duplicate foreground callbacks do not restart them.
+    template<class Audio,class Haptics> bool resume_devices(Audio audio,Haptics haptics){
+        if(!resume())return false;
+        audio();haptics();return true;
+    }
     void renderer_started(){std::lock_guard lock(mutex_);renderer_=true;drained_=false;}
     void renderer_stopped(){std::lock_guard lock(mutex_);renderer_=false;cv_.notify_all();}
     void wait_for_renderer(){std::unique_lock lock(mutex_);cv_.wait(lock,[&]{return !renderer_||drained_;});}
