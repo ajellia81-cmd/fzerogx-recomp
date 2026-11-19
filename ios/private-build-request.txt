@@ -1,2 +1,3 @@
-Build36 Item ownership ordinal hot-path fix with original-code differential verification. Preserve build34 visuals and build35 timing logs.
+Build37: request haptic preparation directly on foreground activation, before unpausing gameplay; prepare silently even with the Recomp menu open. Preserve build36 fixes.
 performance-log-only=1
+frontend-only=1

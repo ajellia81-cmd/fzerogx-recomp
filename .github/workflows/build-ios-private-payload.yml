@@ -43,6 +43,8 @@ jobs:
           diagnostic='performance-log-only=1' in Path('ios/private-build-request.txt').read_text().splitlines()
           with open(os.environ['GITHUB_ENV'],'a') as out:
               out.write('FZGX_PERF_DIAGNOSTIC_ONLY='+('1' if diagnostic else '0')+'\n')
+              frontend='frontend-only=1' in Path('ios/private-build-request.txt').read_text().splitlines()
+              out.write('FZGX_FRONTEND_ONLY='+('1' if frontend else '0')+'\n')
           PYMODE
       - name: Verify common presentation policy before private game work
         run: python3 ios/tests/check_policy.py
@@ -105,7 +107,7 @@ jobs:
           if-no-files-found: error
           retention-days: 1
       - name: Diagnose Item guest timing without GPU work
-        if: ${{ !inputs.probe_only && env.FZGX_PERF_DIAGNOSTIC_ONLY == '1' }}
+        if: ${{ !inputs.probe_only && env.FZGX_PERF_DIAGNOSTIC_ONLY == '1' && env.FZGX_FRONTEND_ONLY != '1' }}
         env:
           GCN_CLOCKLOG: "1"
           GCN_STALLS: "1"
@@ -195,8 +197,8 @@ jobs:
         run: |
           APP=$(find build-ios -path '*/Release-iphoneos/FZeroGX.app' -type d -print -quit)
           test -n "$APP"
-          python3 ios/package_unsigned.py "$APP" FZeroGX-iOS-build36-item-fix-unsigned.ipa
-          openssl cms -encrypt -binary -aes256 -in FZeroGX-iOS-build36-item-fix-unsigned.ipa -out FZeroGX-private.ipa.enc -outform DER ios/delivery-public.pem
+          python3 ios/package_unsigned.py "$APP" FZeroGX-iOS-build37-foreground-haptics-unsigned.ipa
+          openssl cms -encrypt -binary -aes256 -in FZeroGX-iOS-build37-foreground-haptics-unsigned.ipa -out FZeroGX-private.ipa.enc -outform DER ios/delivery-public.pem
       - name: Encrypt diagnostics for private review
         if: always()
         shell: bash

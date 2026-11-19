@@ -14,9 +14,12 @@
         }
         [self.touchControls resetInput];
         PadState neutral{};neutral.connected=ios_controller_snapshot().connected;pad_set_state(0,neutral);
-    }else if(ios_lifecycle::gate().resume()){
-        ++fpsEpoch;if(self.started)ios_audio_resume();
+    }else if(ios_lifecycle::gate().paused()){
+        if(self.started)ios_audio_resume();
+        // Request haptics before releasing gameplay; do not wait for a display
+        // link, a controller event, or the next in-game motor command.
         ios_rumble_resume();
+        if(ios_lifecycle::gate().resume())++fpsEpoch;
     }
 }
 - (void)foregroundChanged:(BOOL)active {
@@ -24,6 +27,9 @@
     self.inputLink.paused=!active;
     self.previousButtons=ios_controller_snapshot().buttons;
     [self syncPause];
+    // A foreground app with an open Recomp menu still warms its engine.
+    // syncPause retains the menu's motor mute.
+    if(active)ios_rumble_prepare_foreground();
 }
 - (void)toggleRecomp {
     if(!self.started)return;

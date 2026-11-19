@@ -14,10 +14,11 @@ CHHapticEngine* engine;
 id<CHHapticAdvancedPatternPlayer> player;
 std::atomic<bool> desired{false},ready{false},pending{false},permitted{true},alive{false};
 std::atomic<uint64_t> generation{1};
+std::atomic<bool> foreground{true};
 std::atomic<int> route{0};
 bool playing=false;
 double testUntil=0,retryAt=0; // main thread only
-bool current(uint64_t ticket){return permitted.load() && generation.load()==ticket;}
+bool current(uint64_t ticket){return foreground.load() && generation.load()==ticket;}
 void retire(){
     // Never stop a stale player: CoreHaptics can raise NSException, rather than
     // returning NSError, when iOS has already stopped its engine.
@@ -76,6 +77,21 @@ void prepare(GCDeviceHaptics* provider,uint64_t ticket){
         retire();finish(ticket);
     }
 }
+// Main-thread entry shared by foreground events and ordinary motor updates.
+// Readiness is independent of motor permission: an open menu stays silent
+// while its engine is prepared as soon as the app becomes active.
+void prepare_if_needed(){
+    if(!foreground.load())return;
+    GCController* controller=GCController.current;
+    if(!controller.extendedGamepad){controller=nil;for(GCController* candidate in GCController.controllers)if(candidate.extendedGamepad){controller=candidate;break;}}
+    static GCController* last=nil;static bool initialized=false;
+    if(!initialized||last!=controller){last=controller;initialized=true;++generation;ready=false;pending=false;alive=false;retryAt=0;}
+    if(!ready&&!pending&&CACurrentMediaTime()>=retryAt){
+        pending=true;retryAt=CACurrentMediaTime()+2;
+        uint64_t ticket=++generation;GCDeviceHaptics* provider=controller.haptics;
+        dispatch_async(queue(),^{prepare(provider,ticket);});
+    }
+}
 }
 void ios_rumble_pause_menu(){
     // Keep a prepared engine across an in-app menu. Stop asynchronously so
@@ -86,23 +102,21 @@ void ios_rumble_pause_menu(){
 }
 void ios_rumble_suspend(){
     // Main-thread API. Drain before audio-session deactivation, not afterwards.
-    permitted=false;desired=false;++generation;ready=false;pending=false;alive=false;testUntil=0;retryAt=0;
+    foreground=false;permitted=false;desired=false;++generation;ready=false;pending=false;alive=false;testUntil=0;retryAt=0;
     dispatch_sync(queue(),^{retire();});
 }
-void ios_rumble_resume(){permitted=true;retryAt=0;}
+void ios_rumble_prepare_foreground(){
+    foreground=true;retryAt=0;
+    if(!ready&&!pending)fprintf(stderr,"haptics: foreground preparation requested\n");
+    prepare_if_needed();
+}
+void ios_rumble_resume(){permitted=true;ios_rumble_prepare_foreground();}
 void ios_rumble_update(bool motor){
     if(!permitted)return;
-    GCController* controller=GCController.current;
-    if(!controller.extendedGamepad){controller=nil;for(GCController* candidate in GCController.controllers)if(candidate.extendedGamepad){controller=candidate;break;}}
-    static GCController* last=nil;static bool initialized=false;
-    if(!initialized||last!=controller){last=controller;initialized=true;++generation;ready=false;pending=false;alive=false;retryAt=0;}
     bool on=motor||CACurrentMediaTime()<testUntil;
     bool edge=desired.exchange(on)!=on;
-    if(!ready&&!pending&&CACurrentMediaTime()>=retryAt){
-        pending=true;retryAt=CACurrentMediaTime()+2;
-        uint64_t ticket=++generation;GCDeviceHaptics* provider=controller.haptics;
-        dispatch_async(queue(),^{prepare(provider,ticket);});
-    }else if(edge&&ready){uint64_t ticket=generation.load();dispatch_async(queue(),^{apply_motor(ticket);});}
+    prepare_if_needed();
+    if(edge&&ready){uint64_t ticket=generation.load();dispatch_async(queue(),^{apply_motor(ticket);});}
 }
 void ios_rumble_test(){if(!permitted)return;testUntil=CACurrentMediaTime()+.3;ios_rumble_update(false);}
 const char* ios_rumble_route(){switch(route.load()){case 1:return "패드";case 2:return "아이폰/패스스루";case 3:return "미지원";default:return "준비 중";}}
